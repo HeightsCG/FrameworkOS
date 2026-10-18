@@ -41,21 +41,9 @@ class ProfileController extends Controller {
 
         $user = $rows[0];
 
-        // A suspended account's page is gone while it is suspended.
-        if ((string) ($user['user_status'] ?? 'Active') === 'Disabled') {
-            Errors::page_not_found();
-            return;
-        }
-
-        // Only creators have a public profile.
-        $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
-        if ((int) $user['role_id'] !== $creator_role_id) {
-            Errors::page_not_found();
-            return;
-        }
-
-        // Free never has a public profile: a creator page exists only while they have a paid plan.
-        if (!Plan::has_paid_plan($user)) {
+        // A suspended account's page is gone while it is suspended; only creators have a public profile; Free never has one
+        // (a creator page exists only while they have a paid plan). ProfilePosts::creator_visible also gates "Load More".
+        if (!ProfilePosts::creator_visible($user, 0)) {
             Errors::page_not_found();
             return;
         }
@@ -255,7 +243,9 @@ class ProfileController extends Controller {
         $focus_event = null;
         if (($url_parts[1] ?? '') === 'events' && ctype_digit((string) ($url_parts[2] ?? ''))) {
             $row = $eventsModel->get_one((int) $user['user_id'], (int) $url_parts[2]);
-            if (!$row || ((string) $row['status'] === 'draft' && !$is_self)) { Errors::page_not_found(); return; }
+            // a hidden (draft) event still opens for someone who can watch its replay (they bought it: it stays theirs)
+            $replay_viewer = $row && (string) $row['status'] === 'draft' && !$is_self && ($ri = EventReplay::info($row)) && EventReplay::access($row, $ri, $viewer_id) !== '';
+            if (!$row || ((string) $row['status'] === 'draft' && !$is_self && !$replay_viewer)) { Errors::page_not_found(); return; }
             $focus_event = $make_event_card($row);
             // Who may register: anyone (free / paid) or subscribers (any plan, or one specific plan).
             $fe_access = (string) $row['access_type'];
@@ -342,118 +332,10 @@ class ProfileController extends Controller {
             $service_cards[] = $make_service_card($sv);
         }
 
-        // Published Content Studio posts, gated per audience. Entitlement is decided
-        // HERE (server-side): the real media URL is signed only for entitled viewers;
-        // everyone else gets only the blurred locked preview — the clear rendition is
-        // never signed for them, so it never reaches the browser.
-        $posts_model    = new PostsModel();
-        $published      = $posts_model->get_published_for_creator($user['user_id']);
-        $max_tier_price = $viewer_logged_in
-            ? (new CreatorSubscriptionsModel())->max_active_tier_price($viewer_id, $user['user_id'])
-            : null;
-        $plan_prices = array();
-        foreach ((new CreatorPlansModel())->get_for_user($user['user_id']) as $pl) {
-            $plan_prices[(int) $pl['id']] = (int) $pl['price_cents'];
-        }
-
-        // Which of these posts the viewer has already liked.
-        $post_ids  = array_map(function ($p) { return (int) $p['id']; }, $published);
-        $liked_map = ($viewer_logged_in && !empty($post_ids))
-            ? (new PostLikesModel())->liked_map($viewer_id, $post_ids)
-            : array();
-        $unlocked_map = ($viewer_logged_in && !empty($post_ids))
-            ? (new PpvUnlocksModel())->unlocked_map($viewer_id, $post_ids)
-            : array();
-
-        // Moderation gate: content must be scanned before it's available to viewers.
-        //  - 'pending' (an image not yet cleared) → hidden from everyone but the creator.
-        //  - 'flagged' (adult) → hidden from viewers with "show adult content" off.
-        // No owner exemption: the creator sees exactly what a visitor with their settings sees.
-        // Logged-out viewers default to adult OFF.
-        $show_adult = false;
-        if ($viewer_logged_in) {
-            $viewer_rows = $this->userModel->get_user_by_id($viewer_id);
-            $viewer_row  = (is_array($viewer_rows) && count($viewer_rows) === 1) ? $viewer_rows[0] : null;
-            $show_adult  = AgeVerification::adult_allowed($viewer_row);   // toggle on AND age verified
-        }
-        // Always compute the gate (even for the creator) so 'blocked' content is hidden
-        // from EVERYONE, including the creator's own public profile.
-        $moderation_map = !empty($post_ids) ? $posts_model->moderation_map($post_ids) : array();
-        $tier_map       = !empty($post_ids) ? $posts_model->tiers_for_posts($post_ids) : array();
-
-        $content_cards = array();
-        foreach ($published as $p) {
-            $mod = $moderation_map[(int) $p['id']] ?? '';
-            if ($mod === 'blocked') { continue; }                       // quarantined — never shown to anyone
-            if ($mod === 'pending') { continue; }                       // not yet scanned — not available to anyone
-            if ($mod === 'adult' && !$show_adult) { continue; }         // approved adult — viewer opted out
-            $audience = $p['audience'];
-            if ($audience === 'free') {
-                $entitled = true;
-            } elseif ($audience === 'ppv') {
-                // PPV is locked for everyone (incl. subscribers) until purchased.
-                $entitled = isset($unlocked_map[(int) $p['id']]);
-            } else { // subscribers-only: any of the post's tiers (or any active plan when none set)
-                $entitled = PostsModel::tier_entitled($p, $tier_map[(int) $p['id']] ?? array(), (array) $subscribed_plan_ids, $max_tier_price, $plan_prices);
-            }
-
-            $assets = $posts_model->get_assets((int) $p['id']);
-            $cover  = null;
-            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
-            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
-            $cap = trim((string) $p['caption']);
-
-            $card = array(
-                'id'           => (int) $p['id'],
-                'caption'      => $cap,
-                'excerpt'      => mb_substr($cap, 0, 120),
-                'audience'     => $audience,
-                'entitled'     => $entitled,
-                'published_at' => !empty($p['published_at']) ? date('M j, Y', strtotime((string) $p['published_at'])) : '',
-                'media_count'  => count($assets),
-                'has_video'    => false,
-                'cover'        => '',   // uniform grid thumbnail
-                'likes'        => (int) $p['likes'],
-                'liked'        => isset($liked_map[(int) $p['id']]),
-                'comments'     => (int) $p['comments'],
-                'views'        => (int) $p['views'],
-                'comments_enabled' => (int) $p['comments_enabled'],
-            );
-            if ($audience === 'ppv') {
-                $card['ppv_price_credits'] = (int) $p['ppv_price_credits'];
-                $card['ppv_price_dollars'] = Price::input((int) $p['ppv_price_credits']);
-                $card['unlocked']          = isset($unlocked_map[(int) $p['id']]);
-            }
-
-            if ($entitled) {
-                // PPV is bought per-post — an entitled viewer paid (or owns it), so serve it
-                // unwatermarked. Free/subscriber content keeps the watermarked display variant.
-                $img_variant = ($audience === 'ppv') ? 'original' : 'display';
-                $card['assets'] = array();
-                foreach ($assets as $a) {
-                    if (!empty($a['deleted_at']) || $a['status'] !== 'ready') { continue; }
-                    if ($a['type'] === 'video') {
-                        $card['has_video'] = true;
-                        $card['assets'][] = array('type' => 'video',
-                            'url' => MediaService::signed_variant($a, 'original', 900),
-                            'poster' => MediaService::signed_variant($a, 'poster', 900));
-                    } else {
-                        $card['assets'][] = array('type' => 'image',
-                            'url' => MediaService::signed_variant($a, $img_variant, 900), 'poster' => '');
-                    }
-                }
-                // Grid card uses a small, uniform thumbnail (poster for a video cover). Free posts use the public,
-                // cacheable webp copy when it exists (PublicThumbService); anything else stays a signed URL.
-                $pub = ($cover && $audience === 'free') ? PublicThumbService::url($cover, 'grid') : '';
-                $card['cover'] = $pub !== '' ? $pub : ($cover ? MediaService::signed_variant($cover, ($cover['type'] === 'video' ? 'poster' : 'thumb'), 900) : '');
-                $card['cover_alt'] = PublicThumbService::alt($cap, $display_name);
-            } else {
-                // Non-entitled: only the blurred variant is ever signed.
-                $card['cover'] = $cover ? MediaService::signed_variant($cover, 'blurred', 900) : '';
-                $card['locked_url'] = $card['cover'];
-            }
-            $content_cards[] = $card;
-        }
+        // Published Content Studio posts, gated per audience: the first page here, the rest through /api/profile_posts
+        // ("Load More"). ProfilePosts decides entitlement server-side; the clear rendition is never signed for a locked viewer.
+        $posts_page    = ProfilePosts::page($user, $display_name, $viewer_id, 0);
+        $content_cards = $posts_page['cards'];
 
         $viewer_credit_balance = $viewer_logged_in ? (new CreditsModel())->get_balance($viewer_id) : 0;
         // One free trial per fan per creator: someone who has had a paid membership here doesn't see trial offers.

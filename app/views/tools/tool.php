@@ -52,8 +52,7 @@ ob_start();
         <span>I agree to receive emails from <?php echo $e($site); ?></span>
     </label>
     <div class="ct-hp" aria-hidden="true">
-        <label for="tl_company">Company</label>
-        <input id="tl_company" name="company" type="text" tabindex="-1" autocomplete="off">
+        <input id="tl_hp" name="hp_field_x" type="text" tabindex="-1" autocomplete="new-password">
     </div>
     <button class="sx-btn sx-btn--primary tl-submit" id="tl_send" type="submit" data-label="<?php echo $e($tool['button']); ?>"><?php echo $e($tool['button']); ?></button>
 </form>

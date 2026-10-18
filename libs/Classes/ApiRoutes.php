@@ -26,7 +26,7 @@ class ApiRoutes {
         'ApiPostsController' => [
             'feed', 'feed_new', 'post_detail', 'post_like', 'post_comments', 'post_comment_add',
             'post_comment_delete', 'post_view', 'ppv_unlock', 'bundle_unlock', 'join_free_plan', 'subscribe_plan',
-            'cancel_creator_subscription', 'reactivate_creator_subscription',
+            'cancel_creator_subscription', 'reactivate_creator_subscription', 'profile_posts',
         ],
         'ApiMediaController' => [
             'media_upload', 'media_generate', 'media_generate_video', 'media_upload_init', 'media_upload_chunk', 'media_upload_status', 'media_upload_complete',

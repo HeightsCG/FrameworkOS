@@ -80,6 +80,6 @@ class GoController extends Controller {
         $users = new UsersModel();
         $rows  = $users->get_user_by_id((int) $user_id);
         $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-        return ($u && empty($u['deleted']) && (string) ($u['u_name'] ?? '') !== '' && (int) $u['role_id'] === (int) $users->get_role_id_by_name('Creator')) ? $u : null;
+        return ($u && empty($u['deleted']) && (string) ($u['user_status'] ?? '') === 'Active' && (string) ($u['u_name'] ?? '') !== '' && (int) $u['role_id'] === (int) $users->get_role_id_by_name('Creator')) ? $u : null;
     }
 }

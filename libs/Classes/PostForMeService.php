@@ -115,6 +115,13 @@ class PostForMeService {
         return ($code >= 200 && $code < 300);
     }
 
+    /** Delete a scheduled post before it goes out. True when Post for Me removed it (or it no longer exists). */
+    public static function delete_post($id): bool
+    {
+        list($code) = self::request('DELETE', '/social-posts/' . urlencode((string) $id));
+        return ($code >= 200 && $code < 300) || $code === 404;
+    }
+
     /** Get a signed upload URL + the media_url to reference in a post. Returns [media_url, upload_url] or null. */
     public static function create_upload_url()
     {

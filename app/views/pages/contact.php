@@ -36,8 +36,7 @@ echo Sections::panel_hero(array('photo' => 'contact', 'variant' => 'split',
             <textarea class="ct-input ct-input--area" id="ct_message" name="message" rows="7" maxlength="5000" placeholder="Order date, amount and what happened" required></textarea>
         </div>
         <div class="ct-hp" aria-hidden="true">
-            <label for="ct_company">Company</label>
-            <input id="ct_company" name="company" type="text" tabindex="-1" autocomplete="off">
+            <input id="ct_hp" name="hp_field_x" type="text" tabindex="-1" autocomplete="new-password">
         </div>
         <div class="ct-acts">
             <button class="sx-btn sx-btn--primary" id="ct_send" type="submit">Send Message</button>
@@ -73,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (bad != '') { toastr.error(bad); $('.ct-input.is-bad').first().trigger('focus'); return; }
         btn.disabled = true; btn.textContent = 'Sending...';
         ApiDataSvc.apiCall('post', 'contact_send', {
-            name: name, email: email, topic: topic, message: message, company: $('#ct_company').val()
+            name: name, email: email, topic: topic, message: message, hp_field_x: $('#ct_hp').val()
         }, function (data) {
             var obj = null;
             try { obj = JSON.parse(data); } catch (err) { obj = null; }

@@ -84,7 +84,7 @@
                     </div>
                     <div class="col-md-6">
                         <div class="form-floating">
-                            <input type="password" id="register_p_word" class="form-control" placeholder="Password" autocomplete="new-password">
+                            <input type="password" id="register_p_word" class="form-control" placeholder="Password" autocomplete="new-password" aria-describedby="register_pw_rules">
                             <label for="register_p_word">Password</label>
                         </div>
                     </div>
@@ -94,9 +94,16 @@
                             <label for="register_p_word_confirm">Confirm password</label>
                         </div>
                     </div>
-                    <?php /* honeypot: off-screen, never shown; a bot that fills it gets a "success" and no account (ApiAuthController::registerAction) */ ?>
-                    <div aria-hidden="true" style="position:absolute; left:-9999px; top:0; width:1px; height:1px; overflow:hidden;">
-                        <input type="text" id="register_company" name="company" tabindex="-1" autocomplete="off" placeholder="Company">
+                    <div class="col-md-12">
+                        <ul class="cos-rules" id="register_pw_rules" aria-label="Password requirements">
+                            <?php foreach (array('len' => '8+ characters', 'up' => 'Uppercase letter', 'low' => 'Lowercase letter', 'num' => 'Number', 'sym' => 'Symbol') as $rk => $rl): ?>
+                            <li data-rule="<?php echo $rk; ?>"><svg class="cos-rules__ic" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path class="cos-rules__ck" d="m5.25 8.25 1.75 1.75 3.75-4"/></svg><span><?php echo $rl; ?></span><span class="cos-sr" data-state></span></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php /* honeypot (ApiAuthController::HONEYPOT): a name no autofill knows, never displayed; a bot that fills it gets a "success" and no account */ ?>
+                    <div style="display:none" aria-hidden="true">
+                        <input type="text" id="register_hp" name="hp_field_x" tabindex="-1" autocomplete="new-password">
                     </div>
                     <div class="col-md-12">
                         <button type="button" id="do_register" class="cos-submit">Create Account</button>

@@ -29,6 +29,16 @@ class MediaAssetsModel extends Model {
         ));
     }
 
+    /** Generated videos still 'processing' since before $before (UTC) that no influencer job owns: Studio "Generate a video" placeholders (MediaVideoJob sweep). */
+    public function stuck_generated_videos($before, $limit = 25){
+        return (array) parent::select(
+            "SELECT a.id, a.creator_id FROM media_assets a
+             WHERE a.status = 'processing' AND a.type = 'video' AND a.provenance = 'generated' AND a.created_at < :b AND a.deleted_at IS NULL
+               AND NOT EXISTS (SELECT 1 FROM influencer_jobs j WHERE j.result_asset_id = a.id)
+             ORDER BY a.id ASC LIMIT " . max(1, (int) $limit),
+            array('b' => (string) $before));
+    }
+
     /** Call recordings (source 'recording') belong to their event: never in the Library, pickers or attachments. */
     const NOT_RECORDING = "COALESCE(source, '') <> 'recording'";
 
@@ -230,6 +240,7 @@ class MediaAssetsModel extends Model {
         if ($n === 0) { $this->soft_delete($creator_id, $id); return array('posts' => 0, 'hidden' => false); }
         parent::update('media_assets', array('library_hidden_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id AND creator_id = :c AND deleted_at IS NULL AND library_hidden_at IS NULL', array('id' => (int) $id, 'c' => (int) $creator_id));
+        $this->drop_unsold_bundle_items($creator_id, $id);   // removed from the library: it leaves bundles nobody has bought yet
         return array('posts' => $n, 'hidden' => true);
     }
 
@@ -265,7 +276,15 @@ class MediaAssetsModel extends Model {
             'id = :id AND creator_id = :c AND deleted_at IS NULL',
             array('id' => (int) $id, 'c' => (int) $creator_id));
         PublicThumbService::queue_purge(array('assets' => array((int) $id)));   // deleted media loses its public copy
+        $this->drop_unsold_bundle_items($creator_id, $id);
         return $res;
+    }
+
+    /** Take a removed file out of the creator's bundles that have no sales. A sold bundle keeps it: buyers keep what they bought. */
+    private function drop_unsold_bundle_items($creator_id, $id){
+        return parent::sql("DELETE bi FROM bundle_items bi JOIN content_bundles b ON b.id = bi.bundle_id AND b.creator_id = :c
+             WHERE bi.asset_id = :a AND NOT EXISTS (SELECT 1 FROM bundle_unlocks bu WHERE bu.bundle_id = bi.bundle_id)",
+            array('c' => (int) $creator_id, 'a' => (int) $id));
     }
 
     /** The subset of these asset ids someone has paid for (PPV post, priced message, or bundle) — buyers keep them, so they can't be removed. */

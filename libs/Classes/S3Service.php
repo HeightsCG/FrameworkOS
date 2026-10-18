@@ -196,6 +196,14 @@ class S3Service {
         }
     }
 
+    /** Is there an object at $key? (A HEAD request: nothing is downloaded.) */
+    public static function exists($key): bool
+    {
+        if (!self::configured() || (string) $key === '') { return false; }
+        try { return (bool) self::client()->doesObjectExist(self::bucket(), (string) $key); }
+        catch (\Throwable $e) { return false; }
+    }
+
     /** Download a private object to a local path (streams to disk). True on success. */
     public static function get_private_to_file($key, $dest_path): bool
     {

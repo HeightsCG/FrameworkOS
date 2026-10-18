@@ -252,6 +252,7 @@ class LaunchCampaign {
     public static function send_due($limit = 50){
         $cm = new LaunchCampaignsModel(); $sent = 0;
         foreach ($cm->due_broadcasts($limit) as $b) {
+            if (!Plan::creator_active((int) $b['creator_id'])) { continue; }   // suspended creator: stays scheduled, sends if reinstated
             if (!$cm->claim_broadcast((int) $b['id'])) { continue; }
             try {
                 list($bid, $count) = (new BroadcastsModel())->create_and_send((int) $b['creator_id'], explode(',', (string) $b['segments']), (string) $b['body']);

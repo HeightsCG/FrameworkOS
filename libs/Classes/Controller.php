@@ -88,7 +88,7 @@ class Controller {
                || ((string) Session::get('p_word') !== '' && !hash_equals((string) Session::get('p_word'), (string) ($row['p_word'] ?? '')))) {   // pw_fp: fingerprint set at login; p_word: sessions from before it
             $message = 'Your password was changed. Please sign in again.';
         } elseif ((string) Session::get('team_role') !== '' && Plan::team_member_locked($row)) {
-            $message = Plan::SEAT_LOCKED_MESSAGE;
+            $message = Plan::team_owner_inactive($row) ? Plan::OWNER_SUSPENDED_MESSAGE : Plan::SEAT_LOCKED_MESSAGE;
         }
         if ($message === '') { Session::set('team_role', $row['team_role'] ?? null); return; }   // pick up role changes
         if (UserSession::impersonating()) {   // the impersonated account is gone or suspended: back to the admin, not signed out
@@ -146,22 +146,22 @@ class Controller {
     /**
      * Client IP. REMOTE_ADDR is authoritative unless it belongs to a trusted proxy
      * ([global] trusted_proxies in app.ini: comma-separated IPs / CIDRs; when the key is
-     * absent, loopback + RFC1918 ranges). Only then are proxy headers consulted, and
-     * X-Forwarded-For is walked right-to-left skipping trusted hops, so a client can't
-     * prepend a fake address to pick its own IP.
+     * absent, loopback + RFC1918 ranges). Only then is X-Forwarded-For read, right-to-left
+     * skipping trusted hops, so a client can't prepend a fake address to pick its own IP.
+     * Other headers (X-Real-IP, CF-Connecting-IP, Client-IP) pass the ALB untouched, so they are ignored.
      */
     public function get_ip_address(): string
+    {
+        return self::request_ip();
+    }
+
+    /** get_ip_address() for code outside a controller (GeoIp). */
+    public static function request_ip(): string
     {
         $remote  = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
         $trusted = self::trusted_proxies();
         if ($remote === '' || !self::ip_in_list($remote, $trusted)) {
             return filter_var($remote, FILTER_VALIDATE_IP) !== false ? $remote : '';
-        }
-        foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP'] as $header) {
-            $v = trim((string) ($_SERVER[$header] ?? ''));
-            if ($v !== '' && filter_var($v, FILTER_VALIDATE_IP) !== false) {
-                return $v;
-            }
         }
         $hops = array_reverse(array_map('trim', explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))));
         foreach ($hops as $hop) {

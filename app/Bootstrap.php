@@ -305,6 +305,8 @@ class Bootstrap
 
         $c = Main::controller_name();
         $m = Main::method_name();
+        // Api* controllers answer only through /api/<action> above (and its checks); /Api<Name>/<action> is not a route.
+        if (stripos($c, 'api') === 0 || stripos($c, 'baseapi') === 0) { Errors::page_not_found(); return; }
         if (class_exists($c)) {
             $co = new $c();
             if (method_exists($c, $m)) {

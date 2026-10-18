@@ -236,10 +236,36 @@ class InfluencerActions {
     /** Up to this many face photos can be blended into one new reference face. */
     const BLEND_MAX = 3;
 
+    /**
+     * Free influencer-building runs (no credits, real provider spend): one of a kind at a time per influencer, and at
+     * most this many per influencer in 24 hours. training_set counts images (a full set is training_set_size of them).
+     */
+    const FREE_DAILY = array('reference' => 20, 'training_set' => 40, 'body' => 10, 'training' => 3);
+    const FREE_LABELS = array('reference' => 'reference images', 'training_set' => 'training images', 'body' => 'body references', 'training' => 'training runs');
+
+    /**
+     * '' when a free run of $kind may start for this influencer, else the message to show. $runs: how many runs this
+     * call starts. $one_at_a_time false skips the already-running check (a training-set slot redo while others render).
+     */
+    public static function free_run_block(array $infl, $kind, $runs = 1, $one_at_a_time = true){
+        $jobs = new InfluencerJobsModel();
+        $iid  = (int) $infl['id'];
+        if ($one_at_a_time && $jobs->free_run_pending($iid, $kind)) {
+            return 'One is already being made for ' . (string) $infl['name'] . '. Wait for it to finish.';
+        }
+        $cap  = (int) (self::FREE_DAILY[$kind] ?? 0);
+        $used = $jobs->count_free_runs($iid, $kind, gmdate('Y-m-d H:i:s', time() - 86400));
+        if ($cap > 0 && $used + max(1, (int) $runs) > $cap) {
+            return 'You\'ve reached the daily limit of ' . $cap . ' ' . self::FREE_LABELS[$kind] . ' for ' . (string) $infl['name'] . '. Try again tomorrow.';
+        }
+        return '';
+    }
+
     /** Generate a reference image from her description. $in: source_description?, reference_model_key?, face_asset_ids? (up to BLEND_MAX, for a model that takes faces) */
     public static function reference_generate($cid, array $infl, array $in){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if ((string) $infl['path'] !== 'reference') { return self::fail('This influencer is trained from photos.'); }
+        if (($blk = self::free_run_block($infl, 'reference')) !== '') { return self::fail($blk); }
         $f = array('input_method' => 'text');
         if (array_key_exists('source_description', $in)) { $f['source_description'] = mb_substr(trim((string) $in['source_description']), 0, InfluencerService::BODY_MAX); }
         if (array_key_exists('reference_model_key', $in)) { $mk = InfluencerConfig::resolve_model('reference', (string) $in['reference_model_key']); $f['reference_model_key'] = $mk ? (string) $mk['key'] : ''; }
@@ -292,6 +318,7 @@ class InfluencerActions {
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
         $change = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $change)), 0, InfluencerService::CHANGE_MAX);
         if ($change === '') { return self::fail('Say what should change.'); }
+        if (($blk = self::free_run_block($infl, 'reference')) !== '') { return self::fail($blk); }
         // The image to change: the one named (a reference candidate or her face photo), else her current reference.
         $base = 0;
         if ((int) $asset_id > 0) {
@@ -332,6 +359,7 @@ class InfluencerActions {
     public static function body_generate($cid, array $infl, array $in){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
+        if (($blk = self::free_run_block($infl, 'body')) !== '') { return self::fail($blk); }
         $m = new InfluencersModel();
         if (array_key_exists('body_description', $in)) {
             $m->update_fields($cid, $infl['id'], array('body_description' => InfluencerService::body_text($in['body_description'])));
@@ -387,6 +415,7 @@ class InfluencerActions {
         $model = InfluencerConfig::resolve_model('training_set', '');
         if (!$model) { return self::fail('No training-set model is configured.'); }
         $size  = (int) InfluencerConfig::get('training_set_size', 10);
+        if (($blk = self::free_run_block($infl, 'training_set', $size)) !== '') { return self::fail($blk); }
         $steer = trim((string) preg_replace('/\s+/', ' ', (string) $infl['steer_text']));   // typed in a multi-line box; one line inside each prompt
         $im = new InfluencerImagesModel();
         if (!empty($infl['training_set_group'])) {   // an earlier set is set aside so only the current one trains
@@ -471,6 +500,7 @@ class InfluencerActions {
             return empty($r['ok']) ? self::fail((string) $r['error']) : self::okr(array('job_id' => (int) $job['id']));
         }
         if ((string) $job['status'] !== 'done') { return self::fail('That image is still generating.'); }
+        if (($blk = self::free_run_block($infl, 'training_set', 1, false)) !== '') { return self::fail($blk); }
         $new_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
             'origin' => 'wizard', 'model_key' => (string) $job['model_key'], 'prompt' => (string) $job['prompt'], 'input_asset_id' => (int) $job['input_asset_id'],
             'group_key' => (string) $job['group_key'], 'group_index' => (int) $job['group_index'], 'params' => InfluencerJobsModel::params($job),

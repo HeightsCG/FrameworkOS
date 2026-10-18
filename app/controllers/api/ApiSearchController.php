@@ -4,7 +4,7 @@ class ApiSearchController extends BaseApiController {
 
     /** Universal search (PRD §28) — creators + published content for the top-chrome box. */
     public function searchAction(){
-        $q = trim((string) ($this->post['q'] ?? ''));
+        $q = trim(html_entity_decode((string) ($this->post['q'] ?? ''), ENT_QUOTES, 'UTF-8'));   // POST input arrives html-encoded; stored text is plain
         if (mb_strlen($q) < 2) { $this->jsonSuccess(['creators' => [], 'posts' => []]); }
         $viewer     = (int) Session::get('user_id');
         $show_adult = false;

@@ -28,7 +28,7 @@ class CustomDomains {
      * studio or admin actions, and CreditsModel::pay() only pays this creator. Everything else is the platform's.
      */
     const FAN_ACTIONS = array(
-        'feed', 'feed_new', 'post_detail', 'post_like', 'post_comments', 'post_comment_add', 'post_comment_delete', 'post_view',
+        'feed', 'feed_new', 'profile_posts', 'post_detail', 'post_like', 'post_comments', 'post_comment_add', 'post_comment_delete', 'post_view',
         'ppv_unlock', 'bundle_unlock', 'promo_preview', 'join_free_plan', 'subscribe_plan', 'cancel_creator_subscription', 'reactivate_creator_subscription',
         'follow_creator', 'unfollow_creator', 'event_register', 'event_cancel', 'event_replay_buy', 'event_replay_watch', 'service_purchase',
         'live_join', 'live_hand', 'live_tip', 'live_status', 'live_offers', 'live_waiting',
@@ -297,6 +297,7 @@ class CustomDomains {
     /** A same-site path only ('/events/5?x=1'), never '//evil.com' or 'https://…'. */
     public static function safe_path($p): string {
         $p = (string) $p;
-        return ($p !== '' && $p[0] === '/' && (strlen($p) < 2 || ($p[1] !== '/' && $p[1] !== '\\'))) ? $p : '/';
+        if (preg_match('/[\x00-\x20\x7f\\\\]/', $p)) { return '/'; }   // browsers drop tabs/newlines and read \ as /, so "/\t/evil.com" would leave the site
+        return ($p !== '' && $p[0] === '/' && (strlen($p) < 2 || $p[1] !== '/')) ? $p : '/';
     }
 }

@@ -165,10 +165,16 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
             <input class="st-input" id="st_email" name="user_email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
             <label class="st-label" for="st_pw">Password</label>
             <div class="st-pw">
-                <input class="st-input" id="st_pw" name="p_word" type="password" autocomplete="new-password" placeholder="At least 8 characters" required>
+                <input class="st-input" id="st_pw" name="p_word" type="password" autocomplete="new-password" placeholder="At least 8 characters" aria-describedby="st_rules" required>
                 <button type="button" class="st-pw__show" id="st_pw_show" aria-controls="st_pw" aria-pressed="false">Show</button>
             </div>
-            <div class="st-hp" aria-hidden="true"><input type="text" name="company" id="st_company" tabindex="-1" autocomplete="off"></div>
+            <ul class="st-rules" id="st_rules" aria-label="Password requirements">
+<?php foreach (array('len' => '8+ characters', 'up' => 'Uppercase letter', 'low' => 'Lowercase letter', 'num' => 'Number', 'sym' => 'Symbol') as $rk => $rl): ?>
+                <li data-rule="<?php echo $rk; ?>"><svg class="st-rules__ic" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path class="st-rules__ck" d="m5.25 8.25 1.75 1.75 3.75-4"/></svg><span><?php echo $rl; ?></span><span class="st-sr" data-state></span></li>
+<?php endforeach; ?>
+            </ul>
+            <?php /* honeypot (ApiAuthController::HONEYPOT): a name no autofill knows, never displayed; filled = a bot */ ?>
+            <div style="display:none" aria-hidden="true"><input type="text" name="hp_field_x" id="st_hp" tabindex="-1" autocomplete="new-password"></div>
             <p class="st-error" id="st_error" role="alert" hidden></p>
             <button class="st-btn st-btn--primary st-submit" id="st_submit" type="submit">Create Account</button>
             <p class="st-legal">By creating an account you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
@@ -346,14 +352,35 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
         [email, pw].forEach(function (x) { x.classList.toggle('is-bad', x === field); x.setAttribute('aria-invalid', x === field ? 'true' : 'false'); });
         if (field) { field.focus(); }
     };
-    var pw_problem = function (p) {
-        if (p.length < 8) { return 'Use at least 8 characters for your password.'; }
-        if (!/[A-Z]/.test(p)) { return 'Add an uppercase letter to your password.'; }
-        if (!/[a-z]/.test(p)) { return 'Add a lowercase letter to your password.'; }
-        if (!/[0-9]/.test(p)) { return 'Add a number to your password.'; }
-        if (!/[^A-Za-z0-9]/.test(p)) { return 'Add a symbol, like ! or #, to your password.'; }
-        return '';
+    // Password rules, all shown under the field and ticked as they are met; the error names every one still missing.
+    var rules = [
+        { k: 'len', t: 'at least 8 characters', ok: function (p) { return p.length >= 8; } },
+        { k: 'up', t: 'an uppercase letter', ok: function (p) { return /[A-Z]/.test(p); } },
+        { k: 'low', t: 'a lowercase letter', ok: function (p) { return /[a-z]/.test(p); } },
+        { k: 'num', t: 'a number', ok: function (p) { return /[0-9]/.test(p); } },
+        { k: 'sym', t: 'a symbol, like ! or #', ok: function (p) { return /[^A-Za-z0-9]/.test(p); } }
+    ];
+    var rule_box = document.getElementById('st_rules');
+    var paint_rules = function (flag) {
+        var p = pw.value, miss = [];
+        rules.forEach(function (r) {
+            var li = rule_box.querySelector('[data-rule="' + r.k + '"]'), met = r.ok(p);
+            li.classList.toggle('is-met', met);
+            if (flag) { li.classList.toggle('is-miss', !met); } else if (met) { li.classList.remove('is-miss'); }
+            li.querySelector('[data-state]').textContent = met ? ' (done)' : '';
+            if (!met) { miss.push(r.t); }
+        });
+        return miss;
     };
+    var pw_problem = function () {
+        var miss = paint_rules(true);
+        if (!miss.length) { return ''; }
+        var last = miss.pop();
+        return 'Your password needs ' + (miss.length ? miss.join(', ') + ' and ' : '') + last + '.';
+    };
+    pw.addEventListener('input', function () {
+        if (!paint_rules(false).length && pw.classList.contains('is-bad')) { err.hidden = true; pw.classList.remove('is-bad'); pw.setAttribute('aria-invalid', 'false'); }
+    });
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -361,18 +388,20 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
         start();
         var em = email.value.trim(), p = pw.value;
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { fail('Enter a valid email address.', email); return; }
-        var pp = pw_problem(p); if (pp) { fail(pp, pw); return; }
+        var pp = pw_problem(); if (pp) { fail(pp, pw); return; }
         err.hidden = true; [email, pw].forEach(function (x) { x.classList.remove('is-bad'); x.setAttribute('aria-invalid', 'false'); });
         if (trial) { set_cookie('cls_founding', '1', 30); }   // the trial offer, read on the billing plan tab in this browser
         busy = true; btn.disabled = true; btn.classList.add('is-busy'); btn.textContent = 'Creating Account…';
         post('register', {
-            user_email: em, p_word: p, p_word_confirm: p, company: document.getElementById('st_company').value,
+            user_email: em, p_word: p, p_word_confirm: p, hp_field_x: document.getElementById('st_hp').value,
             plan: 'creator', role: 'creator', ref: '', founding: trial ? '1' : '', 'return': '/setup?plan=creator'
         }).then(function (o) {
             busy = false; btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = 'Create Account';
             if (!o || !o.success) { fail((o && o.message) || 'Something went wrong. Try again.', /email/i.test((o && o.message) || '') ? email : null); return; }
-            track('signup_completed', { method: 'email', page: '/start' });
-            track('sign_up', { method: 'email' });   // GA's standard sign-up event, as on every other signup
+            if (!o.resent) {   // a re-signup of an unverified account only got a fresh link: not a new sign-up
+                track('signup_completed', { method: 'email', page: '/start' });
+                track('sign_up', { method: 'email' });   // GA's standard sign-up event, as on every other signup
+            }
             if (window.CLSTikTokRegistration) { window.CLSTikTokRegistration(o.tt_registration); }   // TikTok identify + CompleteRegistration, once, with the server's event id
             done_email = em;
             document.getElementById('st_done_email').textContent = em;

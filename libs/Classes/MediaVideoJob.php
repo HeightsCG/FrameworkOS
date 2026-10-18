@@ -57,6 +57,32 @@ class MediaVideoJob {
 
     const POLL_SECONDS = 15;
     const MAX_POLLS    = 60;   // ~15 minutes
+    const STUCK_MINUTES = 60;  // a placeholder still processing this long with no queue row lost its job
+
+    /**
+     * Queue-worker sweep: a video whose job died (the worker crashed until the queue gave up) is marked failed and its
+     * credits returned once (same refund key as the handler). Returns how many were failed.
+     */
+    public static function sweep_stuck($limit = 25): int {
+        $rows = (new MediaAssetsModel())->stuck_generated_videos(date('Y-m-d H:i:s', time() - self::STUCK_MINUTES * 60), $limit);
+        if (empty($rows)) { return 0; }
+        $q = new JobsModel();
+        $live = array();
+        foreach ($q->live_payloads('media_video') as $p) { $live[(int) ($p['asset_id'] ?? 0)] = true; }
+        $n = 0;
+        foreach ($rows as $r) {
+            $aid = (int) $r['id']; $cid = (int) $r['creator_id'];
+            if (isset($live[$aid])) { continue; }
+            $payload = $q->last_payload_where('media_video', 'asset_id', $aid);
+            if ($payload === null || (int) ($payload['creator_id'] ?? 0) !== $cid) { continue; }   // not a Studio video job (or pruned): leave it
+            $why = 'The video stopped before it finished. Your AI credits were returned.';
+            if ((int) ($payload['credits'] ?? 0) > 0) { (new AiCreditsModel())->refund_once($cid, (int) $payload['credits'], 'video #' . $aid); }
+            (new MediaAssetsModel())->set_failed($cid, $aid, $why);
+            if (!empty($payload['auto_post'])) { try { AutoPostService::finish_video($cid, (array) $payload['auto_post'], 0, $why); } catch (\Throwable $e) {} }
+            $n++;
+        }
+        return $n;
+    }
 
     public static function handle(array $payload): string {
         $cid   = (int) ($payload['creator_id'] ?? 0);

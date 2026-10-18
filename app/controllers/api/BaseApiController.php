@@ -100,6 +100,9 @@ class BaseApiController extends Controller {
             $user = $acting;
         }
 
+        if ($is_team && !Plan::account_active($user)) { $this->jsonError(Plan::OWNER_SUSPENDED_MESSAGE); }   // owner suspended or gone
+        if (!$is_team && !Plan::account_active($user)) { $this->jsonError(LoginGate::SUSPENDED_MESSAGE); }
+
         $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
         if (!$user || (int) $user['role_id'] !== $creator_role_id) {
             $this->jsonError('Only creators can do that');

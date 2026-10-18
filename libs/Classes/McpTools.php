@@ -28,6 +28,11 @@ class McpTools {
 
     private static function event_fields(array $a, array $current = array()): array {
         $a = self::priced($a, 'price_credits');
+        foreach (array('start_at', 'end_at') as $k) {   // UTC 'Y-m-d H:i:s'; anything unparseable is refused by check_times
+            if (!array_key_exists($k, $a) || trim((string) $a[$k]) === '') { continue; }
+            $t = strtotime(trim((string) $a[$k]) . (preg_match('/(Z|[+-]\d\d:?\d\d|UTC)$/i', trim((string) $a[$k])) ? '' : ' UTC'));
+            $a[$k] = $t === false ? 'invalid' : gmdate('Y-m-d H:i:s', $t);
+        }
         if (array_key_exists('timezone', $a)) { $a['timezone'] = EventsModel::clean_timezone($a['timezone'], 'UTC'); }
         if (array_key_exists('reminders', $a)) { $a['reminders'] = implode(',', EventsModel::clean_reminders($a['reminders'])); }
         $keys = array('venue_name', 'street', 'city', 'region', 'postal_code');
@@ -533,7 +538,7 @@ class McpTools {
                 'limit' => array('type' => 'integer', 'description' => '1-100, default 24'))));
 
         // ---- Automation run (generates + publishes) ----
-        $t[] = array('name' => 'run_automation_now', 'description' => 'Run a Scheduler automation immediately: generates an image, writes a caption, and PUBLISHES a post.', 'inputSchema' => $id);
+        $t[] = array('name' => 'run_automation_now', 'description' => 'Run a Scheduler automation now: generates an image, writes a caption, and PUBLISHES a post. Runs in the background (about a minute); check get_automation for the result.', 'inputSchema' => $id);
 
         return $t;
     }
@@ -618,7 +623,17 @@ class McpTools {
                 $a = self::priced($a, 'ppv_price_credits');
                 $f = array_intersect_key($a, array_flip(array('caption', 'audience', 'ppv_price_credits', 'tier_id', 'tier_ids', 'comments_enabled')));
                 if (isset($f['tier_id']) && !isset($f['tier_ids'])) { $f['tier_ids'] = array((int) $f['tier_id']); $f['tier_id'] = 0; }
-                return $ok((new PostsModel())->update_fields($cid, $iid, $f));
+                $pm  = new PostsModel();
+                $cur = self::need($pm->get_one($cid, $iid), 'Post not found');
+                // Buyers keep what they paid for: a sold pay-per-view post stays pay-per-view (the web editor's rule).
+                if (isset($f['audience']) && (string) $cur['audience'] === 'ppv' && (string) $f['audience'] !== 'ppv'
+                    && !empty((new PpvUnlocksModel())->stats_for_posts(array($iid))[$iid]['unlocks'])) {
+                    throw new InvalidArgumentException('This post has been bought, so it has to stay pay-per-view. Buyers keep it.');
+                }
+                $res = $pm->update_fields($cid, $iid, $f);
+                // A live post re-runs the publish gate an edit could affect (adult media needs an age-verified creator).
+                if (in_array((string) $cur['state'], array('published', 'scheduled'), true)) { AgeVerification::hold_unverified_adult_post($cid, $iid, (string) $cur['state'] === 'published'); }
+                return $ok($res);
             }
             case 'list_share_targets': {
                 $targets = array();
@@ -708,7 +723,10 @@ class McpTools {
                     throw new InvalidArgumentException('title and start_at are required');
                 }
                 $a += array('access_type' => 'free', 'status' => 'draft'); // fields the model reads unguarded
-                return array('id' => (int) (new EventsModel())->create($cid, self::event_fields($a)));
+                $f = self::event_fields($a);
+                $bad = (new EventsModel())->check_times((string) $f['start_at'], (string) ($f['end_at'] ?? ''));
+                if ($bad !== '') { throw new InvalidArgumentException($bad); }
+                return array('id' => (int) (new EventsModel())->create($cid, $f));
             }
             case 'update_event': {
                 // Same rules as the web: canceling refunds every ticket and tells attendees; a sold event can't be hidden.
@@ -721,6 +739,10 @@ class McpTools {
                     throw new InvalidArgumentException('This event has paid attendees. Cancel it instead so they are refunded.');
                 }
                 $fields = self::event_fields($a, (array) $cur);
+                if (array_key_exists('start_at', $fields) || array_key_exists('end_at', $fields)) {   // same date rules as the web (a sold event can't move into the past)
+                    $bad = $em->check_times((string) ($fields['start_at'] ?? $cur['start_at']), (string) (array_key_exists('end_at', $fields) ? $fields['end_at'] : $cur['end_at']), (array) $cur);
+                    if ($bad !== '') { throw new InvalidArgumentException($bad); }
+                }
                 if (in_array($status, array('draft', 'published'), true)) { $fields['status'] = $status; }
                 $res = $em->update_event($cid, $iid, $fields);
                 if ($status === 'canceled') {
@@ -732,6 +754,7 @@ class McpTools {
             case 'delete_event': {
                 $ev = self::need((new EventsModel())->get_one($cid, $iid), 'Event not found');
                 if ((string) $ev['status'] !== 'canceled') { throw new InvalidArgumentException('Cancel the event before deleting it (update_event with status "canceled" refunds and tells attendees).'); }
+                if ((new ReplayUnlocksModel())->count_for_event($iid) > 0) { throw new InvalidArgumentException(EventsModel::REPLAY_SOLD_MESSAGE); }
                 return $ok((new EventsModel())->delete_event($cid, $iid));
             }
 
@@ -1134,11 +1157,10 @@ class McpTools {
                 $rule = (new SchedulerRulesModel())->get_one($cid, $iid);
                 if (!$rule) { throw new InvalidArgumentException('Automation not found'); }
                 if (Plan::is_locked($user, 'automations', (int) $rule['id'])) { throw new RuntimeException(Plan::locked_message($user, 'automations')); }
-                $res = AutoPostService::run_rule($rule, $user);
-                (new SchedulerRunsModel())->add((int) $rule['id'], $cid, $res['status'] ?? ($res['ok'] ? 'success' : 'failed'), $res['post_id'], $res['message'], (array) ($res['meta'] ?? array()));
-                (new SchedulerRulesModel())->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
-                if (empty($res['ok'])) { throw new RuntimeException($res['message']); }
-                return array('post_id' => (int) $res['post_id'], 'message' => $res['message']);
+                // Same path as Run Now on the page: the queue worker runs it, and the dedupe key keeps it to one run at a time.
+                $job_id = (new DatabaseJobQueue())->dispatch('scheduler_run', array('rule_id' => (int) $rule['id'], 'creator_id' => $cid), 'scheduler_run:' . (int) $rule['id']);
+                if ($job_id <= 0) { throw new RuntimeException('This automation is already running. Give it a minute.'); }
+                return array('queued' => true, 'job_id' => $job_id, 'message' => 'The automation is running. Check get_automation in a minute for the result.');
             }
 
             default:

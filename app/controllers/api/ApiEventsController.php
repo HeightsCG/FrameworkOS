@@ -14,8 +14,10 @@ class ApiEventsController extends BaseApiController {
         $start_local = trim((string) ($this->post['start_at'] ?? ''));
         if ($start_local === '') { $this->jsonError('A start date & time is required'); }
         $start_utc = $this->to_utc($start_local, $tz);
+        if ($start_utc === null) { $this->jsonError('Enter a valid start date & time.'); }
         $end_local = trim((string) ($this->post['end_at'] ?? ''));
         $end_utc   = $end_local !== '' ? $this->to_utc($end_local, $tz) : '';
+        if ($end_utc === null) { $this->jsonError('Enter a valid end date & time.'); }
 
         $access = (string) ($this->post['access_type'] ?? 'free');
         if (!in_array($access, EventsModel::access_types(), true)) { $access = 'free'; }
@@ -67,9 +69,17 @@ class ApiEventsController extends BaseApiController {
             $cur = $model->get_one($creator_id, $id);
             if (!$cur) { $this->jsonError('Event not found'); }
             if ((string) $cur['status'] === 'canceled') { $this->jsonError('This event was canceled, so it can no longer be edited.'); }
+            // hiding a sold event would strand its ticket holders (the event_set_live rule): cancel refunds them instead
+            if ($fields['status'] === 'draft' && (string) $cur['status'] === 'published' && $model->has_paid_going($id)) {
+                $this->jsonError('This event has paid attendees. Cancel it instead so they are refunded.');
+            }
+            $bad = $model->check_times($start_utc, $end_utc, $cur);
+            if ($bad !== '') { $this->jsonError($bad); }
             $model->update_event($creator_id, $id, $fields);
             (new LiveRoomsModel())->reset(LiveKit::room_for_event($id));   // the next call starts from the saved call settings
         } else {
+            $bad = $model->check_times($start_utc, $end_utc);
+            if ($bad !== '') { $this->jsonError($bad); }
             $id = (int) $model->create($creator_id, $fields);
         }
         $this->jsonSuccess(['id' => $id, 'message' => 'Event saved']);
@@ -83,6 +93,7 @@ class ApiEventsController extends BaseApiController {
         $ev = $model->get_one((int) $user['user_id'], $id);
         if (!$ev) { $this->jsonError('Event not found'); }
         if ((string) $ev['status'] !== 'canceled') { $this->jsonError('Cancel the event before deleting it.'); }   // cancel refunds and tells attendees first
+        if ((new ReplayUnlocksModel())->count_for_event($id) > 0) { $this->jsonError(EventsModel::REPLAY_SOLD_MESSAGE); }   // buyers keep watching
         $model->delete_event((int) $user['user_id'], $id);
         $this->jsonSuccess();
     }
@@ -124,8 +135,9 @@ class ApiEventsController extends BaseApiController {
             }
         }
         // Take the seat first (UNIQUE event_id+user_id is the mutex against a double charge), then charge.
-        $claim = $model->claim_registration($id, $me);
+        $claim = $model->claim_registration($id, $me, (int) $ev['capacity']);   // the seat cap is checked again under a lock
         if ($claim === null) { $this->jsonSuccess(['already' => true, 'access' => $this->event_access($ev)]); }
+        if (!empty($claim['full'])) { $this->jsonError('This event is full.'); }
         // Coming back after canceling a ticket already paid for: no second charge.
         if ($price > 0 && (int) $claim['prior_paid'] <= 0) {
             // The fan pays now; the creator's share is stored on the ticket and paid to them after the event
@@ -202,12 +214,19 @@ class ApiEventsController extends BaseApiController {
     public function event_recording_deleteAction(){
         [$owner, $ev] = $this->owned_event();
         // Not event_recording_row(): a recording that didn't save, or whose video was already removed from the Library, must still be clearable.
-        $rec = (new LiveRecordingsModel())->get((int) ($this->post['recording_id'] ?? 0));
-        if (!$rec || (int) $rec['event_id'] !== (int) $ev['id'] || !in_array((string) $rec['status'], array('ready', 'failed'), true)) { $this->jsonError('That recording isn’t available.'); }
+        $recs = new LiveRecordingsModel();
+        $rec = $recs->get((int) ($this->post['recording_id'] ?? 0));
+        // ready or failed, or stuck finishing (stopping/processing) for over an hour
+        if (!$rec || (int) $rec['event_id'] !== (int) $ev['id'] || !LiveRecordingsModel::deletable($rec)) { $this->jsonError('That recording isn’t available.'); }
+        $is_replay = (int) ($ev['replay_recording_id'] ?? 0) === (int) $rec['id'];
+        if ($is_replay && (new ReplayUnlocksModel())->count_for_event((int) $ev['id']) > 0) {
+            $this->jsonError('People bought this replay, so the recording can’t be deleted. Stop selling it instead: buyers keep watching.');
+        }
         $asset = (int) $rec['asset_id'] > 0 ? (new MediaAssetsModel())->get_one($owner, (int) $rec['asset_id']) : null;
         if ($asset) { (new MediaAssetsModel())->soft_delete($owner, (int) $asset['id']); }
-        (new LiveRecordingsModel())->set((int) $rec['id'], array('status' => 'deleted'));
-        if ((int) ($ev['replay_recording_id'] ?? 0) === (int) $rec['id']) { (new EventsModel())->set_replay($owner, (int) $ev['id'], 0, 0, true); }   // no longer on sale
+        $recs->set((int) $rec['id'], array('status' => 'deleted'));
+        if ((string) $rec['status'] !== 'ready') { S3Service::delete_key((string) $rec['s3_key']); }   // the recorder's own file, left when it never became a video
+        if ($is_replay) { (new EventsModel())->set_replay($owner, (int) $ev['id'], 0, 0, true); }   // no longer on sale
         $this->jsonSuccess(['message' => 'Recording deleted']);
     }
 
@@ -274,7 +293,7 @@ class ApiEventsController extends BaseApiController {
 
     /** Watch an event's replay (anyone allowed to): a short-lived link to the video. {event_id} */
     public function event_replay_watchAction(){
-        $ev = (new EventsModel())->get_public((int) ($this->post['event_id'] ?? 0));
+        $ev = (new EventsModel())->get_by_id((int) ($this->post['event_id'] ?? 0));   // any status: a buyer keeps watching after the event is hidden or canceled
         $info = $ev ? EventReplay::info($ev) : null;
         if (!$ev || !$info) { $this->jsonError('This replay isn’t available.'); }
         if (EventReplay::access($ev, $info, (int) Session::get('user_id')) === '') { $this->jsonError('Buy the replay to watch it.', ['need_buy' => true]); }

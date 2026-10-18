@@ -72,7 +72,7 @@ class AdminController extends Controller {
         $try('billing',      function () { return (new BillingAccountsModel())->past_due_count(); });
         $try('articles',     function () { return count((new SeoArticlesModel())->by_status(array('review', 'draft'))); });
         $try('affiliates',   function () { return (new AffiliatesModel())->pending_count() + (new AffiliatePayoutsModel())->requested_count(); });
-        $try('messages',     function () { $team = PlatformAccount::id(); return $team > 0 ? (new MessagesModel())->total_unread($team) : 0; });   // unread replies to Creator Link Studio
+        $try('messages',     function () { return (new MessagesModel())->total_unread(PlatformAccount::ID); });   // unread replies to Creator Link Studio
         $n['queue'] = $n['moderation'] + $n['reports'] + $n['verification'] + $n['age'] + $n['support'] + $n['billing'];   // the Moderation tab's pill
         return $n;
     }
@@ -336,7 +336,7 @@ class AdminController extends Controller {
     /** /admin/messages — the Creator Link Studio team inbox: users' replies to admin messages, answered as the team. ?c=<id> opens one. */
     public function messagesAction(){
         $this->shell('messages');
-        $this->view->team_ok = PlatformAccount::id() > 0;
+        $this->view->team_ok = true;
         $this->view->open_c  = (int) ($_GET['c'] ?? 0);
         $this->view->render();
     }
@@ -344,14 +344,13 @@ class AdminController extends Controller {
     /** /admin/announcements — one message to a whole audience (all users, creators, fans, active), from Creator Link Studio. */
     public function announcementsAction(){
         $this->shell('announcements');
-        $team = PlatformAccount::id();
         $model = new BroadcastsModel();
-        $this->view->team_ok = $team > 0;
+        $this->view->team_ok = true;
         $this->view->labels  = BroadcastsModel::platform_segment_labels();
         $counts = array();
-        foreach (BroadcastsModel::platform_segments() as $seg) { $counts[$seg] = $team > 0 ? $model->platform_count($seg) : 0; }
+        foreach (BroadcastsModel::platform_segments() as $seg) { $counts[$seg] = $model->platform_count($seg); }
         $this->view->counts  = $counts;
-        $this->view->history = $team > 0 ? $model->recent_for_creator($team, 50) : array();
+        $this->view->history = $model->recent_for_creator(PlatformAccount::ID, 50);
         $this->view->delivered = $model->delivered_counts(array_column($this->view->history, 'id'));
         $this->view->render();
     }

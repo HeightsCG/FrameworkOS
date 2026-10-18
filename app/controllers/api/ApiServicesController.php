@@ -147,7 +147,7 @@ class ApiServicesController extends BaseApiController {
         if ((new BlocksModel())->either_blocked($me, $creator_id)) { $this->jsonError('Service not found'); }
         if ($this->seller_suspended($creator_id)) { $this->jsonError('Service not found'); }
 
-        // Already purchased — just hand back the booking details.
+        // An open booking (paid, not delivered yet): just hand back the booking details. Once delivered or refunded, they may book again.
         if ($model->has_purchased($id, $me)) { $this->jsonSuccess(['already' => true, 'access' => $this->service_access($sv)]); }
         // Group service with a seat cap.
         if ((int) $sv['capacity'] > 0 && $model->purchase_count($id) >= (int) $sv['capacity']) {
@@ -161,9 +161,10 @@ class ApiServicesController extends BaseApiController {
                 $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
             }
         }
-        // Record first: UNIQUE(service_id, buyer_id) is the mutex against a double charge. Then debit.
-        $purchase_id = $model->record_purchase($id, $me, max(0, $price));
-        if ($purchase_id <= 0) { $this->jsonSuccess(['already' => true, 'access' => $this->service_access($sv)]); }
+        // Record first (one open booking per buyer is the mutex against a double charge; the seat cap is checked under a lock). Then debit.
+        $purchase_id = $model->record_purchase($id, $me, max(0, $price), (int) $sv['capacity']);
+        if ($purchase_id < 0) { $this->jsonError('This service is fully booked.'); }
+        if ($purchase_id === 0) { $this->jsonSuccess(['already' => true, 'access' => $this->service_access($sv)]); }
         if ($price > 0) {
             // The fan pays now; the creator's share is stored on the booking and paid to them when they mark it
             // delivered (service_mark_delivered), so refunding before that never takes anything back from them.

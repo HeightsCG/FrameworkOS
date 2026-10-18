@@ -272,7 +272,7 @@ class WebhookController extends Controller {
                 $sid = $this->invoice_subscription($obj);
                 $row = $sid !== '' ? $subs->get_by_stripe_id($sid) : null;
                 if ($row && (string) $row['status'] !== 'canceled') {
-                    $subs->update_by_stripe_id($sid, 'past_due', null, 0);
+                    $subs->update_by_stripe_id($sid, 'past_due', null, null);   // null: the fan's scheduled cancel stays as it is
                     if ($row) { $this->sub_notice($row, 'payment failed', 'The renewal for your membership to ' . (Notify::name_of((int) $row['creator_id']) ?: 'this creator') . ' did not go through. Update your card to keep access.', 'fa-triangle-exclamation'); }
                 }
                 break;
@@ -282,7 +282,7 @@ class WebhookController extends Controller {
                 $sid = $this->invoice_subscription($obj);
                 $row = $sid !== '' ? $subs->get_by_stripe_id($sid) : null;
                 if ($row && (string) $row['status'] !== 'canceled') {   // a canceled row (ended or refunded) is never revived here
-                    $subs->update_by_stripe_id($sid, 'active', null, 0);
+                    $subs->update_by_stripe_id($sid, 'active', null, null);
                     if ($row && (string) ($obj->billing_reason ?? '') === 'subscription_cycle') {
                         $this->sub_notice($row, 'renewed', 'Your membership to ' . (Notify::name_of((int) $row['creator_id']) ?: 'this creator') . ' renewed' . (!empty($obj->amount_paid) ? ' for $' . number_format(((int) $obj->amount_paid) / 100, 2) : '') . '.', 'fa-heart');
                     }
@@ -297,9 +297,18 @@ class WebhookController extends Controller {
                 $this->affiliate_reverse($obj);   // a refunded plan charge takes back its affiliate commission
                 return $this->membership_refund($event, $subs);
 
+            case 'charge.dispute.closed':
+                // the bank sided with us: a plan charge's affiliate commission comes back where it can
+                if ((string) ($obj->status ?? '') === 'won') {
+                    $pi = is_object($obj->payment_intent ?? null) ? (string) $obj->payment_intent->id : (string) ($obj->payment_intent ?? '');
+                    if (!Affiliates::on_restore($pi)) { return false; }
+                }
+                break;
+
             case 'charge.dispute.created':
                 // A chargeback (PRD §21): log it and suspend the disputing account pending review.
-                $suspended = (new RefundsModel())->record_chargeback($obj);
+                // A membership dispute arrives from the creator's connected account and matches no platform payment: find the fan by the membership.
+                $suspended = (new RefundsModel())->record_chargeback($obj, $this->dispute_member((string) ($event->account ?? ''), $obj, $subs));
                 $this->affiliate_reverse($obj);   // a disputed plan charge takes back its affiliate commission
                 if ($suspended > 0) {
                     Notify::send($suspended, 'system', 'Account paused pending review', 'A payment on your account was disputed with your bank. Your account is paused while we review it. Reply to this email if you think this is a mistake.', '/', 'fa-shield-halved', false, true);
@@ -402,11 +411,35 @@ class WebhookController extends Controller {
     /** Refund or dispute: take back the affiliate commission; a busy payout lock answers 500 so Stripe redelivers (never skip). */
     private function affiliate_reverse($obj): void {
         $pi = is_object($obj->payment_intent ?? null) ? (string) $obj->payment_intent->id : (string) ($obj->payment_intent ?? '');
-        if (!Affiliates::on_reverse($pi)) {
+        // a refund takes back its refunded share (amount_refunded is the running total); a dispute its disputed amount
+        $taken = ((string) ($obj->object ?? '') === 'dispute') ? (int) ($obj->amount ?? 0) : (isset($obj->amount_refunded) ? (int) $obj->amount_refunded : null);
+        if (!Affiliates::on_reverse($pi, $taken ?: null)) {
             error_log('[stripe webhook] affiliate reverse: lock busy for ' . $pi . ', asking for a retry');
             http_response_code(500);
             echo 'retry';
             exit;
+        }
+    }
+
+    /** The fan behind a dispute on a creator's connected account (a membership payment), or 0. Same lookup as membership_refund. */
+    private function dispute_member($account, $dispute, $subs): int {
+        if ($account === '') { return 0; }
+        try {
+            $creator = (new PayoutsModel())->creator_for_account($account);
+            if ($creator <= 0) { return 0; }
+            $pi     = is_object($dispute->payment_intent ?? null) ? (string) $dispute->payment_intent->id : (string) ($dispute->payment_intent ?? '');
+            $inv_id = $pi !== '' ? StripeService::connect_invoice_for_payment($account, $pi) : '';
+            $inv    = $inv_id !== '' ? StripeService::connect_invoice($account, $inv_id) : null;
+            $sid    = $inv ? $this->invoice_subscription($inv) : '';
+            $row    = $sid !== '' ? $subs->get_by_stripe_id($sid) : null;
+            if (!$row) {
+                $charge = is_object($dispute->charge ?? null) ? (string) $dispute->charge->id : (string) ($dispute->charge ?? '');
+                $row = $subs->get_paid_by_customer($creator, StripeService::connect_charge_customer($account, $charge));
+            }
+            return ($row && (int) $row['creator_id'] === $creator) ? (int) $row['subscriber_id'] : 0;
+        } catch (\Throwable $e) {
+            error_log('[stripe webhook] dispute member lookup: ' . $e->getMessage());
+            return 0;
         }
     }
 

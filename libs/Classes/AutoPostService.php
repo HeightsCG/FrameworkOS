@@ -13,6 +13,7 @@ class AutoPostService {
         $creator_id = (int) ($user['user_id'] ?? 0);
         $topic      = trim((string) ($rule['topic'] ?? ''));
         if ($creator_id <= 0) { return self::fail(null, 'Missing creator.'); }
+        if (!Plan::account_active($user) || !Plan::creator_active($creator_id)) { return self::fail(null, 'This account is suspended, so automations are paused.'); }
         if (!Plan::can_use_creator_features($user)) { return self::fail(null, 'Your plan is inactive. Choose a plan to keep automations running.'); }
         if (Plan::is_locked($user, 'automations', (int) ($rule['id'] ?? 0))) { return self::fail(null, Plan::locked_message($user, 'automations')); }
         if ($topic === '')    { return self::fail(null, 'This automation has no topic to generate from.'); }
@@ -40,6 +41,13 @@ class AutoPostService {
         if ($is_inf && $is_video) {
             $cap_inf = (new InfluencersModel())->get_one($creator_id, (int) ($rule['influencer_id'] ?? 0));
             if (!$cap_inf) { return self::fail(null, 'This automation has no influencer selected.'); }
+            // Credits for the still and the video first, so a run that can't be paid for never calls the planner.
+            $need = self::influencer_video_credits($rule);
+            if ($need > 0) {
+                Plan::grant_monthly($user);
+                $bal = (int) (new AiCreditsModel())->get_balance($creator_id);
+                if ($bal < $need) { return self::fail(null, Plan::credits_message('video', $need, $bal)); }
+            }
             $plan = AutomationPlan::video($cap_inf, $topic, (string) ($rule['video_prompt'] ?? ''), (new SchedulerRunsModel())->recent_hooks((int) ($rule['id'] ?? 0), AutomationPlan::RECENT));
             if (empty($plan['ok'])) { return self::fail(null, 'Planning failed: ' . $plan['error']); }
             $image_brief = $plan['image_prompt'];
@@ -209,6 +217,18 @@ class AutoPostService {
     /** And animate on Kling 3.0 (Cinematic), 10 seconds, unless the rule picked another model that accepts a realistic face. */
     const VIDEO_DEFAULT_MODEL = 'kling_v3';
     const VIDEO_DEFAULT_SECONDS = '10';
+
+    /** AI credits an influencer video run takes: the still (VIDEO_BASE_MODEL) plus the video, priced as MediaVideoJob::start will. */
+    public static function influencer_video_credits(array $rule): int {
+        list($vkey, $vdur) = self::influencer_video_model((string) ($rule['video_model_key'] ?? ''), (string) ($rule['video_duration'] ?? ''));
+        $vm = InfluencerConfig::resolve_model('video', $vkey);
+        if (!$vm) { return 0; }
+        $durs = array_values(array_map('strval', (array) ($vm['durations'] ?? array())));
+        if (!empty($durs) && !in_array((string) $vdur, $durs, true)) { $vdur = $durs[0]; }
+        $over = !empty($vm['res_usd']) ? array('resolution' => InfluencerConfig::resolution_for($vm, '')) : array();
+        return (int) Plan::ai_price('image', array('model_key' => self::VIDEO_BASE_MODEL, 'params' => array('num_images' => 1)))
+             + (int) Plan::ai_price('video', array('model_key' => (string) $vm['key'], 'duration' => (string) $vdur, 'params' => array('overrides' => $over)));
+    }
 
     /** [model key, seconds] for an influencer video: the rule's choice, unless it is empty or a model that refuses realistic faces (Seedance). */
     public static function influencer_video_model($key, $dur){

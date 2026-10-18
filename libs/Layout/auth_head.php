@@ -7,11 +7,24 @@
     <script defer src="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.js"></script>
     <script defer src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path().'/public/js/api.data.js'); ?>"></script>
     <script defer src="/js/csrf-retry.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/csrf-retry.js'); ?>"></script>
+    <style>
+    /* register dialog: the password rules, ticked as they are met */
+    .cos-rules { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin: -4px 0 0; padding: 0; list-style: none; font-size: .8125rem; line-height: 1.3; color: var(--ld-muted, #6e6e73); }
+    .cos-rules li { display: flex; align-items: center; gap: 8px; transition: color .15s; }
+    .cos-rules__ic { flex: none; }
+    .cos-rules__ck { opacity: 0; transition: opacity .15s; }
+    .cos-rules li.is-met { color: var(--sx-t2, #3a3a40); }
+    .cos-rules li.is-met .cos-rules__ic { color: #22c55e; }
+    .cos-rules li.is-met .cos-rules__ck { opacity: 1; }
+    .cos-rules li.is-miss { color: #ef4444; }
+    .cos-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    </style>
     <script>
     /* Where to go after signing in: back to the page that sent them (?next=/@handle/events/12), same site only. */
     function cls_after_login() {
         var n = new URLSearchParams(location.search).get('next') || '';
-        return (n.charAt(0) === '/' && n.charAt(1) !== '/' && n.charAt(1) !== '\\') ? n : '/';
+        if (/[\u0000-\u0020\u007f\\]/.test(n)) { return '/'; }   // browsers drop tabs/newlines and read \ as /: "/\t/evil.com" would leave the site
+        return (n.charAt(0) === '/' && n.charAt(1) !== '/') ? n : '/';
     }
     document.addEventListener('DOMContentLoaded', function () {
     $(document).ready(function() {
@@ -175,6 +188,27 @@
             });
         });
 
+        // Password rules under the register fields, ticked as they are met; a failed submit names every one still missing.
+        var pw_rules = [
+            { k: 'len', t: 'at least 8 characters', ok: function (p) { return p.length >= 8; } },
+            { k: 'up', t: 'an uppercase letter', ok: function (p) { return /[A-Z]/.test(p); } },
+            { k: 'low', t: 'a lowercase letter', ok: function (p) { return /[a-z]/.test(p); } },
+            { k: 'num', t: 'a number', ok: function (p) { return /[0-9]/.test(p); } },
+            { k: 'sym', t: 'a symbol', ok: function (p) { return /[^A-Za-z0-9]/.test(p); } }
+        ];
+        function paint_pw_rules(flag) {
+            var p = String($('#register_p_word').val() || ''), miss = [];
+            pw_rules.forEach(function (r) {
+                var li = $('#register_pw_rules [data-rule="' + r.k + '"]'), met = r.ok(p);
+                li.toggleClass('is-met', met);
+                if (flag) { li.toggleClass('is-miss', !met); } else if (met) { li.removeClass('is-miss'); }
+                li.find('[data-state]').text(met ? ' (done)' : '');
+                if (!met) { miss.push(r.t); }
+            });
+            return miss;
+        }
+        $(document).on('input', '#register_p_word', function () { paint_pw_rules(false); });
+
         $('#do_register').on('click', function() {
 
             if ($("#register_user_email").val() === '') {
@@ -192,28 +226,10 @@
                 return;
             }
 
-            if ($("#register_p_word").val().length < 8) {
-                toastr.error('Password must be at least 8 characters');
-                return;
-            }
-
-            if (!/[A-Z]/.test($("#register_p_word").val())) {
-                toastr.error('Password must include an uppercase letter');
-                return;
-            }
-
-            if (!/[a-z]/.test($("#register_p_word").val())) {
-                toastr.error('Password must include a lowercase letter');
-                return;
-            }
-
-            if (!/[0-9]/.test($("#register_p_word").val())) {
-                toastr.error('Password must include a number');
-                return;
-            }
-
-            if (!/[^A-Za-z0-9]/.test($("#register_p_word").val())) {
-                toastr.error('Password must include a symbol');
+            var pw_miss = paint_pw_rules(true);
+            if (pw_miss.length) {
+                var pw_last = pw_miss.pop();
+                toastr.error('Password needs ' + (pw_miss.length ? pw_miss.join(', ') + ' and ' : '') + pw_last);
                 return;
             }
 
@@ -222,7 +238,7 @@
                 user_email: $('#register_user_email').val(),
                 p_word:     $('#register_p_word').val(),
                 p_word_confirm: $('#register_p_word_confirm').val(),
-                company:    $('#register_company').val(),   // honeypot: empty for people
+                hp_field_x: $('#register_hp').val(),   // honeypot: empty for people
                 plan:       signup_q.get('plan') || '',
                 role:       signup_q.get('role') || '',
                 ref:        signup_q.get('ref') || '',
@@ -280,6 +296,7 @@
             exists: 'An account with this email already exists. Sign in with your email and password, then connect Google in Settings.',
             suspended: 'This account has been suspended. Contact support if you believe this is a mistake.',
             seat: 'Your team seat is over the account owner’s plan limit. Ask the owner to upgrade.',
+            owner: 'The account you work on has been suspended, so team access is paused.',
             busy: 'Too many attempts. Please try again later.',
             unavailable: 'Google sign-in isn’t available right now. Use your email and password.'
         };

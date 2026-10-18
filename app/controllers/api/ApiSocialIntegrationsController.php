@@ -180,6 +180,7 @@ class ApiSocialIntegrationsController extends BaseApiController {
         } else {
             $user = $acting;
         }
+        if (!Plan::account_active($user)) { $this->jsonError($is_team ? Plan::OWNER_SUSPENDED_MESSAGE : LoginGate::SUSPENDED_MESSAGE); }   // suspended owner: nothing posts as them
         if (!$user || (int) $user['role_id'] !== $this->userModel->get_role_id_by_name('Creator')) {
             $this->jsonError('Only creator accounts can connect social accounts');
         }

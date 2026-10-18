@@ -10,6 +10,7 @@
 
     var $convs = $('#ibxConvs'), $scroll = $('#ibxScroll'), $pane = $('#ibxPane'), $blank = $('#ibxBlank'), $input = $('#ibxInput');
     var convs = [], filter = 'all', search = '', active = 0, activePeer = null, iAmCreator = false, viewerCredits = 0, unlocking = 0, threadReq = 0;
+    var convs_more = false, thread_more = false, loading_more = false;
 
     function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function utc(iso) { if (!iso) { return null; } var d = new Date(String(iso).replace(' ', 'T') + 'Z'); return isNaN(d) ? null : d; }
@@ -115,7 +116,49 @@
 
     /* ---- conversation list ---- */
     function loadConvs(cb) {
-        api('message_inbox', {}, function (o) { if (o && o.success) { convs = o.conversations || []; renderConvs(); } if (cb) { cb(); } });
+        api('message_inbox', {}, function (o) { if (o && o.success) { convs = o.conversations || []; convs_more = !!o.has_more; unreadConvs = o.unread_convs; renderConvs(); } if (cb) { cb(); } });
+    }
+    // Search and the Unread tab ask the server, which looks through every conversation, not only the loaded page.
+    var found = null, unreadConvs = null, findReq = 0;
+    function refreshFound() {
+        if (!search && filter !== 'unread') { found = null; renderConvs(); return; }
+        var req = ++findReq;
+        api('message_inbox', { q: search, unread: filter === 'unread' ? 1 : 0 }, function (o) {
+            if (req !== findReq || !o || !o.success) { return; }
+            found = o.conversations || []; unreadConvs = o.unread_convs;
+            found.forEach(function (n) { if (n.id === active) { n.unread = 0; } });
+            renderConvs();
+        });
+    }
+    function sortConvs() { convs.sort(function (a, b) { var d = String(b.last_at).localeCompare(String(a.last_at)); return d !== 0 ? d : b.id - a.id; }); }
+    // Merge changed conversations into the list (poll results, older pages): replace by id, then re-sort.
+    function mergeConvs(list) {
+        (list || []).forEach(function (n) { var i = -1; convs.forEach(function (c, k) { if (c.id === n.id) { i = k; } }); if (i >= 0) { convs[i] = n; } else { convs.push(n); } });
+        sortConvs();
+    }
+    function loadMoreConvs() {
+        if (loading_more || !convs.length) { return; }
+        var last = convs[convs.length - 1];
+        loading_more = true; $convs.find('.ibx__more button').prop('disabled', true);
+        api('message_inbox', { before_at: last.last_at, before_id: last.id }, function (o) {
+            loading_more = false;
+            if (!o || !o.success) { toastErr('Could not load more conversations'); renderConvs(); return; }
+            convs_more = !!o.has_more; mergeConvs(o.conversations); renderConvs();
+        });
+    }
+    // The poll asks only for conversations with activity since the newest one the list has.
+    function pollConvs() {
+        if (!convs.length) { loadConvs(); return; }
+        var since = ''; convs.forEach(function (c) { if (String(c.last_at) > since) { since = String(c.last_at); } });
+        api('message_inbox', { since: since }, function (o) {
+            if (!o || !o.success) { return; }
+            if (o.unread_convs !== undefined) { unreadConvs = o.unread_convs; }
+            var list = o.conversations || [];
+            if (!list.length) { renderConvs(); return; }
+            list.forEach(function (n) { if (n.id === active) { n.unread = 0; } });   // the open thread is read as it polls
+            mergeConvs(list);
+            if (found) { refreshFound(); } else { renderConvs(); }
+        });
     }
     function convMatches(c) {
         if (filter === 'unread' && !(c.unread > 0)) { return false; }
@@ -123,10 +166,11 @@
         return true;
     }
     function renderConvs() {
-        var $c = $convs.empty(), unread = 0, shown = 0;
+        var $c = $convs.empty(), unread = 0, shown = 0, list = found || convs;
         convs.forEach(function (c) { if (c.unread > 0) { unread++; } });
+        if (unreadConvs !== null && unreadConvs !== undefined) { unread = unreadConvs; }   // the server's count covers every conversation, loaded or not
         $('#ibxUnreadN').text(unread ? unread : '');
-        convs.forEach(function (c) {
+        list.forEach(function (c) {
             if (!convMatches(c)) { return; }
             shown++;
             var cb = c.other_is_creator ? ' <i class="fa-solid fa-circle-check ibx-badge" title="Creator"></i>' : '';
@@ -138,13 +182,15 @@
                 + '<span class="ibx-conv__prev">' + esc(pv) + '</span></span>' + un + '</button>');
         });
         if (!shown) {
-            $c.html('<p class="ibx__note">' + (convs.length ? (filter === 'unread' && !search ? 'Nothing unread.' : 'No conversations match.') : 'No messages yet. Start one with the compose button.') + '</p>');
+            $c.html('<p class="ibx__note">' + (convs.length || found ? (filter === 'unread' && !search ? 'Nothing unread.' : 'No conversations match.') : 'No messages yet. Start one with the compose button.') + '</p>');
         }
+        if (convs_more && !found) { $c.append('<div class="ibx__more"><button type="button" class="btn btn-secondary btn-sm">Load More</button></div>'); }
     }
-    $convs.on('click', '.ibx-conv', function () { var $b = $(this), id = parseInt($b.data('id'), 10); var c = convs.filter(function (x) { return x.id === id; })[0]; openThread(id, c ? { id: c.other_id, name: c.other_name, handle: c.other_handle, avatar: c.other_avatar, is_creator: c.other_is_creator } : null, true); });
-    $('.ibx__tab').on('click', function () { filter = $(this).data('filter'); $('.ibx__tab').removeClass('is-on'); $(this).addClass('is-on'); renderConvs(); });
+    $convs.on('click', '.ibx__more button', loadMoreConvs);
+    $convs.on('click', '.ibx-conv', function () { var $b = $(this), id = parseInt($b.data('id'), 10); var c = (found || convs).filter(function (x) { return x.id === id; })[0]; openThread(id, c ? { id: c.other_id, name: c.other_name, handle: c.other_handle, avatar: c.other_avatar, is_creator: c.other_is_creator } : null, true); });
+    $('.ibx__tab').on('click', function () { filter = $(this).data('filter'); $('.ibx__tab').removeClass('is-on'); $(this).addClass('is-on'); refreshFound(); });
     var searchT = null;
-    $('#ibxSearch').on('input', function () { var v = (this.value || '').trim().toLowerCase(); clearTimeout(searchT); searchT = setTimeout(function () { search = v; renderConvs(); }, 150); });
+    $('#ibxSearch').on('input', function () { var v = (this.value || '').trim().toLowerCase(); clearTimeout(searchT); searchT = setTimeout(function () { search = v; refreshFound(); }, 250); });
 
     /* ---- thread ---- */
     function setPeer(p) {
@@ -153,7 +199,7 @@
         var p2 = activePeer;
         $('#ibxPeerAv').replaceWith(av(p2.avatar, p2.name).replace('class="ibx__av"', 'class="ibx__av" id="ibxPeerAv"'));
         $('#ibxPeerName').html(esc(p2.name || '') + (p2.is_creator ? ' <i class="fa-solid fa-circle-check ibx-badge" title="Creator"></i>' : ''));
-        $('#ibxPeerSub').text((p2.handle ? '@' + p2.handle + ' · ' : '') + (p2.is_creator ? 'Creator' : 'Member'));
+        $('#ibxPeerSub').text(p2.is_team ? 'Team' : (p2.handle ? '@' + p2.handle + ' · ' : '') + (p2.is_creator ? 'Creator' : 'Member'));
         var $prof = $('#ibxPeerProfile');
         if (p2.is_creator && p2.handle) { $prof.attr('href', '/@' + encodeURIComponent(p2.handle)).prop('hidden', false); } else { $prof.prop('hidden', true); }
         var pid = parseInt(p2.id, 10) || 0;
@@ -168,6 +214,7 @@
     function showList() { active = 0; $root.removeClass('is-thread'); $pane.prop('hidden', true); $blank.prop('hidden', false); closeCtx(); renderConvs(); history.replaceState(null, '', '/inbox'); }
     function applyThread(o, fromUser) {
         active = o.conversation_id; iAmCreator = !!o.i_am_creator; viewerCredits = o.viewer_credits || 0;
+        thread_more = !!o.has_more;
         setPeer(o.other); renderMsgs(o.messages);
         $('#ibxAttachBtn').prop('hidden', !(IS_CREATOR && iAmCreator));
         $('#ibxCtxToggle').prop('hidden', !(IS_CREATOR && iAmCreator));
@@ -231,14 +278,39 @@
         h += '</div>';
         var $b = $(h); $b.data('msg', m); return $b;
     }
+    function moreBtn() { return $('<div class="ibx__more"><button type="button" class="btn btn-secondary btn-sm">Load Earlier</button></div>'); }
     function renderMsgs(list) {
         var $s = $scroll.empty();
         if (!list.length) { $s.html('<div class="ibx__hint">No messages yet. Say hello.</div>'); return; }
+        if (thread_more) { $s.append(moreBtn()); }
         var lastDay = '';
         list.forEach(function (m) { var d = fday(m.created_at); if (d !== lastDay) { $s.append('<span class="ibx__day">' + esc(d) + '</span>'); lastDay = d; } $s.append(bubble(m)); });
         $s.scrollTop($s[0].scrollHeight);
     }
-    function addMsg(m) { $scroll.find('.ibx__hint').remove(); if (!$scroll.find('.ibx__day').length) { $scroll.append('<span class="ibx__day">' + esc(fday(m.created_at)) + '</span>'); } $scroll.append(bubble(m)); $scroll.scrollTop($scroll[0].scrollHeight); }
+    function msgIds() { return $scroll.find('.ibx-bubble[data-mid]').map(function () { return parseInt($(this).attr('data-mid'), 10) || 0; }).get(); }
+    function addMsg(m) {
+        if ($scroll.find('.ibx-bubble[data-mid="' + m.id + '"]').length) { return; }   // the poll and the send can both bring the same message
+        $scroll.find('.ibx__hint').remove();
+        var d = fday(m.created_at); if ($scroll.find('.ibx__day').last().text() !== d) { $scroll.append('<span class="ibx__day">' + esc(d) + '</span>'); }
+        $scroll.append(bubble(m)); $scroll.scrollTop($scroll[0].scrollHeight);
+    }
+    // "Load Earlier": the page of messages before the oldest one shown, kept in place on screen.
+    $scroll.on('click', '.ibx__more button', function () {
+        var ids = msgIds(); if (!active || !ids.length || loading_more) { return; }
+        var id = active, $b = $(this).prop('disabled', true); loading_more = true;
+        api('message_thread', { conversation_id: id, before_id: Math.min.apply(null, ids) }, function (o) {
+            loading_more = false;
+            if (!o || !o.success || o.conversation_id !== active) { $b.prop('disabled', false); return; }
+            thread_more = !!o.has_more;
+            var h0 = $scroll[0].scrollHeight, t0 = $scroll.scrollTop(), $frag = $('<div>'), lastDay = '';
+            (o.messages || []).forEach(function (m) { var d = fday(m.created_at); if (d !== lastDay) { $frag.append('<span class="ibx__day">' + esc(d) + '</span>'); lastDay = d; } $frag.append(bubble(m)); });
+            $scroll.find('.ibx__more').remove();
+            var $first = $scroll.find('.ibx__day').first(); if ($first.length && $first.text() === lastDay) { $first.remove(); }
+            $scroll.prepend($frag.children());
+            if (thread_more) { $scroll.prepend(moreBtn()); }
+            $scroll.scrollTop(t0 + $scroll[0].scrollHeight - h0);
+        });
+    });
     function replaceBubble(m) { var $old = $scroll.find('.ibx-bubble[data-mid="' + m.id + '"]'); if ($old.length) { $old.replaceWith(bubble(m)); } }
     $('#ibxBack').on('click', showList);
 
@@ -437,21 +509,26 @@
         });
     });
 
-    /* ---- polling: list every 15 s, open thread every 8 s (render only when something changed) ---- */
+    /* ---- polling every 8 s: only what changed (conversations with new activity, messages newer than the last one shown) ---- */
     var lastSig = '';
     setInterval(function () {
         if (document.hidden) { return; }
-        loadConvs();
+        pollConvs();
         if (active && !unlocking) {
-            var id = active;
-            api('message_thread', { conversation_id: id }, function (o) {
+            var id = active, ids = msgIds(), after = ids.length ? Math.max.apply(null, ids) : 0;
+            if (!after) { return; }   // an empty thread: the conversation poll brings it back when a message arrives
+            var watch = [];
+            $scroll.find('.ibx-bubble[data-mid]').each(function () { var m = $(this).data('msg'); if (m && m.mine && m.price_credits > 0) { watch.push(m.id); } });
+            api('message_thread', { conversation_id: id, after_id: after, watch: watch.slice(-100).join(',') }, function (o) {
                 if (!o || !o.success || o.conversation_id !== active || unlocking) { return; }
                 viewerCredits = o.viewer_credits || 0;
-                var sig = (o.messages || []).map(function (m) { return m.id + ':' + (m.locked ? 'l' : 'o') + ':' + (m.unlocks || 0); }).join(',');
-                if (sig === lastSig) { return; }
-                lastSig = sig;
                 var atBottom = ($scroll[0].scrollHeight - $scroll.scrollTop() - $scroll.height()) < 60, top = $scroll.scrollTop();
-                renderMsgs(o.messages); if (!atBottom) { $scroll.scrollTop(top); }
+                (o.messages || []).forEach(addMsg);
+                Object.keys(o.unlocks || {}).forEach(function (k) {
+                    var $bub = $scroll.find('.ibx-bubble[data-mid="' + k + '"]'), m = $bub.data('msg'), n = parseInt(o.unlocks[k], 10) || 0;
+                    if (m && (m.unlocks || 0) !== n) { m.unlocks = n; replaceBubble(m); }
+                });
+                if (!atBottom) { $scroll.scrollTop(top); }
             });
         }
     }, 8000);

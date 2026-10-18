@@ -64,12 +64,19 @@ $off = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai' =
 check('disclosure off: no flag and no line anywhere',   strpos(json_encode($off), $line) === false && strpos(json_encode($off), 'is_ai_generated') === false && strpos(json_encode($off), 'synthetic') === false);
 
 /* ---- Stories ---- */
-$s = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai' => true, 'stories' => array('ig1', 'tt1')));
+// AI media on a Story: the Story picture itself carries the disclosure (SocialShareService::labelled_story_key)
+$lab = array('ig1' => array(array('url' => 'u1-ailabel', 'video' => false, 'tall' => true)));
+$s = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai' => true, 'stories' => array('ig1', 'tt1'), 'story_media_acct' => $lab, 'story_labelled' => array('ig1')));
 $by = array(); foreach ($s['account_configurations'] as $ac) { $by[$ac['social_account_id']] = $ac['configuration']; }
 check('an Instagram Story is placed as a story',        ($by['ig1']['placement'] ?? '') === 'stories');
-check('a Story takes only the 9:16 media',              array_column($by['ig1']['media'] ?? array(), 'url') === array('u1', 'u3'));
+check('an AI Story sends the labelled copy',            array_column($by['ig1']['media'] ?? array(), 'url') === array('u1-ailabel'));
 check('a platform without Stories posts to the feed as usual', !isset($by['tt1']) && in_array('tt1', $s['accounts'], true));
-check('an AI post sent as a Story says the Story carries no disclosure', count($s['notes']) === 1 && strpos($s['notes'][0], 'Instagram Story') !== false && strpos($s['notes'][0], 'no AI disclosure') !== false, implode(' | ', $s['notes']));
+check('a labelled AI Story needs no note',              empty($s['notes']), implode(' | ', $s['notes']));
+$bare = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai' => true, 'stories' => array('ig1')));
+check('an AI Story without its label is skipped, never sent bare', !in_array('ig1', $bare['accounts'], true) && count($bare['notes']) === 1 && strpos($bare['notes'][0], 'AI label') !== false, implode(' | ', $bare['notes']));
+$ns = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai' => false, 'stories' => array('ig1')));
+$nby = array(); foreach ($ns['account_configurations'] as $ac) { $nby[$ac['social_account_id']] = $ac['configuration']; }
+check('a non-AI Story takes only the 9:16 media',       array_column($nby['ig1']['media'] ?? array(), 'url') === array('u1', 'u3'));
 $plain = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai' => false, 'stories' => array('ig1')));
 check('no such note when the post is not AI',           empty($plain['notes']));
 $none = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 'u2', 'video' => false, 'tall' => false)), array('stories' => array('ig1')));

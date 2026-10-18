@@ -67,10 +67,10 @@ class Main {
         return array();
     }
 
-    public static function config(string $section, string $key)
+    public static function config(string $section, string $key, $default = null)
     {
         $config = self::get_config();
-        return $config[$section][$key];
+        return $config[$section][$key] ?? $default;
     }
 
     public static function site_name(): string

@@ -3,7 +3,7 @@
  * Custom domains: daily DNS re-check (PRD §39). Promotes domains whose records have appeared and takes a live
  * domain off as soon as its records are gone: a host that no longer resolves to the gateway must not stay a
  * sign-in target (it comes back on the next run, or at once with Verify in Settings). Also clears spent
- * session-handoff tokens.
+ * session-handoff tokens, and drops claims that never verified within 7 days.
  *
  *   17 4 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/domains.php >> /tmp/cls-domains.log 2>&1
  */
@@ -22,6 +22,8 @@ date_default_timezone_set('UTC');
 CronRuns::start('domains');
 
 $model = new CreatorDomainsModel();
+$expired = $model->expire_unverified(7);   // claims never verified within a week free their hostname
+if ($expired > 0) { echo gmdate('c'), ' expired ', $expired, " unverified claim(s)\n"; }
 foreach ($model->list_to_recheck() as $row) {
     $r = CustomDomains::verify($row);
     $model->set_status((int) $row['id'], $r['status'], $r['error']);

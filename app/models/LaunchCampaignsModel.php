@@ -41,7 +41,8 @@ class LaunchCampaignsModel extends Model {
 
     /** Scheduled messages whose time has come, oldest first. */
     public function due_broadcasts($limit = 50){
-        return parent::select("SELECT * FROM scheduled_broadcasts WHERE status = 'scheduled' AND send_at <= :n ORDER BY send_at ASC LIMIT " . max(1, (int) $limit),
+        return parent::select("SELECT b.* FROM scheduled_broadcasts b JOIN user_accounts u ON u.user_id = b.creator_id AND u.deleted = 0 AND u.user_status = 'Active'
+             WHERE b.status = 'scheduled' AND b.send_at <= :n ORDER BY b.send_at ASC LIMIT " . max(1, (int) $limit),
             array('n' => date('Y-m-d H:i:s')));
     }
 

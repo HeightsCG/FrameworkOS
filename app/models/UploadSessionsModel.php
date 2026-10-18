@@ -54,9 +54,29 @@ class UploadSessionsModel extends Model {
         return is_array($parts) ? $parts : array();
     }
 
-    /** Record a newly-uploaded part and advance bytes_received. */
+    /**
+     * Record a newly-uploaded part and advance bytes_received. The row is locked while parts_json is rewritten, so two
+     * chunks finishing at once can't drop each other's entry.
+     */
     public function add_part($creator_id, $id, $part_number, $etag, $part_size){
-        $session = $this->get_one($creator_id, $id);
+        $own_tx = !$this->db->inTransaction();   // never nest
+        if ($own_tx) { $this->db->beginTransaction(); }
+        try {
+            $ok = $this->add_part_locked($creator_id, $id, $part_number, $etag, $part_size);
+            if ($own_tx) { $this->db->commit(); }
+            return $ok;
+        } catch (\Throwable $e) {
+            if ($own_tx && $this->db->inTransaction()) { $this->db->rollBack(); }
+            throw $e;
+        }
+    }
+
+    private function add_part_locked($creator_id, $id, $part_number, $etag, $part_size){
+        $rows = parent::select(
+            "SELECT * FROM upload_sessions WHERE id = :id AND creator_id = :c FOR UPDATE",
+            array('id' => (int) $id, 'c' => (int) $creator_id)
+        );
+        $session = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$session) { return false; }
         $parts = $this->parts($session);
         // Replace any existing entry for this part number (re-upload safety).
@@ -71,6 +91,24 @@ class UploadSessionsModel extends Model {
             array('parts_json' => json_encode($parts), 'bytes_received' => $received, 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
+    /**
+     * '' when every part arrived: part numbers 1..N with no gap (N from the declared size and $chunk_size) and the
+     * bytes add up to the declared size. Otherwise the reason it can't be assembled yet.
+     */
+    public function incomplete_reason(array $session, $chunk_size){
+        $total = (int) ($session['bytes_total'] ?? 0);
+        $parts = $this->parts($session);
+        if (empty($parts)) { return 'none'; }
+        $need = (int) ceil(max(1, $total) / max(1, (int) $chunk_size));
+        $nums = array_map(function ($p) { return (int) $p['PartNumber']; }, $parts);
+        sort($nums);
+        if ($nums !== range(1, $need)) { return 'parts'; }
+        $sum = 0;
+        foreach ($parts as $p) { $sum += (int) $p['Size']; }
+        if ($sum !== $total || (int) ($session['bytes_received'] ?? -1) !== $total) { return 'bytes'; }
+        return '';
     }
 
     public function mark_completed($creator_id, $id, $asset_id){

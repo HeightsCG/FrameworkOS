@@ -60,12 +60,18 @@ class BillingService {
         return (string) $acct['plan_key'] !== self::PLAN_FREE && in_array((string) $acct['status'], array('active', 'past_due'), true);
     }
 
-    /** Share of the current period still to run (0..1), for prorating. */
+    /**
+     * Share of one billing month still to run in the current period (0..1), for prorating. Measured against a
+     * full billing month from the period start, not the period's own length, so a short period (the founding
+     * trial) is never charged a full month's price for its few remaining days.
+     */
     public static function remaining_fraction(array $acct): float
     {
         $s = strtotime((string) $acct['current_period_start'] . ' UTC'); $e = strtotime((string) $acct['current_period_end'] . ' UTC');
         if (!$s || !$e || $e <= $s) { return 1.0; }
-        return max(0.0, min(1.0, ($e - time()) / ($e - $s)));
+        $month = strtotime(self::add_period(gmdate('Y-m-d H:i:s', $s)) . ' UTC') - $s;
+        if ($month <= 0) { return 1.0; }
+        return max(0.0, min(1.0, ($e - time()) / $month));
     }
 
     /**
@@ -89,12 +95,16 @@ class BillingService {
         return $plan > 0 ? max(0.0, min(1.0, ($plan - $promo) / $plan)) : 1.0;
     }
 
-    /** $from plus whole billing periods, keeping the day of month (clamped like Stripe). */
-    public static function add_period($from, $periods = 1): string
+    /**
+     * $from plus whole billing periods, keeping the day of month (clamped like Stripe). $anchor_day is the account's
+     * billing day (billing_accounts.billing_anchor_day): a period that was clamped (Jan 31 -> Feb 28) goes back to
+     * the 31st next month instead of drifting to the 28th.
+     */
+    public static function add_period($from, $periods = 1, $anchor_day = null): string
     {
         $d = new DateTimeImmutable((string) $from, new DateTimeZone('UTC'));
         $months = (int) PlanTiers::BILLING['interval_months'] * (int) $periods;
-        $day = (int) $d->format('j');
+        $day = ((int) $anchor_day >= 1 && (int) $anchor_day <= 31) ? (int) $anchor_day : (int) $d->format('j');
         $first = $d->setDate((int) $d->format('Y'), (int) $d->format('n'), 1)->modify('+' . $months . ' months');
         return $first->setDate((int) $first->format('Y'), (int) $first->format('n'), min($day, (int) $first->format('t')))->format('Y-m-d H:i:s');
     }
@@ -308,7 +318,8 @@ class BillingService {
             case 'subscribe':
                 $f += array('plan_key' => $fx['plan'], 'status' => 'active', 'cancel_at_period_end' => 0, 'pending_plan_key' => null,
                     'current_period_start' => $fx['period_start'], 'current_period_end' => $fx['period_end'], 'next_charge_at' => $fx['period_end'],
-                    'influencer_slots' => 0, 'influencer_slots_next' => null, 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null)
+                    'influencer_slots' => 0, 'influencer_slots_next' => null, 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null,
+                    'billing_anchor_day' => !empty($fx['anchor_day']) ? (int) $fx['anchor_day'] : (int) gmdate('j', strtotime((string) $fx['period_end'] . ' UTC')))
                     + self::promo_fields(!empty($fx['promo']) ? self::promo_after_charge($fx['promo']) : null);
                 $t = PlanTiers::get($fx['plan']);
                 $frac = isset($fx['credit_frac']) ? max(0.0, min(1.0, (float) $fx['credit_frac'])) : 1.0;
@@ -409,6 +420,13 @@ class BillingService {
         $acct  = self::account($uid);
         $start = (string) ($acct['current_period_end'] ?: $acct['next_charge_at']);
         if ($start === '') { return array('status' => 'skipped', 'message' => 'No billing period'); }
+        // A period that ended long ago (suspended, or billing stopped for a while): start a new one now. Missed
+        // periods are never charged one after another. Stored first, so retries keep the same start.
+        if (strtotime($start . ' UTC') < time() - self::STALE_PERIOD_DAYS * 86400) {
+            self::restart_period($uid);
+            $acct  = self::account($uid);
+            $start = (string) $acct['current_period_end'];
+        }
 
         // Changes that take effect on the billing date: cancel, downgrade, slot removal, pack change.
         $f = array();
@@ -442,7 +460,9 @@ class BillingService {
         if ($charges->renewal_paid($uid, $start)) { return array('status' => 'skipped', 'message' => 'Already paid'); }
         $last    = $charges->last_renewal($uid, $start);
         $attempt = $last ? (int) $last['attempt'] + 1 : 1;
-        $end     = self::add_period($start);
+        $anchor  = (int) ($acct['billing_anchor_day'] ?? 0) ?: (int) gmdate('j', strtotime($start . ' UTC'));
+        if ((int) ($acct['billing_anchor_day'] ?? 0) === 0) { $accts->save($uid, array('billing_anchor_day' => $anchor)); }
+        $end     = self::add_period($start, 1, $anchor);
         $fx      = array('plan' => $plan, 'slots' => (int) $acct['influencer_slots'], 'pack' => (int) $acct['pack_dollars']);
         if ($plan !== self::PLAN_FREE && !empty($acct['promo_code'])) {
             $off = self::promo_off(self::plan_cents($plan), $acct);
@@ -453,6 +473,30 @@ class BillingService {
             }
         }
         return self::charge($uid, 'renewal', $lines, $fx, $start, $end, 'renewal-' . $uid . '-' . strtotime($start . ' UTC') . '-a' . $attempt, $attempt);
+    }
+
+    /** A period end further back than this is not renewed from; the next period starts now (restart_period). */
+    const STALE_PERIOD_DAYS = 10;   // past the 7-day grace, so normal retries are never restarted
+
+    /**
+     * Start the billing period over from now: the account renews on the next billing run with one period from
+     * today, and its billing day becomes today. Used when a suspended account comes back (AccountBilling::on_reactivate)
+     * and by renew() for a period end far in the past. Only for accounts whose period end has passed.
+     */
+    public static function restart_period($user_id): void
+    {
+        $uid  = (int) $user_id;
+        $acct = self::account($uid);
+        if (!in_array((string) $acct['status'], array('active', 'past_due'), true) || empty($acct['next_charge_at'])) { return; }
+        $end = strtotime((string) ($acct['current_period_end'] ?: $acct['next_charge_at']) . ' UTC');
+        if ($end && $end > time()) { return; }   // still inside a paid period: nothing missed
+        $now = gmdate('Y-m-d H:i:s');
+        $f = array('current_period_end' => $now, 'next_charge_at' => $now, 'billing_anchor_day' => (int) gmdate('j'));
+        if ((string) $acct['status'] === 'past_due') {   // a fresh retry run, not the old grace period
+            $f += array('status' => 'active', 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null);
+        }
+        (new BillingAccountsModel())->save($uid, $f);
+        self::mirror($uid);
     }
 
     /** Move to Free: plan and slots end; $drop_pack also ends the recurring pack. Nothing is deleted. */
@@ -607,7 +651,10 @@ class BillingService {
         $held = $founding ? Founding::claim($uid) : '';
         if ($held !== '') { return array('status' => 'failed', 'message' => $held); }
         try {
-            $r = self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
+            // the billing day: the running period's (joining a pack's date), else today, or the founding trial's end (renewals run monthly from it)
+            $anchor = $keep ? ((int) ($acct['billing_anchor_day'] ?? 0) ?: (int) gmdate('j', strtotime($end . ' UTC')))
+                            : (strpos((string) $q['lines'][0][0], '(rest of this period)') === false && $founding ? (int) gmdate('j', strtotime($end . ' UTC')) : (int) gmdate('j'));
+            $r = self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'anchor_day' => $anchor, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
                     'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0, 'agreement' => $agreement),   // joining a running period mid-way: prorated credits, like the price
                 gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
         } catch (\Throwable $e) {

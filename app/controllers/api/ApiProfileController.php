@@ -335,14 +335,13 @@ class ApiProfileController extends BaseApiController {
         // Stop every recurring charge tied to the creator side: fans' memberships to them (each fan is told) and their own plan.
         AccountBilling::on_leave_creator($user_id);
 
-        // Hard delete all creator content first (irreversible, no soft delete),
-        // then revert the account to a regular User.
-        $this->userModel->hard_delete_creator_content($user_id);
-
         $result = $this->userModel->revert_creator($user_id, $user_id);
         if ($result === false) {
             $this->jsonError('Could not update your account');
         }
+        // Then delete the creator content for good, in the background (refunds, files in storage): CreatorDeletion.
+        // Anything fans bought or were sent stays theirs.
+        (new DatabaseJobQueue())->dispatch('creator_delete', array('user_id' => $user_id), 'creator_delete:' . $user_id);
 
         Session::set('role_id', $this->userModel->get_role_id_by_name('User'));
         Session::set('creator_since', null);
@@ -429,12 +428,13 @@ class ApiProfileController extends BaseApiController {
                 $response['message'] = 'You cannot follow this account';
                 return $response;
             }
-            $follows->follow($user_id, $creator_id);
-            TrackingLinks::attribute($creator_id, 'follow', $user_id);
-            $who = (new MessagesModel())->identity_map([$user_id])[$user_id] ?? ['handle' => ''];
-            $this->notify($creator_id, 'creator_activity', 'New follower',
-                '@' . $who['handle'] . ' started following you.', '/audience', 'fa-user-plus');
-            InboxAutomationService::trigger($creator_id, $user_id, 'new_follower');
+            if ($follows->follow($user_id, $creator_id)) {   // only a new follow notifies and attributes (a repeat click is a no-op)
+                TrackingLinks::attribute($creator_id, 'follow', $user_id);
+                $who = (new MessagesModel())->identity_map([$user_id])[$user_id] ?? ['handle' => ''];
+                $this->notify($creator_id, 'creator_activity', 'New follower',
+                    '@' . $who['handle'] . ' started following you.', '/audience', 'fa-user-plus');
+                InboxAutomationService::trigger($creator_id, $user_id, 'new_follower');
+            }
         } else {
             $follows->unfollow($user_id, $creator_id);
         }

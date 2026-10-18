@@ -40,9 +40,9 @@ class PurchasesController extends Controller {
             if ($p['key'] !== $want) { continue; }
             if (empty($p['assets'])) { break; }
             @set_time_limit(0);
-            $zip = tempnam(sys_get_temp_dir(), 'zip');
-            if (MediaService::build_zip($zip, $p['assets'], 'original') === 0) { @unlink($zip); break; }
-            MediaService::send_zip($zip, trim(mb_substr($p['creator'] . ' - ' . $p['title'], 0, 80)) . '.zip');
+            // Streamed file by file: the first bytes go out after the first file, so a big bundle no longer times out.
+            if (MediaService::stream_zip($p['assets'], 'original', trim(mb_substr($p['creator'] . ' - ' . $p['title'], 0, 80)) . '.zip') > 0) { exit; }
+            break;
         }
         header('Location: /purchases'); exit;
     }

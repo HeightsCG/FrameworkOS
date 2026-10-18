@@ -282,11 +282,11 @@ class StripeService {
             return false;
         }
         try {
-            @self::client()->accounts->delete($account_id);
-            return true;
+            $r = @self::client()->accounts->delete($account_id);
+            return !empty($r->deleted);
         } catch (\Throwable $e) {
             error_log('[stripe] delete_connect_account: ' . $e->getMessage());
-            return false;
+            return self::account_missing($e);   // already gone on Stripe's side: nothing left to delete
         }
     }
 
@@ -322,6 +322,28 @@ class StripeService {
             error_log('[stripe] connect_balance: ' . $e->getMessage());
         }
         return $out;
+    }
+
+    /** connect_balance(), but null when Stripe couldn't be asked (callers that must not guess a zero balance). */
+    public static function connect_balance_checked($account_id)
+    {
+        if (empty($account_id)) { return array('available' => 0, 'pending' => 0, 'currency' => 'USD'); }
+        try {
+            $bal = self::client()->balance->retrieve(array(), array('stripe_account' => $account_id));
+            $sum = function ($list) { $n = 0; foreach ((array) $list as $b) { $n += (int) $b->amount; } return $n; };
+            return array('available' => $sum($bal->available ?? array()), 'pending' => $sum($bal->pending ?? array()), 'currency' => 'USD');
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_balance_checked: ' . $e->getMessage());
+            return self::account_missing($e) ? array('available' => 0, 'pending' => 0, 'currency' => 'USD') : null;
+        }
+    }
+
+    /** The error says the connected account doesn't exist for these keys. */
+    private static function account_missing(\Throwable $e): bool
+    {
+        $code = method_exists($e, 'getStripeCode') ? (string) $e->getStripeCode() : '';
+        return $code === 'resource_missing' || $code === 'account_invalid'
+            || stripos($e->getMessage(), 'No such account') !== false || stripos($e->getMessage(), 'does not have access to account') !== false;
     }
 
     /** Create a manual payout of $amount_cents to the connected account's bank. Returns [ok, error]. */
@@ -836,6 +858,19 @@ class StripeService {
         } catch (\Throwable $e) {
             error_log('[stripe] connect_invoice: ' . $e->getMessage());
             return null;
+        }
+    }
+
+    /** The customer id of a charge on a connected account, or ''. */
+    public static function connect_charge_customer($account_id, $charge_id): string
+    {
+        if ((string) $account_id === '' || (string) $charge_id === '') { return ''; }
+        try {
+            $c = self::client()->charges->retrieve((string) $charge_id, array(), array('stripe_account' => (string) $account_id));
+            return is_object($c->customer ?? null) ? (string) $c->customer->id : (string) ($c->customer ?? '');
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_charge_customer: ' . $e->getMessage());
+            return '';
         }
     }
 

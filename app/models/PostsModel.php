@@ -124,30 +124,38 @@ class PostsModel extends Model {
      * first asset is the cover unless $cover_id names another in the list.
      */
     public function set_assets($creator_id, $post_id, array $asset_ids, $cover_id = 0){
-        $before = array_column((array) parent::select("SELECT asset_id FROM post_assets WHERE post_id = :p", array('p' => (int) $post_id)), 'asset_id');
-        parent::delete_all('post_assets', 'post_id = :p', array('p' => (int) $post_id));
-        $order = 0; $first = null;
-        foreach ($asset_ids as $aid) {
-            $aid = (int) $aid;
-            $own = parent::select(
-                "SELECT id FROM media_assets WHERE id = :a AND creator_id = :c AND deleted_at IS NULL AND " . MediaAssetsModel::NOT_RECORDING,   // call recordings stay on their event
-                array('a' => $aid, 'c' => (int) $creator_id)
+        // The same id twice would hit the post_assets key mid-way (after the old rows were deleted): keep the first.
+        $asset_ids = array_values(array_unique(array_filter(array_map('intval', $asset_ids), function ($v) { return $v > 0; })));
+        $owned = array();
+        if (!empty($asset_ids)) {
+            $rows = parent::select(
+                "SELECT id FROM media_assets WHERE id IN (" . implode(',', $asset_ids) . ") AND creator_id = :c AND deleted_at IS NULL AND " . MediaAssetsModel::NOT_RECORDING,   // call recordings stay on their event
+                array('c' => (int) $creator_id)
             );
-            if (!is_array($own) || count($own) !== 1) { continue; }
-            if ($first === null) { $first = $aid; }
-            parent::insert('post_assets', array(
-                'post_id'    => (int) $post_id,
-                'asset_id'   => $aid,
-                'sort_order' => $order,
-                'is_cover'   => 0,
-            ));
-            $order++;
+            foreach ((array) $rows as $r) { $owned[(int) $r['id']] = true; }
         }
+        $keep = array_values(array_filter($asset_ids, function ($a) use ($owned) { return isset($owned[$a]); }));
+        $first = $keep[0] ?? null;
         // Mark the cover: the named cover if it made the cut, else the first asset.
-        $cover = ((int) $cover_id > 0 && in_array((int) $cover_id, array_map('intval', $asset_ids), true)) ? (int) $cover_id : $first;
-        if ($cover !== null) {
-            parent::update('post_assets', array('is_cover' => 1), 'post_id = :p AND asset_id = :a',
-                array('p' => (int) $post_id, 'a' => (int) $cover));
+        $cover = ((int) $cover_id > 0 && in_array((int) $cover_id, $keep, true)) ? (int) $cover_id : $first;
+
+        $before = array_column((array) parent::select("SELECT asset_id FROM post_assets WHERE post_id = :p", array('p' => (int) $post_id)), 'asset_id');
+        $own_tx = !$this->db->inTransaction();   // never nest: a caller's transaction covers this too
+        if ($own_tx) { $this->db->beginTransaction(); }
+        try {
+            parent::delete_all('post_assets', 'post_id = :p', array('p' => (int) $post_id));
+            foreach ($keep as $order => $aid) {
+                parent::insert('post_assets', array(
+                    'post_id'    => (int) $post_id,
+                    'asset_id'   => (int) $aid,
+                    'sort_order' => (int) $order,
+                    'is_cover'   => ((int) $aid === (int) $cover) ? 1 : 0,
+                ));
+            }
+            if ($own_tx) { $this->db->commit(); }
+        } catch (\Throwable $e) {
+            if ($own_tx && $this->db->inTransaction()) { $this->db->rollBack(); }   // the old media stays on the post
+            throw $e;
         }
         (new MediaAssetsModel())->release_hidden($creator_id, $before);   // a file hidden from the library that this post just dropped is no longer needed
         return true;
@@ -237,6 +245,33 @@ class PostsModel extends Model {
      * Posts with all images approved are omitted (fully visible).
      */
     /**
+     * Age-gate view of one post's media: 'adult' when any image/video is flagged or approved-as-adult (even if others
+     * are still being scanned), 'pending' when some are not scanned yet and none is adult, else 'ok'.
+     */
+    public function adult_status($post_id){
+        $rows = parent::select(
+            "SELECT SUM(ma.moderation_status = 'flagged' OR ma.is_adult = 1) AS adult_n,
+                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged','n_a')) AS unscanned_n
+             FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+             WHERE pa.post_id = :p AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')",
+            array('p' => (int) $post_id)
+        );
+        $r = (is_array($rows) && count($rows) === 1) ? $rows[0] : array();
+        if ((int) ($r['adult_n'] ?? 0) > 0) { return 'adult'; }
+        if ((int) ($r['unscanned_n'] ?? 0) > 0) { return 'pending'; }
+        return 'ok';
+    }
+
+    /** Published or scheduled posts that use this asset (for the re-hold after a scan flags it). */
+    public function live_posts_for_asset($asset_id){
+        return (array) parent::select(
+            "SELECT DISTINCT p.id, p.creator_id FROM post_assets pa JOIN posts p ON p.id = pa.post_id
+             WHERE pa.asset_id = :a AND p.state IN ('published', 'scheduled')",
+            array('a' => (int) $asset_id)
+        );
+    }
+
+    /**
      * Creator-facing version of moderation_map() for the Studio: 'blocked' | 'pending'
      * (unscanned/error, hidden from fans until scanned) | 'adult' (shown to opted-in fans) | 'ok'.
      */
@@ -289,12 +324,42 @@ class PostsModel extends Model {
         return $out;
     }
 
-    public function get_published_for_creator($creator_id){
+    /** A creator's published page posts, newest first. $limit 0 = all; the profile pages them (ProfilePosts). */
+    /** $q: only posts whose caption contains it (the profile's search box, across every post, not just the loaded page). */
+    public function get_published_for_creator($creator_id, $limit = 0, $offset = 0, $q = ''){
+        $page = (int) $limit > 0 ? ' LIMIT ' . max(0, (int) $offset) . ', ' . (int) $limit : '';
+        $p = array('c' => (int) $creator_id); $find = '';
+        $q = trim((string) $q);
+        if ($q !== '') {
+            // captions may be stored as typed or html-encoded (older rows): match either form
+            $find = ' AND (caption LIKE :q1 OR caption LIKE :q2)';
+            $p['q1'] = '%' . addcslashes(mb_substr($q, 0, 100), '%_\\') . '%';
+            $p['q2'] = '%' . addcslashes(htmlspecialchars(mb_substr($q, 0, 100), ENT_QUOTES, 'UTF-8'), '%_\\') . '%';
+        }
         return parent::select(
-            "SELECT * FROM posts WHERE creator_id = :c AND state = 'published' AND on_cls = 1
-             ORDER BY published_at DESC, id DESC",
-            array('c' => (int) $creator_id)
+            "SELECT * FROM posts WHERE creator_id = :c AND state = 'published' AND on_cls = 1" . $find . "
+             ORDER BY published_at DESC, id DESC" . $page,
+            $p
         );
+    }
+
+    /** get_assets() for several posts in one query: post_id => that post's rows, in sort order. */
+    public function assets_for_posts(array $post_ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $post_ids))));
+        if (!$ids) { return array(); }
+        $rows = parent::select(
+            "SELECT pa.post_id, pa.asset_id, pa.sort_order, pa.is_cover,
+                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.is_adult, ma.provenance, ma.width, ma.height,
+                    ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at,
+                    ma.public_thumb_key, ma.public_display_key, ma.public_width, ma.public_height
+             FROM post_assets pa
+             JOIN media_assets ma ON ma.id = pa.asset_id
+             WHERE pa.post_id IN (" . implode(',', $ids) . ")
+             ORDER BY pa.post_id ASC, pa.sort_order ASC, pa.asset_id ASC"
+        );
+        $out = array();
+        foreach ((array) $rows as $r) { $out[(int) $r['post_id']][] = $r; }
+        return $out;
     }
 
     /** Count assets on a post that are missing (soft-deleted) — blocks publishing. */
@@ -423,6 +488,7 @@ class PostsModel extends Model {
         if ((int) $creator_id > 0) { $mine = ' AND p.creator_id = :c'; $params['c'] = (int) $creator_id; }
         $rows = parent::select(
             "SELECT p.id, p.creator_id, p.published_at FROM posts p
+             JOIN user_accounts u ON u.user_id = p.creator_id AND u.deleted = 0 AND u.user_status = 'Active'
              WHERE p.state = 'scheduled' AND p.scheduled_at <= :n AND p.media_missing = 0" . $mine . "
                AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets m ON m.id = pa.asset_id
                                WHERE pa.post_id = p.id AND m.deleted_at IS NULL AND m.moderation_status = 'blocked')

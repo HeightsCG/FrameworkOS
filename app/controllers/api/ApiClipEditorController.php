@@ -15,7 +15,7 @@ class ApiClipEditorController extends BaseApiController {
     private function text($key, $max){ return mb_substr(trim(html_entity_decode((string) ($this->post[$key] ?? ''), ENT_QUOTES, 'UTF-8')), 0, $max); }
 
     public function edit_project_listAction(){
-        $user = $this->require_creator('content', false);
+        $user = $this->require_creator('view', false);
         $this->answer(ClipEditActions::listing((int) $user['user_id']));
     }
 
@@ -25,7 +25,7 @@ class ApiClipEditorController extends BaseApiController {
     }
 
     public function edit_project_getAction(){
-        $user = $this->require_creator('content', false);
+        $user = $this->require_creator('view', false);
         $this->answer(ClipEditActions::get((int) $user['user_id'], (int) ($this->post['id'] ?? 0)));
     }
 
@@ -53,7 +53,7 @@ class ApiClipEditorController extends BaseApiController {
     }
 
     public function edit_project_statusAction(){
-        $user = $this->require_creator('content', false);
+        $user = $this->require_creator('view', false);
         $this->answer(ClipEditActions::status((int) $user['user_id'], (int) ($this->post['id'] ?? 0)));
     }
 }

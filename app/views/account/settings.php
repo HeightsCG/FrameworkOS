@@ -1500,6 +1500,7 @@
             </div>
             <div class="modal-body">
                 <p>This will <strong>permanently delete all of your creator content</strong> — it will not be recoverable. Your account will return to a regular user account.</p>
+                <p>Memberships end and members are not charged again. Upcoming paid events are canceled and open bookings refunded. Anything fans bought stays in their purchases.</p>
                 <p class="mb-0">Are you sure you want to continue?</p>
             </div>
             <div class="modal-footer">

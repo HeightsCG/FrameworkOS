@@ -247,8 +247,10 @@ class CreatorSubscriptionsModel extends Model {
     }
 
     /** Update a subscription's lifecycle from a Stripe webhook (by stripe_subscription_id). */
+    /** $cancel_at_period_end null = leave the column as it is (invoice events don't carry it). */
     public function update_by_stripe_id($stripe_subscription_id, $status, $current_period_end = null, $cancel_at_period_end = 0){
-        $data = array('status' => $status, 'updated_at' => date('Y-m-d H:i:s'), 'cancel_at_period_end' => $cancel_at_period_end ? 1 : 0);
+        $data = array('status' => $status, 'updated_at' => date('Y-m-d H:i:s'));
+        if ($cancel_at_period_end !== null) { $data['cancel_at_period_end'] = $cancel_at_period_end ? 1 : 0; }
         if ($current_period_end) {
             $data['current_period_end'] = date('Y-m-d H:i:s', (int) $current_period_end);
         }

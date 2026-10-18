@@ -107,6 +107,12 @@ class CreatorPlansModel extends Model {
         );
     }
 
+    /** Forget every cached Stripe product/price of a creator's plans (they lived on a payout account that changed). */
+    public function clear_stripe_ids_for_user($user_id){
+        return parent::update('creator_plans', array('stripe_product_id' => null, 'stripe_price_id' => null, 'updated_at' => date('Y-m-d H:i:s')),
+            'user_id = :u', array('u' => (int) $user_id));
+    }
+
     /** Cache the Stripe product/price ids created for a plan. */
     public function set_stripe_ids($id, $product_id, $price_id){
         return parent::update(

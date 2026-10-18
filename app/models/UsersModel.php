@@ -345,7 +345,7 @@ class UsersModel extends Model {
     }
 
     public function delete_account($user_id, $updated_by=0){
-        return parent::update(
+        $done = parent::update(
             'user_accounts',
             array(
                 'deleted'    => 1,
@@ -355,6 +355,26 @@ class UsersModel extends Model {
             'user_id = :user_id',
             array('user_id' => (int) $user_id)
         );
+        $this->release_identifiers($user_id);
+        (new CreatorDomainsModel())->remove_all_for_user((int) $user_id);   // custom domains can be claimed again
+        return $done;
+    }
+
+    /**
+     * Free a soft-deleted account's unique handle and Google link so the same person (or a new one) can sign up,
+     * be re-invited or take the handle. The old handle is archived in username_history (not reserved).
+     */
+    public function release_identifiers($user_id){
+        $user_id = (int) $user_id;
+        $rows = parent::select("SELECT u_name FROM user_accounts WHERE user_id = :u", array('u' => $user_id));
+        if (!is_array($rows) || count($rows) !== 1) { return false; }
+        $old  = (string) $rows[0]['u_name'];
+        $free = UsernameModel::DELETED_PREFIX . $user_id;
+        $now  = date('Y-m-d H:i:s');
+        if ($old !== '' && $old !== $free) {
+            parent::insert('username_history', array('user_id' => $user_id, 'u_name' => $old, 'changed_at' => $now, 'reserved_until' => $now));
+        }
+        return parent::update('user_accounts', array('u_name' => $free, 'google_sub' => null), 'user_id = :u', array('u' => $user_id));
     }
 
     /** $ttl: '+1 hour' for a forgotten password; team invites get '+7 days' so the invitee has time to open it. */
@@ -441,12 +461,6 @@ class UsersModel extends Model {
     }
 
     /** Every active admin's user id (in-platform notifications for review queues). */
-    /** The "Creator Link Studio" team account (is_platform): the sender of admin messages and announcements. 0 when missing. */
-    public function platform_id(){
-        $rows = parent::select("SELECT user_id FROM user_accounts WHERE is_platform = 1 AND deleted = 0 ORDER BY user_id LIMIT 1");
-        return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['user_id'] : 0;
-    }
-
     public function admin_ids(){
         $rows = parent::select("SELECT user_id FROM user_accounts WHERE is_admin = 1 AND deleted = 0");
         $out = array();

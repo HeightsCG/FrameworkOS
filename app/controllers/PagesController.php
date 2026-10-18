@@ -38,6 +38,9 @@ class PagesController extends Controller {
         'alternatives'                        => 'alternativesHub',   // the AI influencer tool categories page; the <x>-alternatives pages are alternativesAction
         'affiliates'                          => 'affiliates',   // /affiliates (public); /affiliates/apply and /affiliates/dashboard go on to AffiliatesController
         'start'                               => 'start',   // the TikTok ads landing page (StartPage), noindex, its own document
+        'signup'                              => 'authRedirect',   // guessed / ad URLs: 301 to the sign-in dialog on the home page
+        'register'                            => 'authRedirect',
+        'login'                               => 'authRedirect',
     );
 
     /** The fee wedge in one line, from config: what each selling plan keeps, against OnlyFans' sourced rate ("Keep 90% of every sale on Creator, 97% on Studio. OnlyFans keeps 20%."). */
@@ -903,6 +906,15 @@ class PagesController extends Controller {
      * /start (2026-10-16): the paid-traffic landing page for TikTok ads. Its own standalone document (app/views/pages/start.php):
      * no site nav or footer, signup in a sheet on the page. noindex: it is an ad destination, not a search page.
      */
+    /** /signup, /register, /login: 301 to the dialog on the home page (?auth=register|login), keeping the query (?plan=, ?role=, ?ref=, utm_*). */
+    public function authRedirectAction(){
+        if (self::$embedded) { return; }   // never rendered as a page (Markdown copy, llms)
+        $panel = (string) (Main::get_url()[0] ?? '') === 'login' ? 'login' : 'register';
+        $q = $_GET; unset($q['url'], $q['auth']);
+        header('Location: /?' . http_build_query(array('auth' => $panel) + $q), true, 301);
+        exit;
+    }
+
     public function startAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         if (!self::$embedded) { Session::cache_header(60); }   // the trial line follows the founding spots, at most a minute old

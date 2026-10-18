@@ -17,15 +17,22 @@ class FollowsModel extends Model {
         return is_array($rows) && count($rows) === 1;
     }
 
+    /** Follow a creator. True only when a new follow row was added (false: already following, or yourself). */
     public function follow($follower_id, $creator_id){
         if ((int) $follower_id === (int) $creator_id || $this->is_following($follower_id, $creator_id)) {
-            return true;
+            return false;
         }
-        $ok = parent::insert('follows', array(
-            'follower_id' => (int) $follower_id,
-            'creator_id'  => (int) $creator_id,
-            'created_at'  => date('Y-m-d H:i:s'),
-        ));
+        try {
+            $ok = parent::insert('follows', array(
+                'follower_id' => (int) $follower_id,
+                'creator_id'  => (int) $creator_id,
+                'created_at'  => date('Y-m-d H:i:s'),
+            ));
+        } catch (\PDOException $e) {
+            if ((string) $e->getCode() === '23000') { return false; }   // a second click got there first (uq_follow)
+            throw $e;
+        }
+        $ok = (bool) $ok;
         if ($ok) { TikTokEventJob::from_event('follow', (int) $follower_id, array('creator_id' => (int) $creator_id)); }
         return $ok;
     }

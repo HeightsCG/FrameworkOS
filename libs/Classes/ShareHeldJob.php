@@ -24,6 +24,7 @@ class ShareHeldJob {
         $rows = (new UsersModel())->get_user_by_id($cid);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$user) { return 'SKIP no user'; }
+        if (!Plan::account_active($user)) { return 'SKIP creator suspended'; }
         if (strtotime((string) ($payload['since'] ?? 'now')) < time() - self::HOLD_DAYS * 86400) { return 'SKIP held too long'; }
         $held = array();
         foreach ((array) ($payload['held'] ?? array()) as $id => $pls) { $held[(string) $id] = array_values((array) $pls); }

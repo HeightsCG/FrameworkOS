@@ -111,6 +111,7 @@ class InboxAutomationService {
         $rows  = (new UsersModel())->get_user_by_id($creator_id);
         $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$owner || $conv_id <= 0 || $fan_id <= 0) { return self::skip('no_owner'); }
+        if (!Plan::account_active($owner))                        { return self::skip('suspended'); }   // no AI replies for a suspended creator
 
         $settings = (new InboxSettingsModel())->get_for_creator($creator_id);
         if (empty($settings['cls_enabled']))                      { return self::skip('disabled'); }
@@ -277,6 +278,7 @@ class InboxAutomationService {
         $rows  = (new UsersModel())->get_user_by_id($creator_id);
         $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$owner)                                             { return self::skip('no_owner'); }
+        if (!Plan::account_active($owner))                       { return self::skip('suspended'); }   // a suspended creator sends nothing
         if (!Plan::can_use_creator_features($owner))             { return self::skip('plan'); }
         $autos = new AutoMessagesModel();
         $auto  = $autos->get_one($creator_id, $trigger);

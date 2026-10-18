@@ -10,6 +10,7 @@ class FanvueShareJob {
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         $post = (new PostsModel())->get_by_id($post_id);
         if (!$user || !$post || (int) $post['creator_id'] !== $user_id) { return 'skipped: post or user gone'; }
+        if (!Plan::account_active($user)) { return 'skipped: creator suspended'; }
         if (!empty($post['fanvue_post_uuid'])) { return 'already on Fanvue'; }
         $res = FanvueShareService::share($user, $post, $payload['scheduled_iso'] ?? null);
         if (empty($res['ok'])) {

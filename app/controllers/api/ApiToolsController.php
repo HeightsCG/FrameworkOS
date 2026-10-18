@@ -18,7 +18,7 @@ class ApiToolsController extends BaseApiController {
 
     /**
      * Public run: niche, first name, email and the consent box (persona adds vibe and audience). A filled honeypot
-     * ("company") gets the same reply and nothing happens. 3 runs per email a day across both tools, 10 per IP a day per
+     * (hp_field_x) gets the same reply and nothing happens. 3 runs per email a day across both tools, 10 per IP a day per
      * tool. The attempt is recorded before the counts are read, so parallel requests can't slip past the limit.
      */
     public function tool_runAction(){
@@ -26,7 +26,7 @@ class ApiToolsController extends BaseApiController {
         if ($source === 'ideas') { $this->ideas_run(); }
         if (!isset(LeadsModel::SOURCES[$source])) { $this->jsonError('Pick a tool.'); }
         $ok = 'Check your inbox in a few minutes.';
-        if ($this->text('company', 190) !== '') { $this->jsonSuccess(['message' => $ok]); }
+        if ($this->text('hp_field_x', 190) !== '') { $this->jsonSuccess(['message' => $ok]); }
         if ($source === 'fan-questions' && !ToolRunJob::fan_questions_ready()) { $this->jsonError('This tool is briefly unavailable.'); }
 
         $niche = $this->text('niche', 190);
@@ -68,7 +68,7 @@ class ApiToolsController extends BaseApiController {
 
     /** One of the creator's Ideas runs: status, and when done the themes, a flat idea list (Draft Post index) and subreddits. */
     public function tool_run_statusAction(){
-        $user = $this->require_creator('content', false);
+        $user = $this->require_creator('view', false);
         $run = (new LeadsModel())->run_for((int) $user['user_id'], (int) ($this->post['run_id'] ?? 0));
         if (!$run) { $this->jsonError('Run not found'); }
         $r = (array) json_decode((string) ($run['result'] ?? ''), true);

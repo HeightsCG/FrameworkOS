@@ -60,9 +60,11 @@ class TeamModel extends Model {
     /** Soft-remove a member (frees the seat, blocks sign-in). */
     public function remove($owner_id, $member_id){
         if (!$this->is_member($owner_id, $member_id)) { return false; }
-        return parent::update('user_accounts',
+        $done = parent::update('user_accounts',
             array('deleted' => 1, 'user_status' => 'Disabled'),
             'user_id = :m', array('m' => (int) $member_id));
+        (new UsersModel())->release_identifiers((int) $member_id);   // the email can be re-invited, the handle reused
+        return $done;
     }
 
     /** Finalize a freshly-created member as a team account (owner vouches for the email; force a password set). */

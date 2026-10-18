@@ -117,6 +117,7 @@ foreach ($due as $rule) {
         $rows = $usersM->get_user_by_id((int) $rule['creator_id']);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$user) { throw new RuntimeException('creator ' . $rule['creator_id'] . ' not found'); }
+        if (!Plan::account_active($user)) { continue; }   // suspended creator: nothing runs (next_run_at already moved on)
 
         $res = (($rule['kind'] ?? 'post') === 'message') ? MessageBlastService::run_rule($rule, $user) : AutoPostService::run_rule($rule, $user);
         $runsM->add((int) $rule['id'], (int) $rule['creator_id'], $res['status'] ?? ($res['ok'] ? 'success' : 'failed'), $res['post_id'], $res['message'], (array) ($res['meta'] ?? array()));

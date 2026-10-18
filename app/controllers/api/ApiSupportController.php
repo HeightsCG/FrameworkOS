@@ -86,11 +86,11 @@ class ApiSupportController extends BaseApiController {
 
     /**
      * The public /contact form (signed in or not): emails support with reply-to = the sender.
-     * 3 per IP per 15 minutes; a filled honeypot ("company") gets a fake success and sends nothing.
+     * 3 per IP per 15 minutes; a filled honeypot (hp_field_x, a name browsers never autofill) gets a fake success and sends nothing.
      */
     public function contact_sendAction(){
         $ok = 'Message sent. We will reply by email.';
-        if ($this->text('company', 190) !== '') { $this->jsonSuccess(['message' => $ok]); }
+        if ($this->text('hp_field_x', 190) !== '') { $this->jsonSuccess(['message' => $ok]); }
 
         $ip = $this->get_ip_address();
         if ($this->loginAttemptsModel->count_recent($ip, 'contact', 15) >= 3) {

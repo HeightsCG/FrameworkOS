@@ -173,7 +173,7 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                         <li><hr class="dropdown-divider"></li>
                         <li><button type="button" class="dropdown-item evm-menu__danger" data-rec-delete="<?php echo (int) $rec['id']; ?>">Delete…</button></li>
                     </ul></div>
-                <?php elseif ($st === 'failed'): /* didn't save, or its video was removed from the Library: it can only be cleared */ ?>
+                <?php elseif ($st === 'failed' || LiveRecordingsModel::deletable($rec)): /* didn't save, its video was removed from the Library, or stuck finishing: it can only be cleared */ ?>
                 <div class="dropdown"><button type="button" class="evm-more" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Recording actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><button type="button" class="dropdown-item evm-menu__danger" data-rec-delete="<?php echo (int) $rec['id']; ?>">Delete…</button></li>

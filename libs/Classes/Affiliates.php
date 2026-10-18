@@ -161,15 +161,30 @@ class Affiliates {
      * requested payout: reversed and taken out of the payout. Paid: stays paid, a negative adjustment nets it. Never throws;
      * false only when the affiliate's payout lock was busy, so the webhook can ask for a redelivery.
      */
-    public static function on_reverse($payment_intent_id): bool {
+    public static function on_reverse($payment_intent_id, $refunded_cents = null): bool {
         try {
             if ((string) $payment_intent_id == '') { return true; }
             $ch = (new BillingChargesModel())->by_payment_intent((string) $payment_intent_id);
             if (!$ch) { return true; }
-            $r = (new AffiliateCommissionsModel())->reverse_charge((int) $ch['id'], Price::PAYOUT_MIN_CENTS);
+            // the share of the charge taken back so far (null = all of it); a partial refund reverses only that part
+            $share = ($refunded_cents === null || (int) $ch['amount_cents'] <= 0) ? 1.0 : min(1.0, (int) $refunded_cents / (int) $ch['amount_cents']);
+            $r = (new AffiliateCommissionsModel())->reverse_charge((int) $ch['id'], Price::PAYOUT_MIN_CENTS, $share);
             if ($r === AffiliateCommissionsModel::LOCK_BUSY) { error_log('[affiliates] reverse ' . $payment_intent_id . ': lock busy'); return false; }
         } catch (\Throwable $e) {
             error_log('[affiliates] reverse ' . $payment_intent_id . ': ' . $e->getMessage());
+        }
+        return true;
+    }
+
+    /** A dispute on a plan charge was won: the commission comes back where it can (AffiliateCommissionsModel::restore_charge). False only when the lock was busy. */
+    public static function on_restore($payment_intent_id): bool {
+        try {
+            if ((string) $payment_intent_id == '') { return true; }
+            $ch = (new BillingChargesModel())->by_payment_intent((string) $payment_intent_id);
+            if (!$ch) { return true; }
+            if ((new AffiliateCommissionsModel())->restore_charge((int) $ch['id']) === AffiliateCommissionsModel::LOCK_BUSY) { return false; }
+        } catch (\Throwable $e) {
+            error_log('[affiliates] restore ' . $payment_intent_id . ': ' . $e->getMessage());
         }
         return true;
     }

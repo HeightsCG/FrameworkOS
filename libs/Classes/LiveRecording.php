@@ -127,6 +127,7 @@ class LiveRecording {
         if (!S3Service::copy_private($src, $key, 'video/mp4')) {
             error_log('[recording] ' . $r['egress_id'] . ': copy from ' . $src . ' failed (see [s3] line above)');
             $mm->set_failed($cid, $aid, 'Could not copy the recording');
+            $mm->soft_delete($cid, $aid);   // an empty row: nothing to keep
             self::fail($r, 'The recording couldn’t be saved.');
             return 'copy failed';
         }
@@ -135,7 +136,10 @@ class LiveRecording {
         $res = MediaService::process_video($cid, $aid, $url, $owner);
         if (isset($res['error'])) {
             $mm->set_failed($cid, $aid, $res['error']);
-            self::fail($r, 'The recording was saved but its preview couldn’t be made: ' . $res['error']);
+            // the copy is not kept (the recorder's own file at $src stays for support to recover); deleting the recording removes that too
+            S3Service::delete_key($key);
+            $mm->soft_delete($cid, $aid);
+            self::fail($r, 'The recording couldn’t be processed (' . mb_substr((string) $res['error'], 0, 120) . '). Contact support to recover it.');
             return 'poster failed';
         }
         $duration = (int) ($probe['duration'] ?? 0) ?: (int) $info['duration'];

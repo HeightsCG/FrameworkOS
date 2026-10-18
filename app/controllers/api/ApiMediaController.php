@@ -268,6 +268,11 @@ class ApiMediaController extends BaseApiController {
         if (empty($parts)) {
             $this->jsonError('No video data was received. Please try the upload again.');
         }
+        // Every part must be in, with no gap, and add up to the size the upload started with (the storage cap was checked on it).
+        if ($sessions->incomplete_reason($session, MediaLimits::CHUNK_SIZE) !== '') {
+            $nums = array_map(function ($p) { return (int) $p['PartNumber']; }, $parts);
+            $this->jsonError('Part of the video has not arrived yet. Keep this page open and try again.', ['uploaded_parts' => $nums, 'bytes_received' => (int) $session['bytes_received']]);
+        }
         $s3parts = [];
         foreach ($parts as $p) { $s3parts[] = ['PartNumber' => (int) $p['PartNumber'], 'ETag' => (string) $p['ETag']]; }
         if (!S3Service::complete_multipart($session['storage_key'], $session['s3_upload_id'], $s3parts)) {
@@ -310,7 +315,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Library grid: the creator's media assets, optionally filtered by type/collection/usage/search. */
     public function media_listAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $filters = [
             'type'       => (string) ($this->post['type'] ?? ''),
@@ -351,7 +356,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Full detail for one asset: signed preview, metadata, usage, collections. */
     public function media_getAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new MediaAssetsModel();
@@ -396,7 +401,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Mint a fresh signed URL for a variant (used when a grid thumb URL expires). */
     public function media_signAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $variant    = (string) ($this->post['variant'] ?? 'thumb');
@@ -533,7 +538,7 @@ class ApiMediaController extends BaseApiController {
     /* ---------- Content Studio: collections ---------- */
 
     public function collections_listAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $rows = (new CollectionsModel())->get_for_creator($creator_id);
         $out = [];

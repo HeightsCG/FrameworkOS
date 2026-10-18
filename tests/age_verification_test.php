@@ -104,6 +104,23 @@ $m->start_pending($CREATOR, 'fake', 'c-1'); $m->mark($CREATOR, 'verified', $now)
 $posts->set_state($CREATOR, $adult_post, 'scheduled', gmdate('Y-m-d H:i:s', time() - 60));
 check('release-time hold: adult post, creator verified -> not held', AgeVerification::hold_unverified_adult_post($CREATOR, $adult_post) === false && (string) $posts->get_one($CREATOR, $adult_post)['state'] === 'scheduled');
 check('a draft is never touched by the hold', ($posts->set_state($CREATOR, $adult_post, 'draft', null) || true) && (string) $posts->get_one($CREATOR, $adult_post)['state'] === 'draft');
+// 2026-10-18: mixed media (one adult, one still scanning) is adult; a live post re-held when the scan flags its media
+$m->remove($CREATOR);
+$pend_id = $db->add('media_assets', array('creator_id' => $CREATOR, 'type' => 'image', 'filename' => 'age-pend.jpg', 'display_name' => 'pending', 'mime' => 'image/jpeg', 'original_key' => 'test/age-pend.jpg', 'status' => 'ready', 'moderation_status' => 'pending', 'is_adult' => 0, 'created_at' => $now, 'updated_at' => $now));
+$posts->set_assets($CREATOR, $adult_post, array($pend_id, $asset_id), $pend_id);
+check('post_is_adult: adult media alongside media still scanning', AgeVerification::post_is_adult($adult_post) && AgeVerification::post_adult_status($adult_post) === 'adult');
+$posts->set_assets($CREATOR, $clean_post, array($pend_id), $pend_id);
+check('post_adult_status: only unscanned media -> pending', AgeVerification::post_adult_status($clean_post) === 'pending' && !AgeVerification::post_is_adult($clean_post));
+$posts->set_state($CREATOR, $clean_post, 'published', null);
+$db->sql("UPDATE media_assets SET moderation_status = 'flagged', is_adult = 1 WHERE id = :i", array('i' => $pend_id));
+$held = AgeVerification::rehold_posts_for_asset($pend_id);
+check('re-hold: a post published during the scan goes back to drafts once flagged', in_array($clean_post, $held, true) && (string) $posts->get_one($CREATOR, $clean_post)['state'] === 'draft' && (string) $posts->get_one($CREATOR, $clean_post)['held_reason'] === AgeVerification::HELD_REASON);
+$m->start_pending($CREATOR, 'fake', 'c-2'); $m->mark($CREATOR, 'verified', $now);
+$posts->set_state($CREATOR, $clean_post, 'published', null);
+check('re-hold: verified creator keeps the post live', AgeVerification::rehold_posts_for_asset($pend_id) === array() && (string) $posts->get_one($CREATOR, $clean_post)['state'] === 'published');
+$posts->set_state($CREATOR, $clean_post, 'draft', null);
+$db->del('media_assets', 'id = :i', array('i' => $pend_id));
+$db->sql("DELETE FROM post_assets WHERE asset_id = :i", array('i' => $pend_id));
 // the fan gate on the same rows: an unverified fan with the toggle on sees no adult post by direct id (ApiPostsController::moderation_ok uses adult_allowed)
 $m->remove($FAN);
 check('fan gate: toggle on, unverified -> adult_allowed false', !AgeVerification::adult_allowed(array('user_id' => $FAN, 'adult_content_enabled' => 1)));
@@ -118,8 +135,9 @@ check('fixtures removed', $posts->get_one($CREATOR, $adult_post) === null || (st
 $allowed = array(
     'app/controllers/WebhookController.php', 'app/controllers/AccountController.php', 'app/controllers/AdminController.php', 'app/controllers/api/ApiAdminController.php',
     'app/controllers/api/ApiProfileController.php', 'app/controllers/api/ApiCreatorStudioController.php', 'app/controllers/api/ApiPostsController.php',
-    'app/controllers/api/ApiSearchController.php', 'app/controllers/api/ApiMessagesController.php', 'app/controllers/api/ApiEventsController.php', 'app/controllers/ProfileController.php',
+    'app/controllers/api/ApiSearchController.php', 'app/controllers/api/ApiMessagesController.php', 'app/controllers/api/ApiEventsController.php', 'app/controllers/ProfileController.php', 'libs/Classes/ProfilePosts.php',   /* the profile's post cards, moved out of ProfileController 2026-10-18 */
     'app/views/account/settings.php', 'libs/Classes/AgeVerification.php', 'libs/Classes/AgeVerificationProvider.php', 'libs/Classes/McpTools.php', 'libs/Classes/SceneTemplates.php', 'libs/Classes/SupportDiagnosis.php', 'cron/scheduler.php',
+    'cron/moderate.php',   // re-hold after a scan flags media (2026-10-18)
 );
 $callers = array();
 foreach (array('app', 'libs', 'cron') as $dir) {

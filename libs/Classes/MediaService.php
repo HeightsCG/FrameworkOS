@@ -131,6 +131,95 @@ class MediaService {
         return $added;
     }
 
+    /** Above this a zip entry or offset needs zip64 fields (a property so the test can lower it). */
+    public static $zip64_at = 0xFFFFFFFF;
+
+    /**
+     * Stream a zip of these assets (each fetched from S3 in $variant) straight to the browser, one file at a time, so a
+     * big purchase never waits for the whole archive to be built (the load balancer cut those off). Entries are stored
+     * (media is already compressed) with the CRC and sizes in the local header, zip64 only when a file or offset passes
+     * 4 GB. Names as in build_zip(). Nothing is sent until the first file is fetched: returns 0 (and sends nothing) when
+     * none could be, else the number of files sent. The caller has checked entitlement.
+     * $out/$fetch are for the test: a stream to write to instead of the browser, and a fetcher fn($key, $dest_path): bool.
+     */
+    public static function stream_zip(array $assets, $variant, $download_name, $out = null, ?callable $fetch = null): int
+    {
+        $fetch = $fetch ?: function ($key, $dest) { return S3Service::get_private_to_file($key, $dest); };
+        $to_browser = ($out === null);
+        $big = self::$zip64_at;
+        $t = getdate();
+        $dos_time = ($t['hours'] << 11) | ($t['minutes'] << 5) | intdiv($t['seconds'], 2);
+        $dos_date = ((max(1980, $t['year']) - 1980) << 9) | ($t['mon'] << 5) | $t['mday'];
+        $used = array(); $central = array(); $offset = 0; $added = 0;
+        $write = function ($bytes) use (&$out, &$offset) { fwrite($out, $bytes); $offset += strlen($bytes); };
+
+        foreach ($assets as $a) {
+            $key = (string) ($a[self::variant_column($variant)] ?? '');
+            if ($key === '') { continue; }
+            $tmp = tempnam(sys_get_temp_dir(), 'dl');
+            if ($tmp === false || !$fetch($key, $tmp)) { @unlink($tmp); error_log('[download] could not fetch asset ' . (int) ($a['id'] ?? 0)); continue; }
+            if ($out === null) {
+                // first file in hand: now start the response
+                if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }   // don't hold the session lock for the whole download
+                @ini_set('zlib.output_compression', '0');
+                while (ob_get_level() > 0) { ob_end_clean(); }
+                $ascii = preg_replace('/[^A-Za-z0-9._ -]/', '_', (string) $download_name);
+                header('Content-Type: application/zip');
+                header('Content-Disposition: attachment; filename="' . $ascii . '"');
+                header('Cache-Control: private, no-store');
+                header('X-Accel-Buffering: no');
+                $out = fopen('php://output', 'wb');
+            }
+            $name = self::download_name($a, $variant);
+            $base = pathinfo($name, PATHINFO_FILENAME); $ext = pathinfo($name, PATHINFO_EXTENSION); $n = 2;
+            while (isset($used[strtolower($name)])) { $name = $base . ' (' . $n++ . ')' . ($ext !== '' ? '.' . $ext : ''); }
+            $used[strtolower($name)] = 1;
+
+            $size = (int) filesize($tmp);
+            $crc  = (int) hexdec(hash_file('crc32b', $tmp));
+            $at   = $offset;
+            $z64  = $size >= $big;
+            $local_extra = $z64 ? pack('vvPP', 0x0001, 16, $size, $size) : '';
+            $write(pack('VvvvvvVVVvv', 0x04034b50, $z64 ? 45 : 20, 0x0800, 0, $dos_time, $dos_date, $crc,
+                $z64 ? 0xFFFFFFFF : $size, $z64 ? 0xFFFFFFFF : $size, strlen($name), strlen($local_extra)) . $name . $local_extra);
+            $fh = fopen($tmp, 'rb');
+            while (!feof($fh)) {
+                $chunk = fread($fh, 1048576);
+                if ($chunk === false || $chunk === '') { break; }
+                $write($chunk);
+                if ($to_browser) { flush(); }
+            }
+            fclose($fh);
+            @unlink($tmp);
+            $central[] = array('name' => $name, 'crc' => $crc, 'size' => $size, 'at' => $at);
+            $added++;
+            if ($to_browser && connection_aborted()) { break; }
+        }
+        if ($added === 0) { return 0; }
+
+        // central directory
+        $cd_at = $offset;
+        foreach ($central as $c) {
+            $sz64 = $c['size'] >= $big; $at64 = $c['at'] >= $big;
+            $extra = ($sz64 ? pack('PP', $c['size'], $c['size']) : '') . ($at64 ? pack('P', $c['at']) : '');
+            $extra = $extra !== '' ? pack('vv', 0x0001, strlen($extra)) . $extra : '';
+            $write(pack('VvvvvvvVVVvvvvvVV', 0x02014b50, 0x031E, ($sz64 || $at64) ? 45 : 20, 0x0800, 0, $dos_time, $dos_date, $c['crc'],
+                $sz64 ? 0xFFFFFFFF : $c['size'], $sz64 ? 0xFFFFFFFF : $c['size'], strlen($c['name']), strlen($extra), 0, 0, 0,
+                0100644 << 16, $at64 ? 0xFFFFFFFF : $c['at']) . $c['name'] . $extra);
+        }
+        $cd_size = $offset - $cd_at; $count = count($central);
+        if ($cd_at >= $big || $offset >= $big || $count >= 0xFFFF) {
+            $z64_at = $offset;
+            $write(pack('VPvvVVPPPP', 0x06064b50, 44, 0x031E, 45, 0, 0, $count, $count, $cd_size, $cd_at));
+            $write(pack('VVPV', 0x07064b50, 0, $z64_at, 1));
+            $write(pack('VvvvvVVv', 0x06054b50, 0, 0, 0xFFFF, 0xFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0));
+        } else {
+            $write(pack('VvvvvVVv', 0x06054b50, 0, 0, $count, $count, $cd_size, $cd_at, 0));
+        }
+        if ($to_browser) { fclose($out); flush(); }
+        return $added;
+    }
+
     /** Send a finished zip to the browser and delete it. */
     public static function send_zip($zip_path, $download_name): void
     {

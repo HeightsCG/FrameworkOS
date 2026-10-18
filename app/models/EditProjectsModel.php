@@ -67,6 +67,14 @@ class EditProjectsModel extends Model {
             array('id' => (int) $id, 'c' => (int) $creator_id, 'cut' => date('Y-m-d H:i:s', time() - max(1, (int) $minutes) * 60)));
     }
 
+    /** Every export still 'rendering' since before $minutes ago, marked failed (queue-worker sweep); $skip_ids still have a live render. Returns rows changed. */
+    public function fail_all_stale_renders($minutes, $error, array $skip_ids = array()){
+        $skip = implode(',', array_map('intval', array_filter($skip_ids)));
+        return (int) parent::update('edit_projects', array('status' => 'failed', 'error' => mb_substr((string) $error, 0, 500), 'updated_at' => date('Y-m-d H:i:s')),
+            "status = 'rendering' AND updated_at < :cut AND deleted_at IS NULL" . ($skip !== '' ? " AND id NOT IN ($skip)" : ''),
+            array('cut' => date('Y-m-d H:i:s', time() - max(1, (int) $minutes) * 60)));
+    }
+
     public function soft_delete($creator_id, $id){
         return parent::update('edit_projects', array('deleted_at' => date('Y-m-d H:i:s')), 'id = :id AND creator_id = :c AND deleted_at IS NULL', array('id' => (int) $id, 'c' => (int) $creator_id));
     }

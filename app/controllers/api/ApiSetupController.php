@@ -3,7 +3,7 @@
 class ApiSetupController extends BaseApiController {
 
     public function setup_progressAction(){
-        $user = $this->require_creator('content', false);
+        $user = $this->require_creator('view', false);
         $this->jsonSuccess(SetupService::progress((int) $user['user_id'], true));
     }
 

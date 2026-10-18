@@ -167,7 +167,18 @@ class EventsModel extends Model {
         return parent::update('events', $data, 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
+    const REPLAY_SOLD_MESSAGE = 'People bought this event’s replay, so the event can’t be deleted. They keep watching it.';
+
+    /** Delete an event. Its call recordings go first (their videos stop counting toward storage). Callers check it is canceled and has no replay buyers. */
     public function delete_event($creator_id, $id){
+        if (!$this->get_one($creator_id, $id)) { return 0; }
+        $recs = new LiveRecordingsModel();
+        $mm = new MediaAssetsModel();
+        foreach ($recs->all_for_event((int) $id) as $rec) {
+            if ((int) $rec['asset_id'] > 0) { $mm->soft_delete((int) $creator_id, (int) $rec['asset_id']); }
+            if ((string) $rec['status'] !== 'ready' && (string) $rec['s3_key'] !== '') { S3Service::delete_key((string) $rec['s3_key']); }
+            $recs->set((int) $rec['id'], array('status' => 'deleted'));
+        }
         return parent::delete('events', 'id = :id AND creator_id = :c', 1, array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
@@ -222,9 +233,13 @@ class EventsModel extends Model {
 
     /** A creator's events that have a replay (on sale, or off sale but owned by some viewers), newest first. */
     public function list_with_replay($creator_id){
-        return (array) parent::select(
-            "SELECT * FROM events WHERE creator_id = :c AND status = 'published' AND replay_recording_id IS NOT NULL ORDER BY start_at DESC LIMIT 50",
+        $rows = (array) parent::select(
+            "SELECT * FROM events WHERE creator_id = :c AND replay_recording_id IS NOT NULL ORDER BY start_at DESC LIMIT 50",
             array('c' => (int) $creator_id));
+        // a hidden or canceled event's replay is off sale for everyone; people who bought it (or attended) still see and watch it
+        foreach ($rows as &$r) { if ((string) $r['status'] !== 'published') { $r['replay_price_credits'] = 0; } }
+        unset($r);
+        return $rows;
     }
 
     public function attendee_count($event_id){
@@ -243,7 +258,28 @@ class EventsModel extends Model {
      * Returns null when the user is already registered (a concurrent request won), else
      * ['id', 'fresh' => new row?, 'prior_paid' => credits paid on a canceled row being reactivated].
      */
-    public function claim_registration($event_id, $user_id){
+    public function claim_registration($event_id, $user_id, $capacity = 0){
+        if ((int) $capacity <= 0) { return $this->claim_registration_row($event_id, $user_id); }
+        // A seat cap: lock the event row while counting, so two sign-ups can't both take the last seat. ['full' => true] when none is left.
+        $own = !$this->db->inTransaction();
+        if ($own) { $this->db->beginTransaction(); }
+        try {
+            $lock = $this->db->prepare("SELECT id FROM events WHERE id = :e FOR UPDATE");
+            $lock->execute(array(':e' => (int) $event_id));
+            if ($this->attendee_count($event_id) >= (int) $capacity && !$this->is_registered($event_id, $user_id)) {
+                if ($own) { $this->db->rollBack(); }
+                return array('full' => true);
+            }
+            $r = $this->claim_registration_row($event_id, $user_id);
+            if ($own) { $this->db->commit(); }
+            return $r;
+        } catch (\Throwable $ex) {
+            if ($own && $this->db->inTransaction()) { $this->db->rollBack(); }
+            throw $ex;
+        }
+    }
+
+    private function claim_registration_row($event_id, $user_id){
         $e = (int) $event_id; $u = (int) $user_id;
         try {
             $id = (int) parent::insert('event_registrations', array(
@@ -393,6 +429,36 @@ class EventsModel extends Model {
     public function going_user_ids($event_id){
         $r = parent::select("SELECT user_id FROM event_registrations WHERE event_id = :e AND status = 'registered'", array('e' => (int) $event_id));
         return array_map(function ($x) { return (int) $x['user_id']; }, (array) $r);
+    }
+
+    /** Paid tickets whose creator share is still held until the event ends (moving the event into the past would release it). */
+    public function has_held_earnings($event_id){
+        $r = parent::select("SELECT id FROM event_registrations WHERE event_id = :e AND status <> 'refunded' AND net_credits > 0 AND earning_released_at IS NULL LIMIT 1", array('e' => (int) $event_id));
+        return is_array($r) && count($r) === 1;
+    }
+
+    /**
+     * Check an event's times before saving (UTC strings; $end '' = no end). $cur is the saved event (null for a new one).
+     * Returns '' when fine, else the message. A sold event can't be moved into the past: that would release the held
+     * ticket earnings early (earnings_due) and close fan refunds.
+     */
+    public function check_times($start, $end, $cur = null){
+        $s = strtotime((string) $start . ' UTC');
+        if ((string) $start === '' || $s === false) { return 'Enter a valid start date & time.'; }
+        if ((string) $end !== '') {
+            $e = strtotime((string) $end . ' UTC');
+            if ($e === false) { return 'Enter a valid end date & time.'; }
+            if ($e <= $s) { return 'The end must be after the start.'; }
+        }
+        if (!$cur || !$this->has_held_earnings((int) $cur['id'])) { return ''; }
+        $now = time();
+        $cur_start = strtotime((string) $cur['start_at'] . ' UTC');
+        $cur_end   = strtotime((string) (!empty($cur['end_at']) ? $cur['end_at'] : $cur['start_at']) . ' UTC');
+        $new_end   = (string) $end !== '' ? strtotime((string) $end . ' UTC') : $s;
+        if (($s !== $cur_start && $s <= $now) || ($new_end <= $now && $cur_end > $now)) {
+            return 'This event has paid attendees, so its start and end can\'t be moved into the past.';
+        }
+        return '';
     }
 
     public function has_paid_going($event_id){

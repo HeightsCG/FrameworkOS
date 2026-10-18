@@ -2,9 +2,21 @@
 /** Sign-up, sign-in, password lifecycle and MFA enrolment/verification. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
 class ApiAuthController extends BaseApiController {
 
+    /** The hidden anti-bot field on /start and the register dialog. A name no autofill knows (it was "company", which browsers fill). */
+    const HONEYPOT = 'hp_field_x';
+
+    /** Sign-up reply, the same whether the account is new or an unverified one got a fresh link. */
+    const SIGNUP_SENT = 'Account created — check your email to verify your account.';
+
+    /** A posted text field as typed: clean_post_data() html-encodes it, so a valid "o'neil@x.com" or "a&b@x.com" would fail. */
+    private function post_text(string $key): string{
+        return trim(html_entity_decode((string) ($this->post[$key] ?? ''), ENT_QUOTES, 'UTF-8'));
+    }
+
     public function registerAction(){
 
-        if (empty($this->post['user_email']) || !filter_var($this->post['user_email'], FILTER_VALIDATE_EMAIL)) {
+        $email = $this->post_text('user_email');
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->jsonError('A valid email is required');
         }
 
@@ -26,7 +38,6 @@ class ApiAuthController extends BaseApiController {
 
         // Sign-up throttle, like login: per connection and per address. Every well-formed attempt counts.
         $ip    = $this->get_ip_address();
-        $email = (string) $this->post['user_email'];
         if ($this->loginAttemptsModel->count_recent($ip, 'register', 60) >= 5) {
             $this->jsonError('Too many sign-ups from this connection. Try again later.');
         }
@@ -35,14 +46,10 @@ class ApiAuthController extends BaseApiController {
         }
         $this->loginAttemptsModel->record($ip, $email, 'register');
 
-        // Honeypot: a hidden "company" field nobody sees (auth_modal.php). Filled in = a bot, which gets the normal reply and no account.
-        if ((string) ($this->post['company'] ?? '') !== '') {
+        // Honeypot: a hidden field nobody sees (display:none). Filled in = a bot, which gets the normal reply and no account.
+        if ((string) ($this->post[self::HONEYPOT] ?? '') !== '') {
             error_log('[register] honeypot filled from ' . $ip . ' for ' . $email);
-            $this->jsonSuccess(['message' => 'Account created — check your email to verify your account.']);
-        }
-
-        if ($this->userModel->email_exists($this->post['user_email'])) {
-            $this->jsonError('Could not create an account with those details');
+            $this->jsonSuccess(['message' => self::SIGNUP_SENT]);
         }
 
         // Where the verification link lands them once it has signed them in: the page they were on (same-site path only).
@@ -50,20 +57,28 @@ class ApiAuthController extends BaseApiController {
         if ($return === '') { $return = (string) parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH); }
         Session::set('signup_return', CustomDomains::safe_path($return));
 
+        $existing = $this->userModel->email_exists($email);
+        if (is_array($existing) && count($existing) > 0) {
+            $this->signup_existing($existing);
+        }
+
         // no name on the form: a neutral handle (never the email), changed at /setup; names stay '' until Settings.
         $u_name = $this->userModel->neutral_username();
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
 
-        $user_id = (int) $this->userModel->create_user(
-            $u_name,
-            $enc_p_word,
-            '',
-            '',
-            $this->post['user_email'],
-        );
+        try {
+            $user_id = (int) $this->userModel->create_user($u_name, $enc_p_word, '', '', $email);
+        } catch (\PDOException $e) {
+            // a double-submit raced past email_exists: the UNIQUE index (uq_user_email_live) stopped the second row
+            if (($e->errorInfo[1] ?? 0) == 1062 && strpos($e->getMessage(), 'uq_user_email_live') !== false) {
+                $this->signup_existing((array) $this->userModel->email_exists($email));
+            }
+            error_log('[register] create_user failed for ' . $email . ': ' . $e->getMessage());
+            $user_id = 0;
+        }
 
         if ($user_id <= 0) {
-            error_log('[register] create_user returned no id for ' . $this->post['user_email']);
+            error_log('[register] create_user returned no id for ' . $email);
             $this->jsonError('Could not create an account with those details');
         }
 
@@ -89,7 +104,7 @@ class ApiAuthController extends BaseApiController {
         $token       = $this->userModel->set_email_verify_token($user_id);
         $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
         $to_name     = '';
-        $sent = $this->notificationsModel->send_verification_email($this->post['user_email'], $to_name, $verify_link, $u_name);
+        $sent = $this->notificationsModel->send_verification_email($email, $to_name, $verify_link, $u_name);
         if (!$sent) {
             // The account exists but the link never left: tell the user (the panel offers Resend) and the admins.
             error_log('[register] verification email failed for user_id=' . $user_id . ' (' . $email . ')');
@@ -100,7 +115,31 @@ class ApiAuthController extends BaseApiController {
         }
 
         // the account exists: the page fires the pixel's CompleteRegistration from this, once (window.CLSTikTokRegistration)
-        $this->jsonSuccess(['message' => 'Account created — check your email to verify your account.', 'tt_registration' => $this->userModel->claim_tt_registration($user_id)]);
+        $this->jsonSuccess(['message' => self::SIGNUP_SENT, 'tt_registration' => $this->userModel->claim_tt_registration($user_id)]);
+    }
+
+    /**
+     * Sign-up with an email that already has an account. Unverified: a fresh link goes out (the password is left as it was,
+     * so nobody can set one on someone else's address) and the reply is the normal one. Verified: the old refusal.
+     */
+    private function signup_existing(array $rows): void{
+        if (count($rows) === 1 && (int) ($rows[0]['email_verified'] ?? 0) === 0) {
+            $this->send_verify_link($rows[0]);
+            $this->jsonSuccess(['message' => self::SIGNUP_SENT, 'resent' => true]);   // the page skips its sign-up analytics
+        }
+        $this->jsonError('Could not create an account with those details');
+    }
+
+    /** A fresh verification link for an unconfirmed account, at most 3 an hour per account (callers answer the same either way). */
+    private function send_verify_link(array $user): bool{
+        $uid = (int) $user['user_id'];
+        if ($uid <= 0 || (string) ($user['user_email'] ?? '') === '') { return false; }
+        if ($this->loginAttemptsModel->count_recent_for('uid:' . $uid, 'verify_sent', 60) >= 3) { return false; }
+        $this->loginAttemptsModel->record($this->get_ip_address(), 'uid:' . $uid, 'verify_sent');
+        $token       = $this->userModel->set_email_verify_token($uid);
+        $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
+        $to_name     = trim((string) ($user['first_name'] ?? '') . ' ' . (string) ($user['last_name'] ?? ''));
+        return (bool) $this->notificationsModel->send_verification_email((string) $user['user_email'], $to_name, $verify_link, (string) ($user['u_name'] ?? ''));
     }
 
     public function loginAction(){
@@ -113,16 +152,17 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError('Password is required');
         }
 
+        $login = $this->post_text('u_name');   // an email with ' or & arrives html-encoded
         $ip = $this->get_ip_address();
         if ($this->loginAttemptsModel->count_recent($ip, 'login', 15) >= 5
-            || $this->loginAttemptsModel->count_recent_for((string) $this->post['u_name'], 'login', 15) >= 10) {   // per IP and per account
+            || $this->loginAttemptsModel->count_recent_for($login, 'login', 15) >= 10) {   // per IP and per account
             $this->jsonError('Too many attempts. Please try again later.');
         }
 
-        $user_account = $this->userModel->get_user_by_login($this->post['u_name']);
+        $user_account = $this->userModel->get_user_by_login($login);
         if (!is_array($user_account) || count($user_account) !== 1
             || !password_verify($this->post['p_word'], $user_account[0]['p_word'])) {
-            $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'login');
+            $this->loginAttemptsModel->record($ip, $login, 'login');
             $this->jsonError('Invalid username or password');
         }
 
@@ -131,11 +171,11 @@ class ApiAuthController extends BaseApiController {
         // Suspended (or deleted) accounts, and collaborators over the owner's seat limit, cannot sign in.
         $blocked = LoginGate::blocked($user);
         if ($blocked === 'suspended') {
-            $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'login');
+            $this->loginAttemptsModel->record($ip, $login, 'login');
             $this->jsonError(LoginGate::SUSPENDED_MESSAGE);
         }
-        if ($blocked === 'seat') {
-            $this->jsonError(Plan::SEAT_LOCKED_MESSAGE);
+        if ($blocked !== '') {   // 'seat' or 'owner' (the owner is suspended)
+            $this->jsonError(LoginGate::message($blocked));
         }
 
         // Hard gate: an unconfirmed email cannot sign in.
@@ -180,15 +220,19 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError('Username is required');
         }
 
+        $login = $this->post_text('u_name');
         $ip = $this->get_ip_address();
         if ($this->loginAttemptsModel->count_recent($ip, 'forgot', 15) >= 5) {
             $this->jsonError('Too many attempts. Please try again later.');
         }
-        $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'forgot');
+        $this->loginAttemptsModel->record($ip, $login, 'forgot');
 
-        $user_account = $this->userModel->get_user_by_login($this->post['u_name']);
-        if (is_array($user_account) && count($user_account) === 1) {
+        $user_account = $this->userModel->get_user_by_login($login);
+        // per account too, whatever the IP: at most 3 reset emails an hour. Over the cap the reply is the same, nothing is sent.
+        if (is_array($user_account) && count($user_account) === 1
+            && $this->loginAttemptsModel->count_recent_for('uid:' . (int) $user_account[0]['user_id'], 'forgot_sent', 60) < 3) {
             $user  = $user_account[0];
+            $this->loginAttemptsModel->record($ip, 'uid:' . (int) $user['user_id'], 'forgot_sent');
             $token = $this->userModel->set_reset_token($user['user_id']);
 
             if (!empty($user['user_email'])) {
@@ -230,6 +274,7 @@ class ApiAuthController extends BaseApiController {
         $user = $user_account[0];
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
         $this->userModel->change_password($user['user_id'], $enc_p_word);
+        if ((int) ($user['email_verified'] ?? 0) === 0) { $this->userModel->mark_email_verified((int) $user['user_id']); }   // the emailed link proved the inbox
 
         $this->notify((int) $user['user_id'], 'security', 'Password changed', 'Your password was just changed. If this was not you, reset it now and contact support.', '/account/settings?section=security', 'fa-key', false, true);
         // a team invite accepted (the invitee's first password, in their own browser): that is their signup. A normal reset has nothing pending.
@@ -279,8 +324,8 @@ class ApiAuthController extends BaseApiController {
         if ($blocked === 'suspended') {
             $this->jsonError(LoginGate::SUSPENDED_MESSAGE);
         }
-        if ($blocked === 'seat') {
-            $this->jsonError(Plan::SEAT_LOCKED_MESSAGE);
+        if ($blocked !== '') {   // 'seat' or 'owner' (the owner is suspended)
+            $this->jsonError(LoginGate::message($blocked));
         }
 
         $return = CustomDomains::safe_path((string) Session::get('signup_return'));   // set by registerAction in this browser, if it is the same one
@@ -307,7 +352,7 @@ class ApiAuthController extends BaseApiController {
     public function resend_verificationAction(){
         $response = ['success' => true, 'message' => 'If that account exists and is unverified, a new link has been sent.'];
 
-        $identifier = (string) ($this->post['u_name'] ?? '');
+        $identifier = $this->post_text('u_name');
         if ($identifier === '') {
             echo json_encode($response);
             exit;
@@ -324,13 +369,7 @@ class ApiAuthController extends BaseApiController {
 
         $rows = $this->userModel->get_user_by_login($identifier);
         if (is_array($rows) && count($rows) === 1 && (int) ($rows[0]['email_verified'] ?? 0) === 0) {
-            $user  = $rows[0];
-            $token = $this->userModel->set_email_verify_token((int) $user['user_id']);
-            if (!empty($user['user_email'])) {
-                $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
-                $to_name     = trim($user['first_name'] . ' ' . $user['last_name']);
-                $this->notificationsModel->send_verification_email($user['user_email'], $to_name, $verify_link, (string) $user['u_name']);
-            }
+            $this->send_verify_link($rows[0]);   // capped per account; the reply never says
         }
 
         echo json_encode($response);
@@ -583,23 +622,17 @@ class ApiAuthController extends BaseApiController {
         $this->jsonSuccess(['message' => 'We sent a code to your email']);
     }
 
+    /** Every unmet rule in one message ("Password needs at least 8 characters, a number and a symbol"), '' when it passes. */
     private function password_complexity_error(string $p): string{
-        if (strlen($p) < 8) {
-            return 'Password must be at least 8 characters';
-        }
-        if (!preg_match('/[A-Z]/', $p)) {
-            return 'Password must include an uppercase letter';
-        }
-        if (!preg_match('/[a-z]/', $p)) {
-            return 'Password must include a lowercase letter';
-        }
-        if (!preg_match('/[0-9]/', $p)) {
-            return 'Password must include a number';
-        }
-        if (!preg_match('/[^A-Za-z0-9]/', $p)) {
-            return 'Password must include a symbol';
-        }
-        return '';
+        $miss = array();
+        if (strlen($p) < 8) { $miss[] = 'at least 8 characters'; }
+        if (!preg_match('/[A-Z]/', $p)) { $miss[] = 'an uppercase letter'; }
+        if (!preg_match('/[a-z]/', $p)) { $miss[] = 'a lowercase letter'; }
+        if (!preg_match('/[0-9]/', $p)) { $miss[] = 'a number'; }
+        if (!preg_match('/[^A-Za-z0-9]/', $p)) { $miss[] = 'a symbol'; }
+        if (!$miss) { return ''; }
+        $last = array_pop($miss);
+        return 'Password needs ' . ($miss ? implode(', ', $miss) . ' and ' : '') . $last;
     }
 
     /** Issue and email a login verification code for a user row. */

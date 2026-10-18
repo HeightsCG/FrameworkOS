@@ -66,7 +66,11 @@ class SocialShareService {
             // authoritative check): the original when it fits, a technical version made without asking, or a reshaped
             // one only once approved. A destination still waiting for an approval is held, never sent unapproved.
             $place = self::placements($post['story_accounts'] ?? '');
-            $uploaded = array(); $notes = array(); $held = array(); $media_by = array('feed' => array(), 'story' => array());
+            // AI media is disclosed everywhere: a caption line or the platform's flag on feed posts, and on a Story
+            // (which has no caption) the account's disclosure line drawn onto the Story picture or video itself.
+            $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
+            $ai = AiDisclosure::applies($post['ai_disclosure'] ?? null, $live);
+            $uploaded = array(); $notes = array(); $held = array(); $media_by = array('feed' => array(), 'story' => array()); $story_by_acct = array();
             $ok_feed = array(); $ok_story = array();
             foreach ($accounts as $acc) {
                 $id = (string) $acc['id']; $platform = strtolower((string) $acc['platform']);
@@ -79,13 +83,18 @@ class SocialShareService {
                     foreach ($list as $it) {
                         $r = MediaCompliance::resolve($cid, $it['asset'], $it['teaser'], $platform, $pl, $it['video']);
                         if ($r['state'] === 'held' || $r['state'] === 'unsupported') { $stop = $r['state'] . ':' . $r['reason']; break; }
-                        if (!isset($uploaded[$r['key']])) {
-                            // dry_run (tests): nothing leaves the server; the S3 key stands in for the uploaded URL
-                            $up = !empty($opts['dry_run']) ? array(array('url' => 's3:' . $r['key'], 'video' => $it['video'], 'key' => $r['key']))
-                                : self::push_item($r['key'], $it['video'] ? 'video/mp4' : 'image/jpeg', $it['video'], array());
-                            $uploaded[$r['key']] = $up ? $up[0] : null;
+                        $k = (string) $r['key']; $mime = $it['video'] ? 'video/mp4' : 'image/jpeg';
+                        if ($pl === 'story' && $ai) {
+                            $k = self::labelled_story_key($k, $it['video'], AiDisclosure::line($acc['ai_disclosure_text'] ?? ''), !empty($opts['dry_run']));
+                            if ($k === '') { $stop = 'unsupported:the AI label could not be added to it, and AI media is never posted without one.'; break; }
                         }
-                        if ($uploaded[$r['key']]) { $sent[] = $uploaded[$r['key']] + array('tall' => $pl === 'story'); }
+                        if (!isset($uploaded[$k])) {
+                            // dry_run (tests): nothing leaves the server; the S3 key stands in for the uploaded URL
+                            $up = !empty($opts['dry_run']) ? array(array('url' => 's3:' . $k, 'video' => $it['video'], 'key' => $k))
+                                : self::push_item($k, $mime, $it['video'], array());
+                            $uploaded[$k] = $up ? $up[0] : null;
+                        }
+                        if ($uploaded[$k]) { $sent[] = $uploaded[$k] + array('tall' => $pl === 'story'); }
                     }
                     $label = MediaCompliance::name($platform) . ($pl === 'story' ? ' Story' : '');
                     if ($stop !== '') {
@@ -96,21 +105,20 @@ class SocialShareService {
                     }
                     if (empty($sent) && !empty($list)) { $notes[] = $label . ' was skipped: the media could not be uploaded.'; continue; }
                     $media_by[$pl][$platform] = $sent;
-                    if ($pl === 'story') { $ok_story[] = $id; } else { $ok_feed[] = $id; }
+                    if ($pl === 'story') { $story_by_acct[$id] = $sent; $ok_story[] = $id; } else { $ok_feed[] = $id; }
                 }
             }
 
             // Captions, the carousel slice, the AI label or disclosure line, and Stories: built without the network.
             // One Post for Me post takes each account once, so accounts set to Feed and Story get a second post for the Story.
-            $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
-            $ai = AiDisclosure::applies($post['ai_disclosure'] ?? null, $live);
             // A Story for a Feed + Story account that goes alone (its feed post was sent earlier) runs like a Story-only one.
             $story_only = array_values(array_diff(array_merge(array_intersect($ok_story, $place['story']), array_diff(array_intersect($ok_story, $place['both']), $ok_feed)), $ok_feed));
             $both_story = array_values(array_intersect($ok_story, $place['both'], $ok_feed));
             $by_id = array(); foreach ($accounts as $acc) { $by_id[(string) $acc['id']] = $acc; }
             $pick = function (array $ids) use ($by_id) { $o = array(); foreach (array_unique($ids) as $i) { if (isset($by_id[$i])) { $o[] = $by_id[$i]; } } return $o; };
             $first = function (array $by) { foreach ($by as $l) { return $l; } return array(); };
-            $base = array('ai' => $ai, 'platform_items' => $media_by['feed'], 'story_media_by' => $media_by['story']);
+            $base = array('ai' => $ai, 'platform_items' => $media_by['feed'], 'story_media_by' => $media_by['story'],
+                          'story_media_acct' => $story_by_acct, 'story_labelled' => $ai ? array_keys($story_by_acct) : array());
             $runs = array();
             $main = $pick(array_merge($ok_feed, $story_only));
             if (!empty($main)) { $runs[] = array($main, array('stories' => $story_only) + $base, $first($media_by['feed']) ?: $first($media_by['story'])); }
@@ -188,8 +196,10 @@ class SocialShareService {
      *
      *  - AI disclosure: TikTok and YouTube take their own AI flag; every other platform gets the
      *    account's disclosure line as the last line of the caption, inside that platform's limit.
-     *  - Stories (Instagram, Facebook): placement "stories" with only the 9:16 media. A Story carries
-     *    no caption, so it cannot carry the disclosure line. An account with no 9:16 media is skipped.
+     *  - Stories (Instagram, Facebook): placement "stories" with only the 9:16 media. A Story carries no caption, so
+     *    for AI media its picture or video carries the account's disclosure line instead ('story_media_acct' => account
+     *    id => labelled items, listed in 'story_labelled'). An AI Story without a label is skipped, never sent bare.
+     *    An account with no 9:16 media is skipped.
      */
     public static function plan($caption, array $accounts, array $items, array $opts = array()): array {
         $caption = trim((string) $caption);
@@ -204,10 +214,13 @@ class SocialShareService {
         foreach ($accounts as $a) {
             $id = (string) $a['id']; $platform = strtolower((string) $a['platform']);
             if (in_array($id, $stories, true) && in_array($platform, AiDisclosure::STORY_PLATFORMS, true)) {
-                $story = isset($opts['story_media_by'][$platform]) ? array_values((array) $opts['story_media_by'][$platform]) : $tall;   // checked per platform (MediaCompliance)
+                $story = isset($opts['story_media_acct'][$id]) ? array_values((array) $opts['story_media_acct'][$id])
+                    : (isset($opts['story_media_by'][$platform]) ? array_values((array) $opts['story_media_by'][$platform]) : $tall);   // checked per platform (MediaCompliance)
                 if (empty($story)) { $out['notes'][] = 'The ' . ucfirst($platform) . ' Story was skipped: Stories need 9:16 media.'; continue; }
-                // The Story still goes out; the creator is told it cannot carry the disclosure line.
-                if ($ai) { $out['notes'][] = 'Stories have no caption, so the ' . ucfirst($platform) . ' Story carries no AI disclosure line.'; }
+                if ($ai && !in_array($id, array_map('strval', (array) ($opts['story_labelled'] ?? array())), true)) {
+                    $out['notes'][] = 'The ' . ucfirst($platform) . ' Story was skipped: it has no caption, and the AI label could not be put on the picture.';
+                    continue;
+                }
                 $out['accounts'][] = $id;
                 $out['account_configurations'][] = array('social_account_id' => $id, 'configuration' => array(
                     'placement' => 'stories',
@@ -347,6 +360,39 @@ class SocialShareService {
     }
 
     /** push_media, keeping track of whether the item is a video. */
+    /**
+     * A Story copy of $key with the disclosure $line drawn on it (TextOverlay 'label' style), stored beside the original
+     * and reused on later shares. Returns its S3 key, or '' when it can't be made (the caller then skips the Story).
+     * $dry: tests; only the key is worked out.
+     */
+    private static function labelled_story_key($key, $is_video, $line, $dry = false): string{
+        $key = (string) $key;
+        if ($key === '') { return ''; }
+        $dir = (strpos($key, '/') !== false) ? substr($key, 0, strrpos($key, '/') + 1) : '';
+        $out = $dir . 'ailabel-' . substr(sha1($key . '|' . $line . '|label1'), 0, 16) . ($is_video ? '.mp4' : '.jpg');
+        if ($dry) { return $out; }
+        if (S3Service::exists($out)) { return $out; }
+        if (!TextOverlay::available()) { error_log('[social share] no font for the Story AI label'); return ''; }
+        $tmp = tempnam(sys_get_temp_dir(), 'story');
+        if ($tmp === false || !S3Service::get_private_to_file($key, $tmp)) { @unlink($tmp); return ''; }
+        $ok = false;
+        if ($is_video) {
+            $burnt = TextOverlay::burn_video($tmp, $line, 'label');
+            $ok = $burnt !== '' && S3Service::put_private($out, $burnt, 'video/mp4');
+            if ($burnt !== '') { @unlink($burnt); }
+        } else {
+            $png = TextOverlay::burn_image((string) file_get_contents($tmp), $line, 'label');
+            $im  = ($png !== '') ? @imagecreatefromstring($png) : false;
+            if ($im) {
+                ob_start(); imagejpeg($im, null, 90); $jpg = (string) ob_get_clean(); imagedestroy($im);   // a photo: JPEG, not a 2 MB PNG
+                $ok = $jpg !== '' && S3Service::put_private_bytes($out, $jpg, 'image/jpeg');
+            }
+        }
+        @unlink($tmp);
+        if (!$ok) { error_log('[social share] could not label the Story copy of ' . $key); return ''; }
+        return $out;
+    }
+
     private static function push_item($key, $mime, $is_video, array $items){
         $urls = self::push_media($key, $mime, array());
         if (!empty($urls)) { $items[] = array('url' => $urls[0], 'video' => (bool) $is_video, 'key' => (string) $key, 'mime' => (string) $mime); }

@@ -91,8 +91,11 @@ class RefundsModel extends Model {
         ));
     }
 
-    /** Record a Stripe dispute (chargeback) and suspend the associated account. Idempotent. Returns the suspended user id, or 0. */
-    public function record_chargeback($dispute){
+    /**
+     * Record a Stripe dispute (chargeback) and suspend the associated account. Idempotent. Returns the suspended user id, or 0.
+     * $member_id: the fan when the dispute is on a membership payment (found by the webhook from the creator's connected account).
+     */
+    public function record_chargeback($dispute, $member_id = 0){
         $did = (string) ($dispute->id ?? '');
         if ($did === '') { return 0; }
         $ex = parent::select("SELECT id FROM chargebacks WHERE stripe_dispute_id = :d", array('d' => $did));
@@ -108,6 +111,7 @@ class RefundsModel extends Model {
                 if (is_array($b) && count($b)) { $user_id = (int) $b[0]['user_id']; }
             }
         }
+        if (!$user_id && (int) $member_id > 0) { $user_id = (int) $member_id; }   // a membership payment: the fan (suspending pauses the membership)
         $suspended = 0;
         if ($user_id) {
             $suspended = parent::update('user_accounts', array('user_status' => 'Disabled'), 'user_id = :id AND is_admin = 0', array('id' => $user_id)) ? 1 : 0;

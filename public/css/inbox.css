@@ -223,3 +223,4 @@
 }
 @media (max-width:820px){ .ibx__thread .ibx__ico{ width:40px; height:40px; } }
 @media (max-width:820px){ .ibx{ grid-template-columns:minmax(0,1fr); } .ibx__list, .ibx__thread{ min-width:0; } }
+.ibx__more{ display:flex; justify-content:center; padding:12px 0; }

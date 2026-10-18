@@ -4,7 +4,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Presence heartbeat — pinged by the Studio so an open-but-idle creator stays "online". */
     public function heartbeatAction(){
-        $this->require_creator('content', false);
+        $this->require_creator('view', false);
         $this->jsonSuccess();
     }
 
@@ -564,8 +564,14 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($id > 0) {
             if (!$model->get_owned($user_id, $id)) { $this->jsonError('Bundle not found'); }
             // Buyers get what's in the bundle: once it has sold, content can be added but not taken out.
-            if ($model->has_sales($id) && array_diff($model->get_item_asset_ids($id), $asset_ids)) {
-                $this->jsonError('This bundle has sold, so its content can’t be removed. You can still add more.');
+            if ($model->has_sales($id)) {
+                $current = $model->get_item_asset_ids($id);
+                // a sold file that was since blocked or deleted can't be picked in the editor: it isn't in the diff, and it stays in the bundle
+                $pickable = array_values(array_filter($current, function ($a) use ($valid) { return isset($valid[$a]); }));
+                if (array_diff($pickable, $asset_ids)) {
+                    $this->jsonError('This bundle has sold, so its content can’t be removed. You can still add more.');
+                }
+                $asset_ids = array_values(array_unique(array_merge($asset_ids, array_diff($current, $pickable))));
             }
             $model->update_bundle($user_id, $id, ['name' => $name, 'description' => $description, 'price_credits' => $price]);
         } else {
@@ -599,7 +605,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function scheduler_listAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $out        = [];
@@ -734,7 +740,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Poll for the outcome of a "Run now": the newest run created after $since. */
     public function scheduler_run_statusAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('view');
         $creator_id = (int) $user['user_id'];
         $rule       = (new SchedulerRulesModel())->get_one($creator_id, (int) ($this->post['id'] ?? 0));
         if (!$rule) { $this->jsonError('Automation not found'); }
@@ -839,6 +845,11 @@ class ApiCreatorStudioController extends BaseApiController {
             && $this->post_is_paid(array('creator_id' => $creator_id, 'audience' => $audience, 'ppv_price_credits' => $ppv_credits, 'tier_id' => $tier_id))) {
             $this->need_plan('publish paid posts');
         }
+        // A live (or queued) post edited into a paid one needs the Creator Agreement, as publishing it would.
+        $is_live = $stored && in_array((string) $stored['state'], array('published', 'scheduled'), true);
+        if ($is_live && $this->post_is_paid(array('creator_id' => $creator_id, 'audience' => $audience, 'ppv_price_credits' => $ppv_credits, 'tier_id' => $tier_id))) {
+            CreatorAgreement::require($creator_id);
+        }
         // PPV integrity: once a post has buyers you may ADD media but not remove what
         // they paid for, and it stays pay-per-view. Checked before anything is written.
         if ($id > 0) {
@@ -860,6 +871,8 @@ class ApiCreatorStudioController extends BaseApiController {
             $model->update_fields($creator_id, $id, $fields);
         }
         $model->set_assets($creator_id, $id, $asset_ids, $cover_id);
+        // Editing a live post re-runs the age gate: adult media added to it holds it until the creator is verified.
+        if ($is_live) { AgeVerification::hold_unverified_adult_post($creator_id, $id, true); }
         $post = $model->get_one($creator_id, $id);
         $json = $this->studio_post_json($post, $user);
         $json['validation'] = $this->post_validation($post);
@@ -868,7 +881,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Load a post (edit / reopen draft). */
     public function post_getAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $post       = (new PostsModel())->get_one($creator_id, $id);
@@ -1085,7 +1098,7 @@ class ApiCreatorStudioController extends BaseApiController {
     /* ---------- Content Studio: posts list ---------- */
 
     public function posts_listAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $model      = new PostsModel();
         foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid) && !AgeVerification::hold_unverified_adult_post((int) $cid, (int) $pid)) { PostNotifier::published($cid, $pid); } }   // cron fallback: flip now-due scheduled posts
@@ -1102,7 +1115,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Scheduled + published posts placed on their local date, plus queue health. */
     public function posts_calendarAction(){
-        $user       = $this->require_creator('content', false);
+        $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $model      = new PostsModel();

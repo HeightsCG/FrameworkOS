@@ -107,43 +107,54 @@ class ServicesModel extends Model {
         return is_array($r) && count($r) ? (int) $r[0]['n'] : 0;
     }
 
-    /** Has this user already bought this service (grants access to the booking details)? */
-    /** The buyer's paid booking id for a service, or 0 (CLS Video: the booking's call room). */
+    /**
+     * The buyer's open booking id for a service (paid, not delivered yet), else their latest paid one, or 0
+     * (CLS Video: the booking's call room).
+     */
     public function paid_purchase_id($service_id, $user_id): int {
-        $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :u AND status = 'paid' ORDER BY id DESC LIMIT 1",
+        $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :u AND status = 'paid' ORDER BY (delivered_at IS NULL) DESC, id DESC LIMIT 1",
             array('s' => (int) $service_id, 'u' => (int) $user_id));
         return (is_array($r) && count($r)) ? (int) $r[0]['id'] : 0;
     }
 
+    /**
+     * Does this user have an open booking of this service (paid, not delivered yet)? It grants the booking details.
+     * A delivered or refunded booking doesn't: the fan may book again (Daniel 2026-10-18).
+     */
     public function has_purchased($service_id, $user_id){
-        $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :u AND status = 'paid' LIMIT 1",
+        $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :u AND status = 'paid' AND delivered_at IS NULL LIMIT 1",
             array('s' => (int) $service_id, 'u' => (int) $user_id));
         return is_array($r) && count($r) >= 1;
     }
 
     /**
-     * Take the booking row; returns its id, or 0 if this buyer already has a live one. UNIQUE(service_id, buyer_id) is the
-     * mutex against a double charge; a refunded buyer booking again gets their old row back (conditional update).
+     * Take a new booking row. Returns its id, 0 when this buyer already has an open booking of the service, or -1 when
+     * the service is fully booked. Every booking is its own row; UNIQUE(service_id, buyer_id, open_key) is the mutex
+     * against two open bookings (open_key is generated: 1 while paid and not delivered, else NULL). With a seat cap the
+     * service row is locked while counting, so two buyers can't both take the last seat.
      */
-    public function record_purchase($service_id, $buyer_id, $price_credits = 0){
+    public function record_purchase($service_id, $buyer_id, $price_credits = 0, $capacity = 0){
+        $own = !$this->db->inTransaction();
+        if ($own) { $this->db->beginTransaction(); }
         try {
-            return (int) parent::insert('service_purchases', array(
+            if ((int) $capacity > 0) {
+                $lock = $this->db->prepare("SELECT id FROM services WHERE id = :s FOR UPDATE");
+                $lock->execute(array(':s' => (int) $service_id));
+                if ($this->purchase_count($service_id) >= (int) $capacity) { if ($own) { $this->db->rollBack(); } return -1; }
+            }
+            $id = (int) parent::insert('service_purchases', array(
                 'service_id'    => (int) $service_id,
                 'buyer_id'      => (int) $buyer_id,
                 'price_credits' => max(0, (int) $price_credits),
                 'status'        => 'paid',
                 'created_at'    => date('Y-m-d H:i:s'),
             ));
+            if ($own) { $this->db->commit(); }
+            return $id;
         } catch (\PDOException $e) {
+            if ($own && $this->db->inTransaction()) { $this->db->rollBack(); }
             if ((string) $e->getCode() !== '23000') { throw $e; }
-            $back = parent::update('service_purchases',
-                // A new booking reusing an old refunded row: not delivered and not paid out yet.
-                array('status' => 'paid', 'price_credits' => max(0, (int) $price_credits), 'net_credits' => 0, 'created_at' => date('Y-m-d H:i:s'),
-                      'delivered_at' => null, 'earning_released_at' => null),
-                'service_id = :s AND buyer_id = :b AND status <> :paid', array('s' => (int) $service_id, 'b' => (int) $buyer_id, 'paid' => 'paid'));
-            if ($back <= 0) { return 0; }   // already booked (or a concurrent request won)
-            $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :b", array('s' => (int) $service_id, 'b' => (int) $buyer_id));
-            return (is_array($r) && count($r)) ? (int) $r[0]['id'] : 0;
+            return 0;   // an open booking already exists (or a concurrent request won)
         }
     }
 

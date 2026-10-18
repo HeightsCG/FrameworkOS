@@ -89,6 +89,19 @@ class CreatorDomainsModel extends Model {
             'id = :id AND user_id = :u', array('id' => (int) $id, 'u' => (int) $user_id));
     }
 
+    /** Release every domain of an account (account deleted / no longer a creator), so the hostnames can be claimed again. */
+    public function remove_all_for_user($user_id): void{
+        parent::update('creator_domains', array('deleted' => 1, 'is_primary' => 0, 'date_updated' => date('Y-m-d H:i:s')),
+            'user_id = :u AND deleted = 0', array('u' => (int) $user_id));
+    }
+
+    /** Drop claims that never verified within $days days (pending or failed), so a hostname isn't held forever. Returns rows removed. */
+    public function expire_unverified($days = 7): int{
+        return (int) parent::update('creator_domains', array('deleted' => 1, 'is_primary' => 0, 'date_updated' => date('Y-m-d H:i:s')),
+            "deleted = 0 AND status IN ('pending','failed') AND verified_at IS NULL AND date_created < :cut",
+            array('cut' => date('Y-m-d H:i:s', time() - (int) $days * 86400)));
+    }
+
     /** Every live domain, for the daily DNS re-check. */
     public function list_to_recheck(): array{
         $rows = parent::select("SELECT * FROM creator_domains WHERE deleted = 0 AND status IN ('pending','verified','active','failed')");

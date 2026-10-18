@@ -53,11 +53,15 @@ class AffiliateCommissionsModel extends Model {
     }
 
     /**
-     * A refund or dispute on the charge. Returns 1 when it reversed something, 0 when there was nothing to do (no
-     * commission, or done before), LOCK_BUSY when the payout lock was held. A row in a requested payout leaves it and
-     * the payout drops by its amount (the payout is deleted, its rows freed, when it falls under $min_cents).
+     * A refund or dispute on the charge. $share (0..1) is how much of the charge it takes back in total (a partial refund
+     * reverses only that part of the commission; repeat events for the same refund add nothing). Returns 1 when it reversed
+     * something, 0 when there was nothing to do, LOCK_BUSY when the payout lock was held.
+     *  - The whole commission, not paid and never partly reversed: the row becomes 'reversed' and leaves any requested
+     *    payout (the payout shrinks, or goes when it falls under $min_cents).
+     *  - Otherwise (a part of it, or already paid out): a negative 'earned' adjustment row nets the new part from the
+     *    balance. Each adjustment's invoice_cents is minus the refunded total so far, which keeps (charge_id, invoice_cents) unique.
      */
-    public function reverse_charge($charge_id, $min_cents): int {
+    public function reverse_charge($charge_id, $min_cents, $share = 1.0): int {
         $c = $this->for_charge($charge_id);
         if (!$c || (string) $c['status'] == 'reversed') { return 0; }
         $aid = (int) $c['affiliate_id'];
@@ -65,28 +69,75 @@ class AffiliateCommissionsModel extends Model {
         try {
             $c = $this->for_charge($charge_id);   // again, under the lock
             if (!$c || (string) $c['status'] == 'reversed') { return 0; }
+            $share  = max(0.0, min(1.0, (float) $share));
+            $full   = (int) $c['commission_cents'];
+            $target = $share >= 1.0 ? $full : (int) round($full * $share);
+            $adj    = $this->adjustments($charge_id);
+            $done   = -array_sum(array_map('intval', array_column($adj, 'commission_cents')));
+            $delta  = $target - $done;
+            if ($delta <= 0) { return 0; }
             $now = gmdate('Y-m-d H:i:s');
-            if ((string) $c['status'] == 'paid') {   // already paid out: stays paid, the adjustment nets it from the balance
-                $adj = parent::select("SELECT id FROM affiliate_commissions WHERE charge_id = :c AND invoice_cents < 0 LIMIT 1", array('c' => (int) $charge_id));
-                if (is_array($adj) && count($adj)) { return 0; }
-                parent::update('affiliate_commissions', array('reversed_at' => $now), 'id = :id', array('id' => (int) $c['id']));
-                parent::insert('affiliate_commissions', array('affiliate_id' => $aid, 'referred_user_id' => (int) $c['referred_user_id'],
-                    'charge_id' => (int) $c['charge_id'], 'invoice_cents' => -(int) $c['invoice_cents'], 'commission_cents' => -(int) $c['commission_cents'],
-                    'status' => 'earned', 'created_at' => $now, 'earned_at' => $now));
+            if ($target >= $full && empty($adj) && (string) $c['status'] != 'paid') {
+                $pid = (int) ($c['payout_id'] ?? 0);
+                parent::update('affiliate_commissions', array('status' => 'reversed', 'reversed_at' => $now, 'payout_id' => null), 'id = :id', array('id' => (int) $c['id']));
+                if ($pid > 0) {   // still only requested: the payout shrinks, or goes when it falls under the minimum
+                    $sum = $this->sum_for_payout($pid);
+                    if ($sum < (int) $min_cents) {
+                        parent::update('affiliate_commissions', array('payout_id' => null), "payout_id = :p AND status = 'earned'", array('p' => $pid));
+                        parent::delete('affiliate_payouts', "id = :p AND status = 'requested'", 1, array('p' => $pid));
+                    } else {
+                        parent::update('affiliate_payouts', array('amount_cents' => $sum), "id = :p AND status = 'requested'", array('p' => $pid));
+                    }
+                }
                 return 1;
             }
-            $pid = (int) ($c['payout_id'] ?? 0);
-            parent::update('affiliate_commissions', array('status' => 'reversed', 'reversed_at' => $now, 'payout_id' => null), 'id = :id', array('id' => (int) $c['id']));
-            if ($pid > 0) {   // still only requested: the payout shrinks, or goes when it falls under the minimum
-                $sum = $this->sum_for_payout($pid);
-                if ($sum < (int) $min_cents) {
-                    parent::update('affiliate_commissions', array('payout_id' => null), "payout_id = :p AND status = 'earned'", array('p' => $pid));
-                    parent::delete('affiliate_payouts', "id = :p AND status = 'requested'", 1, array('p' => $pid));
+            $inv = (int) $c['invoice_cents'];
+            $inv_target = $share >= 1.0 ? $inv : max(1, (int) round($inv * $share));
+            try {
+                parent::insert('affiliate_commissions', array('affiliate_id' => $aid, 'referred_user_id' => (int) $c['referred_user_id'],
+                    'charge_id' => (int) $c['charge_id'], 'invoice_cents' => -$inv_target, 'commission_cents' => -$delta,
+                    'status' => 'earned', 'created_at' => $now, 'earned_at' => $now));
+            } catch (\PDOException $e) {
+                if ((string) $e->getCode() == '23000') { return 0; }   // the same refunded total again
+                throw $e;
+            }
+            if ($target >= $full) { parent::update('affiliate_commissions', array('reversed_at' => $now), 'id = :id', array('id' => (int) $c['id'])); }
+            return 1;
+        } finally {
+            $this->unlock($aid);
+        }
+    }
+
+    /** The negative adjustment rows written for a charge's reversals (any status but reversed). */
+    public function adjustments($charge_id): array {
+        return (array) parent::select("SELECT * FROM affiliate_commissions WHERE charge_id = :c AND invoice_cents < 0 AND status <> 'reversed'", array('c' => (int) $charge_id));
+    }
+
+    /**
+     * A dispute was won: give the commission back where that is still possible. A reversed row turns earned again;
+     * adjustment rows not yet in a payout are removed. Adjustments already requested or paid stay (logged). Returns 1
+     * when something was restored, 0 when nothing could be, LOCK_BUSY when the payout lock was held.
+     */
+    public function restore_charge($charge_id): int {
+        $c = $this->for_charge($charge_id);
+        if (!$c) { return 0; }
+        $aid = (int) $c['affiliate_id'];
+        if (!$this->lock($aid)) { return self::LOCK_BUSY; }
+        try {
+            $c = $this->for_charge($charge_id);
+            $n = 0;
+            if ($c && (string) $c['status'] == 'reversed') {
+                $n += parent::update('affiliate_commissions', array('status' => 'earned', 'reversed_at' => null, 'payout_id' => null), 'id = :id', array('id' => (int) $c['id']));
+            }
+            foreach ($this->adjustments($charge_id) as $a) {
+                if ((string) $a['status'] == 'earned' && empty($a['payout_id'])) {
+                    $n += parent::delete('affiliate_commissions', "id = :id AND status = 'earned' AND payout_id IS NULL", 1, array('id' => (int) $a['id']));
                 } else {
-                    parent::update('affiliate_payouts', array('amount_cents' => $sum), "id = :p AND status = 'requested'", array('p' => $pid));
+                    error_log('[affiliates] restore charge ' . (int) $charge_id . ': adjustment ' . (int) $a['id'] . ' is already in a payout, left as is');
                 }
             }
-            return 1;
+            if ($n > 0 && $c) { parent::update('affiliate_commissions', array('reversed_at' => null), 'id = :id', array('id' => (int) $c['id'])); }
+            return $n > 0 ? 1 : 0;
         } finally {
             $this->unlock($aid);
         }

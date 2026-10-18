@@ -362,6 +362,7 @@ class ApiBillingController extends BaseApiController {
                 $this->jsonError('Payouts are not available yet.' . ($why !== '' ? ' Stripe said: ' . $why : ' Please try again later.'));
             }
             $this->billingModel->set_connect_account_id((int) $user['user_id'], $account_id);
+            (new CreatorPlansModel())->clear_stripe_ids_for_user((int) $user['user_id']);   // cached prices belong to the old account
         }
 
         $base    = $this->site_base_url();
@@ -378,6 +379,7 @@ class ApiBillingController extends BaseApiController {
                 $this->jsonError('Payouts are not available yet.' . ($why !== '' ? ' Stripe said: ' . $why : ' Please try again later.'));
             }
             $this->billingModel->set_connect_account_id((int) $user['user_id'], $account_id);
+            (new CreatorPlansModel())->clear_stripe_ids_for_user((int) $user['user_id']);   // cached prices belong to the old account
             $url = StripeService::account_onboarding_link($account_id, $refresh, $return);
         }
         if ($url === '') {
@@ -451,12 +453,26 @@ class ApiBillingController extends BaseApiController {
 
     public function disconnect_payout_accountAction(){
         $user       = $this->require_creator('owner', false);
-        $account_id = $user['stripe_connect_account_id'] ?? '';
+        $uid        = (int) $user['user_id'];
+        $account_id = (string) ($user['stripe_connect_account_id'] ?? '');
 
         if ($account_id !== '') {
-            StripeService::delete_connect_account($account_id);
+            // Fan memberships bill on this account: removing it would leave them charging with no way to manage or refund them.
+            $members = count((new CreatorSubscriptionsModel())->active_paid_for_creator($uid));
+            if ($members > 0) {
+                $this->jsonError($members . ' fan' . ($members === 1 ? ' has' : 's have') . ' a paid membership with you. Turn off your membership plans and wait for them to end before disconnecting.');
+            }
+            $bal = StripeService::connect_balance_checked($account_id);
+            if ($bal === null) { $this->jsonError('We couldn’t check your payout balance. Please try again in a minute.'); }
+            if ((int) $bal['available'] !== 0 || (int) $bal['pending'] !== 0) {
+                $this->jsonError('Your payout account still holds a balance. Wait until it has been paid out to your bank, then disconnect.');
+            }
+            if (!StripeService::delete_connect_account($account_id)) {
+                $this->jsonError('We couldn’t disconnect your payout account. Please try again, or contact support.');
+            }
         }
-        $this->billingModel->set_connect_account_id((int) $user['user_id'], null);
+        $this->billingModel->set_connect_account_id($uid, null);
+        (new CreatorPlansModel())->clear_stripe_ids_for_user($uid);   // prices lived on that account
 
         $this->jsonSuccess(['message' => 'Payout account disconnected']);
     }

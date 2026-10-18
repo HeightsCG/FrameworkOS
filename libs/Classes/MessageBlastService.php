@@ -13,6 +13,9 @@ class MessageBlastService {
 
     public static function run_rule(array $rule, array $user){
         try {
+            if (!Plan::account_active($user) || !Plan::creator_active((int) ($user['user_id'] ?? 0))) {
+                return self::fail('This account is suspended, so automations are paused.');
+            }
             if (!Plan::can_use_creator_features($user)) {
                 return self::fail('Your plan does not include scheduled messages.');
             }

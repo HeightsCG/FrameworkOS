@@ -37,6 +37,15 @@ class LiveAccess {
         return Permissions::creator_id() === (int) $creator_id && (int) $creator_id > 0 && Permissions::can_act_as_creator() && Permissions::team_allows('manage');
     }
 
+    /** After the window: was this person already admitted to the room, and is the host still in it? */
+    private static function admitted_while_host_in($room, $user_id): bool
+    {
+        $entry = (new LiveRoomsModel())->entry($room, LiveControl::identity((int) $user_id, $room));
+        if (!$entry || (string) $entry['status'] !== 'admitted') { return false; }
+        $live = LiveKit::room_status($room);
+        return is_array($live) && !empty($live['host_in']);
+    }
+
     /**
      * Decide one join. Returns ['ok', 'message', 'room', 'host', 'guest', 'title', 'creator_id', 'defaults' (the call's
      * starting settings, LiveControl::defaults), plus 'need_login' /
@@ -62,8 +71,11 @@ class LiveAccess {
                 if ($user_id > 0 && (new BlocksModel())->either_blocked($user_id, (int) $ev['creator_id'])) { return $no('This call is not available.'); }
             }
             $phase = self::event_phase($ev);
-            // The host may open the room early to get set up; everyone else waits for the window.
-            if ($phase === 'closed') { return $no('This event has ended.'); }
+            // The host may open the room early to get set up, and keeps the controls (End Call, Stop Recording) after the
+            // window closes; everyone else waits for the window. Someone already let in may rejoin while the host is still there.
+            if ($phase === 'closed' && !$host && !self::admitted_while_host_in(LiveKit::room_for_event((int) $ev['id']), $user_id)) {
+                return $no('This event has ended.');
+            }
             if ($phase === 'early' && !$host) {
                 return $no('The call opens ' . self::JOIN_EARLY_MIN . ' minutes before the start.', array('opens_at' => self::window($ev)[0]));
             }

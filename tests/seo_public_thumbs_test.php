@@ -33,7 +33,7 @@ check('alt falls back to the creator name', PublicThumbService::alt('  ', 'Lexi 
 check('blog cover small sibling', PublicThumbService::cover_small('https://b.s3.x.amazonaws.com/creator/blog/a-1-960.webp') === 'https://b.s3.x.amazonaws.com/creator/blog/a-1-480.webp');
 
 // the profile grid only reaches for the public copy on free posts.
-$ctl = file_get_contents("$root/app/controllers/ProfileController.php");
+$ctl = file_get_contents("$root/libs/Classes/ProfilePosts.php");   // the grid cards moved here from ProfileController (audit 2026-10-18)
 check("profile uses the public copy only for audience 'free'", strpos($ctl, "(\$cover && \$audience === 'free') ? PublicThumbService::url(\$cover, 'grid')") !== false);
 check('blog cover fit_webp stays under 80 KB by shrinking (noise image)', (function () {
     $i = imagecreatetruecolor(2000, 1500);

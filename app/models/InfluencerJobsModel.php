@@ -107,6 +107,41 @@ class InfluencerJobsModel extends Model {
         return (is_array($r) && count($r)) ? ((int) $r[0]['n'] > 0) : false;
     }
 
+    /** Unfinished jobs untouched since $before (UTC), oldest first: what the queue sweep looks at. */
+    public function idle_unfinished($before, $limit = 25){
+        return (array) parent::select("SELECT * FROM influencer_jobs WHERE status IN " . self::PENDING . " AND updated_at < :b ORDER BY updated_at ASC LIMIT " . max(1, (int) $limit),
+            array('b' => (string) $before));
+    }
+
+    /** SQL filter for one kind of free influencer-building run (InfluencerActions::FREE_DAILY). */
+    private static function free_kind_sql($kind){
+        switch ((string) $kind) {
+            case 'reference':    return "type = 'reference'";
+            case 'training_set': return "type = 'training_set'";
+            case 'training':     return "type = 'training'";
+            case 'body':         return "type = 'angle' AND origin = 'wizard' AND credits_charged = 0 AND JSON_UNQUOTE(JSON_EXTRACT(params_json, '$.angle')) = 'full_front'";
+        }
+        return '';
+    }
+
+    /** Free runs of one kind for an influencer since $since (UTC), every status counted. */
+    public function count_free_runs($influencer_id, $kind, $since){
+        $f = self::free_kind_sql($kind);
+        if ($f === '') { return 0; }
+        $r = parent::select("SELECT COUNT(*) AS n FROM influencer_jobs WHERE influencer_id = :i AND created_at >= :s AND " . $f,
+            array('i' => (int) $influencer_id, 's' => (string) $since));
+        return (is_array($r) && count($r)) ? (int) $r[0]['n'] : 0;
+    }
+
+    /** Is a free run of this kind still queued or running for the influencer? */
+    public function free_run_pending($influencer_id, $kind){
+        $f = self::free_kind_sql($kind);
+        if ($f === '') { return false; }
+        $r = parent::select("SELECT 1 FROM influencer_jobs WHERE influencer_id = :i AND status IN " . self::PENDING . " AND " . $f . " LIMIT 1",
+            array('i' => (int) $influencer_id));
+        return is_array($r) && count($r) > 0;
+    }
+
     /** Recent jobs for one influencer (studio result strips), newest first. $type: one type, a list, or ''. */
     public function list_for_influencer($creator_id, $influencer_id, $type = '', $limit = 30, $before_id = 0){
         $limit  = max(1, min(200, (int) $limit));

@@ -471,22 +471,18 @@ $pub_links   = array(
                     <div class="pf-toolbar">
                         <div class="pf-search">
                             <i class="fa-solid fa-magnifying-glass pf-search__icon"></i>
-                            <input type="search" id="pfSearch" class="pf-search__input" placeholder="Search posts…" autocomplete="off" aria-label="Search posts">
+                            <input type="search" id="pfSearch" class="pf-search__input" placeholder="Search posts…" autocomplete="off" aria-label="Search posts" data-handle="<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>">
                         </div>
                     </div>
                     <div class="pf-feed">
-                        <?php foreach ($content_cards as $c): $cov = htmlspecialchars((string) $c['cover'], ENT_QUOTES, 'UTF-8'); ?>
-                        <?php $pc_cap = trim((string) $c['caption']); $pc_label = ($c['entitled'] ? 'Open post' : 'Locked post') . ($pc_cap !== '' ? ': ' . mb_substr($pc_cap, 0, 80) : ''); ?>
-                        <button type="button" class="pf-pc<?php echo $c['entitled'] ? '' : ' pf-pc--locked'; ?>" aria-label="<?php echo htmlspecialchars($pc_label, ENT_QUOTES, 'UTF-8'); ?>" data-post-id="<?php echo (int) $c['id']; ?>" data-search="<?php echo htmlspecialchars(strtolower((string) $c['caption']), ENT_QUOTES, 'UTF-8'); ?>">
-                            <span class="pf-pc__thumb"><?php if ($cov !== ''): ?><img class="pf-pc__img" src="<?php echo $cov; ?>" alt="<?php echo htmlspecialchars((string) ($c['cover_alt'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" width="480" height="480" loading="lazy" decoding="async"><?php endif; ?>
-                                <?php if (!$c['entitled']): ?><span class="pf-pc__lockbadge"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
-                                <?php if ($c['entitled'] && $c['has_video']): ?><span class="pf-pc__play"><i class="fa-solid fa-play"></i></span><?php endif; ?>
-                                <?php if ((int) $c['media_count'] > 1): ?><span class="pf-pc__count"><i class="fa-solid fa-layer-group"></i> <?php echo (int) $c['media_count']; ?></span><?php endif; ?>
-                            </span>
-                            <?php if (trim((string) $c['excerpt']) !== ''): ?><span class="pf-pc__cap"><?php echo htmlspecialchars((string) $c['excerpt'], ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
-                        </button>
-                        <?php endforeach; ?>
+                        <?php foreach ($content_cards as $c) { require __DIR__ . '/_post_card.php'; } ?>
                     </div>
+                    <?php if (!empty($posts_page['has_more'])): ?>
+                    <div class="pf-more" id="pfMore">
+                        <button type="button" class="pf-btn pf-more__btn" id="pfMoreBtn" data-handle="<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>" data-offset="<?php echo (int) $posts_page['next_offset']; ?>">Load More</button>
+                    </div>
+                    <?php endif; ?>
+                    <div class="pf-feed" id="pfResults" hidden></div>
                     <p class="pf-feed__none" id="pfNoResults" hidden>No posts match your search.</p>
 
                     <!-- full-post lightbox -->
@@ -1201,7 +1197,34 @@ $pub_links   = array(
                 });
             }
             function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; clearInterval(plbTimer); }
-            document.querySelectorAll('.pf-pc').forEach(function (c) { c.addEventListener('click', function () { openPost(parseInt(c.getAttribute('data-post-id'), 10)); }); });
+            function bindCards() {
+                document.querySelectorAll('.pf-pc:not([data-bound])').forEach(function (c) {
+                    c.setAttribute('data-bound', '1');
+                    c.addEventListener('click', function () { openPost(parseInt(c.getAttribute('data-post-id'), 10)); });
+                });
+            }
+            bindCards();
+            window.pfBindCards = bindCards;                          // the search results grid binds its cards the same way
+            window.pfAddPost = function (p) { byId[p.id] = p; };     // and registers them for the viewer
+            // "Load More": the next page of cards, rendered and gated by the server (ProfilePosts), appended to the grid.
+            var moreBtn = document.getElementById('pfMoreBtn');
+            if (moreBtn) {
+                moreBtn.addEventListener('click', function () {
+                    if (!window.ApiDataSvc || moreBtn.disabled) { return; }
+                    var label = moreBtn.textContent;
+                    moreBtn.disabled = true; moreBtn.textContent = 'Loading…';
+                    ApiDataSvc.apiCall('post', 'profile_posts', { handle: moreBtn.getAttribute('data-handle'), offset: moreBtn.getAttribute('data-offset') }, function (resp) {
+                        var o = null; try { o = JSON.parse(resp); } catch (x) { o = null; }
+                        if (!o || !o.success) { moreBtn.disabled = false; moreBtn.textContent = label; pfToast((o && o.message) || 'Could not load more posts. Please try again.'); return; }
+                        var feed = document.querySelector('.pf-feed');
+                        if (feed && o.html) { feed.insertAdjacentHTML('beforeend', o.html); }
+                        (o.items || []).forEach(function (p) { byId[p.id] = p; });
+                        bindCards();
+                        if (o.has_more) { moreBtn.setAttribute('data-offset', o.next_offset); moreBtn.disabled = false; moreBtn.textContent = label; }
+                        else { var wrap = document.getElementById('pfMore'); if (wrap) { wrap.parentNode.removeChild(wrap); } }
+                    });
+                });
+            }
             document.getElementById('pfLbClose').addEventListener('click', closePlb);
             lb.addEventListener('click', function (ev) { if (ev.target === lb) { closePlb(); } });
             document.addEventListener('keydown', function (ev) {
@@ -1322,19 +1345,32 @@ $pub_links   = array(
             }
         })();
 
-        // Content search — filter the grid by caption.
+        // Content search: the server looks through every post's caption (not just the cards loaded so far); the results
+        // show in their own grid, and clearing the box brings the page back as it was.
         var pfSearch = document.getElementById('pfSearch');
         if (pfSearch) {
+            var pfFeed = document.querySelector('.pf-feed'), pfRes = document.getElementById('pfResults'), pfNone = document.getElementById('pfNoResults');
+            var pfT = null, pfReq = 0;
+            var pfShowMain = function (on) { if (pfFeed) { pfFeed.hidden = !on; } var mw = document.getElementById('pfMore'); if (mw) { mw.hidden = !on; } };
             pfSearch.addEventListener('input', function () {
-                var q = this.value.trim().toLowerCase();
-                var shown = 0;
-                document.querySelectorAll('.pf-feed .pf-pc').forEach(function (c) {
-                    var hit = (q === '') || (c.getAttribute('data-search') || '').indexOf(q) >= 0;
-                    c.hidden = !hit;
-                    if (hit) { shown++; }
-                });
-                var none = document.getElementById('pfNoResults');
-                if (none) { none.hidden = (q === '' || shown > 0); }
+                var q = this.value.trim(), handle = pfSearch.getAttribute('data-handle');
+                clearTimeout(pfT);
+                if (q === '') { pfReq++; if (pfRes) { pfRes.hidden = true; pfRes.innerHTML = ''; } if (pfNone) { pfNone.hidden = true; } pfShowMain(true); return; }
+                pfT = setTimeout(function () {
+                    if (!window.ApiDataSvc || !pfRes) { return; }
+                    var req = ++pfReq;
+                    ApiDataSvc.apiCall('post', 'profile_posts', { handle: handle, q: q }, function (resp) {
+                        if (req !== pfReq) { return; }
+                        var o = null; try { o = JSON.parse(resp); } catch (x) { o = null; }
+                        if (!o || !o.success) { pfToast((o && o.message) || 'Could not search posts. Please try again.'); return; }
+                        (o.items || []).forEach(function (p) { if (window.pfAddPost) { window.pfAddPost(p); } });
+                        pfRes.innerHTML = o.html || '';
+                        pfShowMain(false);
+                        pfRes.hidden = !(o.items || []).length;
+                        if (pfNone) { pfNone.hidden = (o.items || []).length > 0; }
+                        if (window.pfBindCards) { window.pfBindCards(); }
+                    });
+                }, 300);
             });
         }
 

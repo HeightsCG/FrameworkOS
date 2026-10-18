@@ -14,42 +14,70 @@ class FeedModel extends Model {
     public function recent($limit = 30, $offset = 0, $viewer_id = 0){
         $limit  = max(1, min(60, (int) $limit));
         $offset = max(0, (int) $offset);
-        $viewer_id = (int) $viewer_id;
-        // Blocks hide a creator's posts from the blocked viewer, and the viewer's own blocks hide creators they blocked.
-        $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2') : '';
-        $params    = $viewer_id > 0 ? array('bv1' => $viewer_id, 'bv2' => $viewer_id) : array();
-        // demo accounts stay out of everyone else's feed; the demo user still sees their own posts.
-        $demo_sql  = $viewer_id > 0 ? ' AND (ua.is_demo = 0 OR ua.user_id = :demo_viewer)' : ' AND ua.is_demo = 0';
-        if ($viewer_id > 0) { $params['demo_viewer'] = $viewer_id; }
-        // Subscriber posts appear only for a viewer with an active subscription to that creator (2026-10-13): nobody else gets
-        // even a locked tile. Free and pay-per-view posts are for everyone. Done here, not in PHP, so paging stays exact.
-        $sub_sql = self::subscriber_sql($viewer_id, $params);
+        $params = array();
+        $where  = self::visible_where((int) $viewer_id, $params);
+        // Step 1: the page of ids only. Near the top, idx_posts_feed walks posts newest first and stops at the limit (no temp
+        // table or filesort); the optimizer otherwise starts from user_accounts and sorts every published post. Deep pages are
+        // left to the optimizer. An optimizer hint, not FORCE INDEX: without the index it is only a warning.
+        $hint = $offset < 300 ? '/*+ INDEX(p idx_posts_feed) */ ' : '';
+        $ids = parent::select(
+            "SELECT {$hint}p.id FROM posts p JOIN user_accounts ua ON ua.user_id = p.creator_id
+             WHERE $where
+             ORDER BY p.published_at DESC, p.id DESC
+             LIMIT $offset, $limit", $params);
+        $ids = array_map(function ($r) { return (int) $r['id']; }, (array) $ids);
+        if (!$ids) { return array(); }
+        // Step 2: author, counts and cover for just those posts.
         // Cover = the post's is_cover asset, else its first ready asset by sort order.
         // Pulled as correlated scalar subqueries (the ON-clause form trips a MySQL
         // "unknown column" error on the joined alias).
         $cover = "(SELECT ma.%s FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
                      WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.status = 'ready'
                      ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1)";
-        $sql = "SELECT p.id, p.creator_id, p.caption, p.audience, p.ppv_price_credits, p.tier_id,
-                       p.published_at, p.views, p.likes, p.comments, p.comments_enabled,
-                       ua.u_name,
-                       cp.display_name, cp.avatar_url,
-                       (SELECT COUNT(*) FROM post_assets pa WHERE pa.post_id = p.id) AS asset_count,
-                       " . sprintf($cover, 'type')        . " AS cover_type,
-                       " . sprintf($cover, 'thumb_key')   . " AS cover_thumb_key,
-                       " . sprintf($cover, 'poster_key')  . " AS cover_poster_key,
-                       " . sprintf($cover, 'blurred_key') . " AS cover_blurred_key,
-                       " . sprintf($cover, 'moderation_status') . " AS cover_moderation_status,
-                       " . sprintf($cover, 'is_adult') . " AS cover_is_adult,
-                       " . sprintf($cover, 'public_display_key') . " AS cover_public_display_key
-                FROM posts p
-                JOIN user_accounts ua ON ua.user_id = p.creator_id
-                LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
-                WHERE p.state = 'published' AND p.on_cls = 1
-                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql$sub_sql
-                ORDER BY p.published_at DESC, p.id DESC
-                LIMIT $offset, $limit";
-        return parent::select($sql, $params);
+        $rows = parent::select(
+            "SELECT p.id, p.creator_id, p.caption, p.audience, p.ppv_price_credits, p.tier_id,
+                    p.published_at, p.views, p.likes, p.comments, p.comments_enabled,
+                    ua.u_name,
+                    cp.display_name, cp.avatar_url,
+                    (SELECT COUNT(*) FROM post_assets pa WHERE pa.post_id = p.id) AS asset_count,
+                    " . sprintf($cover, 'type')        . " AS cover_type,
+                    " . sprintf($cover, 'thumb_key')   . " AS cover_thumb_key,
+                    " . sprintf($cover, 'poster_key')  . " AS cover_poster_key,
+                    " . sprintf($cover, 'blurred_key') . " AS cover_blurred_key,
+                    " . sprintf($cover, 'moderation_status') . " AS cover_moderation_status,
+                    " . sprintf($cover, 'is_adult') . " AS cover_is_adult,
+                    " . sprintf($cover, 'public_display_key') . " AS cover_public_display_key
+             FROM posts p
+             JOIN user_accounts ua ON ua.user_id = p.creator_id
+             LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
+             WHERE p.id IN (" . implode(',', $ids) . ")");
+        $by_id = array();
+        foreach ((array) $rows as $r) { $by_id[(int) $r['id']] = $r; }
+        $out = array();
+        foreach ($ids as $id) { if (isset($by_id[$id])) { $out[] = $by_id[$id]; } }   // keep the page order
+        return $out;
+    }
+
+    /**
+     * Which posts a viewer may get in the feed (posts p JOIN user_accounts ua). Shared by recent() and count_since(), so the
+     * "N new posts" count never counts a post the feed would not show.
+     */
+    private static function visible_where(int $viewer_id, array &$params): string {
+        $sql = "p.state = 'published' AND p.on_cls = 1
+                AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua');
+        if ($viewer_id > 0) {
+            // Blocks hide a creator's posts from the blocked viewer, and the viewer's own blocks hide creators they blocked.
+            $sql .= ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2');
+            $params['bv1'] = $viewer_id; $params['bv2'] = $viewer_id;
+            // demo accounts stay out of everyone else's feed; the demo user still sees their own posts.
+            $sql .= ' AND (ua.is_demo = 0 OR ua.user_id = :demo_viewer)';
+            $params['demo_viewer'] = $viewer_id;
+        } else {
+            $sql .= ' AND ua.is_demo = 0';
+        }
+        // Subscriber posts appear only for a viewer with an active subscription to that creator (2026-10-13): nobody else gets
+        // even a locked tile. Free and pay-per-view posts are for everyone. Done here, not in PHP, so paging stays exact.
+        return $sql . self::subscriber_sql($viewer_id, $params);
     }
 
     /** The audience clause for the feed: free and pay-per-view for everyone, subscriber posts only with an active subscription to the creator. */
@@ -64,20 +92,22 @@ class FeedModel extends Model {
      * feed's "N new posts" alert. Ids are auto-increment so id > watermark is a
      * cheap monotonic proxy for "published since you last loaded the top". Capped
      * so the count query stays bounded (the UI only needs "9+").
+     * Same rules as recent() plus the moderation gate the feed applies after it (PostsModel::moderation_map):
+     * a post with blocked or unscanned media is never counted, an adult one only when $show_adult.
      */
-    public function count_since($since_id, $cap = 50, $viewer_id = 0){
+    public function count_since($since_id, $cap = 50, $viewer_id = 0, $show_adult = false){
         $since_id = (int) $since_id;
         if ($since_id <= 0) { return 0; }
         $cap = max(1, min(200, (int) $cap));
-        $viewer_id = (int) $viewer_id;
-        $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2') : '';
-        $params    = array('since' => $since_id);
-        if ($viewer_id > 0) { $params['bv1'] = $viewer_id; $params['bv2'] = $viewer_id; $params['demo_viewer'] = $viewer_id; }
-        $demo_sql  = $viewer_id > 0 ? ' AND (ua.is_demo = 0 OR ua.user_id = :demo_viewer)' : ' AND ua.is_demo = 0';
-        $sub_sql = self::subscriber_sql($viewer_id, $params);   // the "new posts" count follows the same rule as the feed
+        $params = array('since' => $since_id);
+        $where  = self::visible_where((int) $viewer_id, $params);
+        $adult  = $show_adult ? '' : " OR ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)";
         $sql = "SELECT COUNT(*) AS c FROM (
                     SELECT p.id FROM posts p JOIN user_accounts ua ON ua.user_id = p.creator_id
-                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql$sub_sql
+                    WHERE $where AND p.id > :since
+                      AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                                      WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
+                                        AND (ma.moderation_status NOT IN ('approved', 'flagged', 'n_a')$adult))
                     LIMIT $cap
                 ) t";
         $rows = parent::select($sql, $params);

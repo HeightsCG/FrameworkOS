@@ -61,9 +61,9 @@ class BlocksModel extends Model {
      * direction. Caller binds the viewer id to BOTH named params (distinct names — PDO forbids reuse).
      */
     public static function exclude_sql($other_col, $p1, $p2){
-        return "NOT EXISTS (SELECT 1 FROM user_blocks ub
-                    WHERE (ub.user_id = $other_col AND ub.blocked_user_id = :$p1)
-                       OR (ub.user_id = :$p2 AND ub.blocked_user_id = $other_col))";
+        // Two NOT EXISTS, not one with OR: each side is a straight lookup on uq_block instead of a scan.
+        return "(NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.user_id = $other_col AND ub.blocked_user_id = :$p1)
+                 AND NOT EXISTS (SELECT 1 FROM user_blocks ub2 WHERE ub2.user_id = :$p2 AND ub2.blocked_user_id = $other_col))";
     }
 
     public function add_block($user_id, $blocked_user_id){

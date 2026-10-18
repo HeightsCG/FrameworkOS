@@ -23,97 +23,135 @@ class ApiPostsController extends BaseApiController {
         $offset = max(0, (int) ($this->post['offset'] ?? 0));
 
         $posts_model = new PostsModel();
-        // Pull one extra row to learn whether another page exists.
-        $rows     = (array) (new FeedModel())->recent($limit + 1, $offset, $viewer);
-        $has_more = count($rows) > $limit;
-        if ($has_more) { $rows = array_slice($rows, 0, $limit); }
+        $feed_model  = new FeedModel();
+        $cards    = [];
+        $pos      = $offset;   // raw rows consumed so far; next_offset continues from here
+        $has_more = false;
+        $batch    = 12;
+        // Rows hidden from this viewer (adult, still being scanned, blocked) are filtered after the SQL LIMIT, so keep
+        // reading until $limit cards survive or the rows run out (a few rounds at most).
+        for ($round = 0; $round < 5 && count($cards) < $limit; $round++) {
+            $rows     = (array) $feed_model->recent($batch + 1, $pos, $viewer);   // one extra row says whether more exist
+            $has_more = count($rows) > $batch;
+            if ($has_more) { $rows = array_slice($rows, 0, $batch); }
+            if (empty($rows)) { break; }
 
-        $post_ids       = array_map(function ($p) { return (int) $p['id']; }, $rows);
-        $moderation_map = !empty($post_ids) ? $posts_model->moderation_map($post_ids) : [];
-        $unlocked_map   = ($logged && !empty($post_ids)) ? (new PpvUnlocksModel())->unlocked_map($viewer, $post_ids) : [];
-        $liked_map      = ($logged && !empty($post_ids)) ? (new PostLikesModel())->liked_map($viewer, $post_ids) : [];
+            $post_ids       = array_map(function ($p) { return (int) $p['id']; }, $rows);
+            $moderation_map = !empty($post_ids) ? $posts_model->moderation_map($post_ids) : [];
+            $unlocked_map   = ($logged && !empty($post_ids)) ? (new PpvUnlocksModel())->unlocked_map($viewer, $post_ids) : [];
+            $liked_map      = ($logged && !empty($post_ids)) ? (new PostLikesModel())->liked_map($viewer, $post_ids) : [];
 
-        $cards = [];
-        // Discover is the shared surface: the creator is treated exactly like any other
-        // viewer here (no owner exemptions). The Studio is where they see their own work.
-        foreach ($rows as $p) {
-            $id  = (int) $p['id'];
-            $mod = $moderation_map[$id] ?? '';
-            if ($mod === 'blocked') { continue; }
-            if ($mod === 'pending') { continue; }
-            if ($mod === 'adult' && !$show_adult) { continue; }
+            // Discover is the shared surface: the creator is treated exactly like any other
+            // viewer here (no owner exemptions). The Studio is where they see their own work.
+            foreach ($rows as $i => $p) {
+                if (count($cards) >= $limit) { $has_more = true; break; }   // page full: the rest of this batch is the next page
+                $pos++;
+                $id  = (int) $p['id'];
+                $mod = $moderation_map[$id] ?? '';
+                if ($mod === 'blocked') { continue; }
+                if ($mod === 'pending') { continue; }
+                if ($mod === 'adult' && !$show_adult) { continue; }
 
-            $audience = (string) $p['audience'];
-            if ($audience === 'free') {
-                $entitled = true;
-            } elseif ($audience === 'ppv') {
-                $entitled = isset($unlocked_map[$id]);
-            } else {
-                // The feed only returns a subscriber post to someone subscribed to its creator (FeedModel::subscriber_sql). They see
-                // it clear when their tier covers it, and as a locked tile when the post is for a higher tier.
-                $s_subs  = new CreatorSubscriptionsModel(); $s_cid = (int) $p['creator_id'];
-                $s_tiers = $posts_model->tiers_for_posts(array($id))[$id] ?? array();
-                $s_price = array(); $s_tid = (int) ($p['tier_id'] ?? 0);
-                if (empty($s_tiers) && $s_tid > 0) { $s_plan = (new CreatorPlansModel())->get_public($s_tid); $s_price[$s_tid] = (int) ($s_plan['price_cents'] ?? 0); }
-                $entitled = $logged && PostsModel::tier_entitled($p, $s_tiers, (array) $s_subs->active_plan_ids($viewer, $s_cid), $s_subs->max_active_tier_price($viewer, $s_cid), $s_price);
+                $audience = (string) $p['audience'];
+                if ($audience === 'free') {
+                    $entitled = true;
+                } elseif ($audience === 'ppv') {
+                    $entitled = isset($unlocked_map[$id]);
+                } else {
+                    // The feed only returns a subscriber post to someone subscribed to its creator (FeedModel::subscriber_sql). They see
+                    // it clear when their tier covers it, and as a locked tile when the post is for a higher tier.
+                    $s_subs  = new CreatorSubscriptionsModel(); $s_cid = (int) $p['creator_id'];
+                    $s_tiers = $posts_model->tiers_for_posts(array($id))[$id] ?? array();
+                    $s_price = array(); $s_tid = (int) ($p['tier_id'] ?? 0);
+                    if (empty($s_tiers) && $s_tid > 0) { $s_plan = (new CreatorPlansModel())->get_public($s_tid); $s_price[$s_tid] = (int) ($s_plan['price_cents'] ?? 0); }
+                    $entitled = $logged && PostsModel::tier_entitled($p, $s_tiers, (array) $s_subs->active_plan_ids($viewer, $s_cid), $s_subs->max_active_tier_price($viewer, $s_cid), $s_price);
+                }
+
+                $display = trim((string) ($p['display_name'] ?? ''));
+                if ($display === '') { $display = '@' . (string) $p['u_name']; }
+                $cover_asset = [
+                    'type'        => (string) ($p['cover_type'] ?? 'image'),
+                    'thumb_key'   => (string) ($p['cover_thumb_key'] ?? ''),
+                    'poster_key'  => (string) ($p['cover_poster_key'] ?? ''),
+                    'blurred_key' => (string) ($p['cover_blurred_key'] ?? ''),
+                ];
+                $has_cover = ($cover_asset['thumb_key'] !== '' || $cover_asset['poster_key'] !== '' || $cover_asset['blurred_key'] !== '');
+                $cap = trim((string) $p['caption']);
+
+                $card = [
+                    'id'          => $id,
+                    'profile_url' => '/@' . rawurlencode((string) $p['u_name']),
+                    'author'      => $display,
+                    'handle'      => (string) $p['u_name'],
+                    'avatar'      => (string) ($p['avatar_url'] ?? ''),
+                    'caption'     => mb_substr($cap, 0, 140),
+                    'audience'    => $audience,
+                    'entitled'    => $entitled,
+                    'is_video'    => ($cover_asset['type'] === 'video'),
+                    'media_count' => (int) $p['asset_count'],
+                    'views'       => (int) $p['views'],
+                    'likes'       => (int) $p['likes'],
+                    'liked'       => isset($liked_map[$id]),
+                    'comments'    => (int) $p['comments'],
+                ];
+                if ($audience === 'ppv') {
+                    $card['ppv_price_credits'] = (int) $p['ppv_price_credits'];
+                    $card['unlocked']          = isset($unlocked_map[$id]);
+                }
+                if (!$has_cover) {
+                    $card['cover'] = '';
+                } elseif ($entitled) {
+                    // free posts use the public, cacheable webp copy (PublicThumbService checks the asset is approved and not adult).
+                    $pub = $audience === 'free' ? PublicThumbService::url(array(
+                        'moderation_status' => (string) ($p['cover_moderation_status'] ?? ''), 'is_adult' => (int) ($p['cover_is_adult'] ?? 1),
+                        'public_display_key' => (string) ($p['cover_public_display_key'] ?? '')), 'feed') : '';
+                    $card['cover'] = $pub !== '' ? $pub : MediaService::signed_variant($cover_asset, ($cover_asset['type'] === 'video' ? 'poster' : 'thumb'), 900);
+                } else {
+                    $card['cover'] = MediaService::signed_variant($cover_asset, 'blurred', 900);
+                }
+                $cards[] = $card;
             }
-
-            $display = trim((string) ($p['display_name'] ?? ''));
-            if ($display === '') { $display = '@' . (string) $p['u_name']; }
-            $cover_asset = [
-                'type'        => (string) ($p['cover_type'] ?? 'image'),
-                'thumb_key'   => (string) ($p['cover_thumb_key'] ?? ''),
-                'poster_key'  => (string) ($p['cover_poster_key'] ?? ''),
-                'blurred_key' => (string) ($p['cover_blurred_key'] ?? ''),
-            ];
-            $has_cover = ($cover_asset['thumb_key'] !== '' || $cover_asset['poster_key'] !== '' || $cover_asset['blurred_key'] !== '');
-            $cap = trim((string) $p['caption']);
-
-            $card = [
-                'id'          => $id,
-                'profile_url' => '/@' . rawurlencode((string) $p['u_name']),
-                'author'      => $display,
-                'handle'      => (string) $p['u_name'],
-                'avatar'      => (string) ($p['avatar_url'] ?? ''),
-                'caption'     => mb_substr($cap, 0, 140),
-                'audience'    => $audience,
-                'entitled'    => $entitled,
-                'is_video'    => ($cover_asset['type'] === 'video'),
-                'media_count' => (int) $p['asset_count'],
-                'views'       => (int) $p['views'],
-                'likes'       => (int) $p['likes'],
-                'liked'       => isset($liked_map[$id]),
-                'comments'    => (int) $p['comments'],
-            ];
-            if ($audience === 'ppv') {
-                $card['ppv_price_credits'] = (int) $p['ppv_price_credits'];
-                $card['unlocked']          = isset($unlocked_map[$id]);
-            }
-            if (!$has_cover) {
-                $card['cover'] = '';
-            } elseif ($entitled) {
-                // free posts use the public, cacheable webp copy (PublicThumbService checks the asset is approved and not adult).
-                $pub = $audience === 'free' ? PublicThumbService::url(array(
-                    'moderation_status' => (string) ($p['cover_moderation_status'] ?? ''), 'is_adult' => (int) ($p['cover_is_adult'] ?? 1),
-                    'public_display_key' => (string) ($p['cover_public_display_key'] ?? '')), 'feed') : '';
-                $card['cover'] = $pub !== '' ? $pub : MediaService::signed_variant($cover_asset, ($cover_asset['type'] === 'video' ? 'poster' : 'thumb'), 900);
-            } else {
-                $card['cover'] = MediaService::signed_variant($cover_asset, 'blurred', 900);
-            }
-            $cards[] = $card;
+            if (!$has_more) { break; }
         }
 
-        $this->jsonSuccess(['viewer_logged' => $logged, 'viewer_credits' => $logged ? (int) (new CreditsModel())->get_balance($viewer) : 0, 'items' => $cards, 'has_more' => $has_more, 'next_offset' => $offset + $limit]);
+        $this->jsonSuccess(['viewer_logged' => $logged, 'viewer_credits' => $logged ? (int) (new CreditsModel())->get_balance($viewer) : 0, 'items' => $cards, 'has_more' => $has_more, 'next_offset' => $pos]);
     }
 
     /**
      * Count of posts published since a watermark id — the Home feed polls this to
-     * raise its "N new posts" alert. Approximate by design (doesn't re-run the full
-     * moderation/adult gate); it's a nudge to refresh, not an exact figure.
+     * raise its "N new posts" alert. Same filters as feedAction, moderation and adult gate included.
      */
     public function feed_newAction(){
-        $since = (int) ($this->post['since_id'] ?? 0);
-        $this->jsonSuccess(['count' => (new FeedModel())->count_since($since, 50, (int) Session::get('user_id'))]);
+        $since  = (int) ($this->post['since_id'] ?? 0);
+        $viewer = (int) Session::get('user_id');
+        $show_adult = false;
+        if ($viewer > 0) {
+            $rows = (new UsersModel())->get_user_by_id($viewer);
+            $show_adult = AgeVerification::adult_allowed((is_array($rows) && count($rows) === 1) ? $rows[0] : null);
+        }
+        $this->jsonSuccess(['count' => (new FeedModel())->count_since($since, 50, $viewer, $show_adult)]);
+    }
+
+    /**
+     * "Load More" on a creator's profile: the next page of post cards. Same visibility rules as the page and the same
+     * gate/entitlement code (ProfilePosts), so locked media is only ever the blurred preview.
+     */
+    public function profile_postsAction(){
+        $handle = preg_replace('/[^a-z0-9_]/', '', strtolower(ltrim((string) ($this->post['handle'] ?? ''), '@')));
+        $offset = max(0, (int) ($this->post['offset'] ?? 0));
+        $viewer = (int) Session::get('user_id');
+        $rows   = $handle !== '' ? $this->userModel->get_user_by_username($handle) : array();
+        $user   = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$user || !ProfilePosts::creator_visible($user, $viewer)) { $this->jsonError('This page is not available.'); }
+        $profile = (new CreatorProfileModel())->get_for_user((int) $user['user_id']);
+        // the display name the page uses (cover alt text)
+        $display_name = trim(html_entity_decode((string) ($profile['display_name'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($display_name === '') { $display_name = trim($user['first_name'] . ' ' . $user['last_name']); }
+        if ($display_name === '') { $display_name = '@' . $user['u_name']; }
+        // the search box looks through every post (up to 60 matches), not just the loaded page
+        $q    = trim(html_entity_decode((string) ($this->post['q'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $page = $q !== '' ? ProfilePosts::page($user, $display_name, $viewer, 0, 60, $q) : ProfilePosts::page($user, $display_name, $viewer, $offset);
+        $this->jsonSuccess(['items' => $page['cards'], 'html' => ProfilePosts::render($page['cards']), 'has_more' => $page['has_more'], 'next_offset' => $page['next_offset']]);
     }
 
     /**
@@ -370,8 +408,7 @@ class ApiPostsController extends BaseApiController {
 
         $creator_id = (int) $bundle['creator_id'];
         $price      = (int) $bundle['price_credits'];
-        $asset_ids  = $model->get_item_asset_ids($bundle_id);
-        if (empty($asset_ids)) { $this->jsonError('This bundle has no content.'); }
+        if ($model->live_item_count($bundle_id) <= 0) { $this->jsonError('This bundle has no content.'); }   // deleted or blocked files don't count
 
         // The creator already owns everything in their own bundle.
         if ($creator_id === $viewer) {
@@ -421,7 +458,7 @@ class ApiPostsController extends BaseApiController {
             Notify::credits($price) . ' spent · ' . Notify::credits($credits->get_balance($viewer)) . ' left. It is in your Purchases.', '/purchases', 'fa-box-open');
         InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'bundle' . (int) ($this->post['bundle_id'] ?? 0));
 
-        $n = count($asset_ids);
+        $n = $model->live_item_count($bundle_id);
         $this->jsonSuccess(['unlocked' => $n, 'balance' => $credits->get_balance($viewer), 'message' => 'Purchased — ' . $n . ' item' . ($n === 1 ? '' : 's') . ' added to your Purchases.']);
     }
 

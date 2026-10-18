@@ -5,7 +5,7 @@
  *
  * Delete: memberships are canceled in Stripe now and the creator plan ends; nothing bills again.
  * Suspend: memberships are paused in Stripe (no invoices while paused) and plan billing is skipped by the
- * billing run, so a reactivated account picks up where it left off. Reactivate resumes the memberships.
+ * billing run. Reactivate resumes the memberships, and a plan whose period ended while suspended starts a new period that day.
  */
 class AccountBilling {
 
@@ -69,7 +69,11 @@ class AccountBilling {
     }
 
     public static function on_suspend($user_id): void   { self::pause_all((int) $user_id, true); }
-    public static function on_reactivate($user_id): void { self::pause_all((int) $user_id, false); }
+    public static function on_reactivate($user_id): void
+    {
+        self::pause_all((int) $user_id, false);
+        BillingService::restart_period((int) $user_id);   // plan billing restarts from today; missed months are never charged
+    }
 
     private static function pause_all($uid, $pause): void
     {

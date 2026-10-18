@@ -14,6 +14,7 @@ class UsernameModel extends Model {
     const RESERVATION_DAYS = 90;
     const MIN_LEN          = 3;
     const MAX_LEN          = 30;
+    const DELETED_PREFIX   = 'deleted_';   // a deleted account's handle becomes deleted_<user_id>
 
     // Handles that can never be taken (reserved routes / system words).
     public static $reserved_words = array(
@@ -42,7 +43,7 @@ class UsernameModel extends Model {
         if (!preg_match('/[a-z]/', $u_name)) {
             return 'Username must include at least one letter';
         }
-        if (in_array($u_name, self::$reserved_words, true)) {
+        if (in_array($u_name, self::$reserved_words, true) || strpos($u_name, self::DELETED_PREFIX) === 0) {
             return 'That username is reserved';
         }
         return '';

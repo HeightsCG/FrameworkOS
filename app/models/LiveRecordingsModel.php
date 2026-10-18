@@ -30,6 +30,23 @@ class LiveRecordingsModel extends Model {
             WHERE r.event_id = :e AND r.status <> 'deleted' ORDER BY r.id DESC LIMIT 50", array('e' => (int) $event_id));
     }
 
+    /** Every recording of an event that isn't deleted yet (any status), for deleting the event. */
+    public function all_for_event($event_id): array {
+        return (array) parent::select("SELECT * FROM live_recordings WHERE event_id = :e AND status <> 'deleted'", array('e' => (int) $event_id));
+    }
+
+    /** Minutes a recording may sit in stopping/processing before the creator can clear it. */
+    const STUCK_MINUTES = 60;
+
+    /** Can the creator delete it: ready or failed, or stuck finishing for over STUCK_MINUTES. */
+    public static function deletable(array $rec): bool {
+        $st = (string) $rec['status'];
+        if (in_array($st, array('ready', 'failed'), true)) { return true; }
+        if (!in_array($st, array('stopping', 'processing'), true)) { return false; }
+        $since = strtotime((string) (!empty($rec['ended_at']) ? $rec['ended_at'] : $rec['started_at']) . ' UTC');
+        return $since !== false && $since < time() - self::STUCK_MINUTES * 60;
+    }
+
     public function set($id, array $f): void {
         parent::update('live_recordings', $f, 'id = :id', array('id' => (int) $id));
     }

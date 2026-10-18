@@ -29,8 +29,7 @@ function make_event($m, $creator, $when){
 function register_paid($m, $credits, $eid, $fan, $creator){
     $c = $m->claim_registration($eid, $fan);
     $credits->apply_delta($fan, -20, 'event_ticket', 'test');
-    $credits->apply_delta($creator, 19, 'event_earning', 'test');
-    $m->set_paid($c['id'], 20, 19);
+    $m->set_paid($c['id'], 20, 19);   // the creator's 19 is held on the ticket and paid after the event (EventEarnings), not now
     return $c['id'];
 }
 function cleanup($m, $creator, $eid){
@@ -64,7 +63,7 @@ $ev = $m->get_one($creator, $eid);
 $r = EventRefunds::refund_one($ev, $paid_reg, 'creator');
 check('refund_one ok, 20 back to fan', !empty($r['ok']) && $r['refunded'] === 20);
 check('fan balance restored', $credits->get_balance($fan_paid) === $bal_fan0);
-check('creator clawed back 19', $credits->get_balance($creator) === $bal_cr0);
+check('creator untouched: the held 19 was never paid, so nothing is clawed back', $credits->get_balance($creator) === $bal_cr0);
 check('status refunded, paid amount kept for history', ($m->registration($eid, $paid_reg)['status'] ?? '') === 'refunded' && (int) $m->registration($eid, $paid_reg)['price_credits'] === 20);
 $r2 = EventRefunds::refund_one($ev, $paid_reg, 'creator');
 check('second refund is a no-op', empty($r2['ok']) && $credits->get_balance($fan_paid) === $bal_fan0);

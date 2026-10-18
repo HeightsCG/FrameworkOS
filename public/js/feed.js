@@ -56,7 +56,7 @@
             VIEWER_CREDITS = o.viewer_credits || 0;
             var items = o.items || [];
             if (!append) {
-                if (!items.length) { $empty.prop('hidden', false); return; }
+                if (!items.length && !o.has_more) { $empty.prop('hidden', false); return; }   // a page can be empty when its posts are hidden from this viewer
                 hide_pill();
             }
             $grid.prop('hidden', false);
@@ -68,7 +68,9 @@
             feed_offset = o.next_offset || (feed_offset + items.length);
             has_more = !!o.has_more;
             $end.prop('hidden', has_more || !$grid.children().length);
+            if (!has_more && !$grid.children().length) { $empty.prop('hidden', false); }
             if (!append) { start_polling(); }
+            if (!items.length && has_more) { load_feed(true); return; }   // nothing visible on this page: fetch the next one
             // If the sentinel is still on-screen (short page / tall viewport), keep filling.
             if (has_more) { requestAnimationFrame(check_sentinel); }
         });

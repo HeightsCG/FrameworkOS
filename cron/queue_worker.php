@@ -53,6 +53,7 @@ $handlers = [
     'share_held'     => 'ShareHeldJob',
     'tiktok_event'   => 'TikTokEventJob',
     'social_results' => 'SocialResultsJob',
+    'creator_delete' => 'CreatorDeleteJob',
 ];
 
 CronRuns::start('queue_worker');
@@ -60,6 +61,21 @@ $queue     = new DatabaseJobQueue();
 $worker_id = substr(gethostname() . ':' . getmypid(), 0, 64);
 $released  = $queue->release_stale(900);
 if ($released > 0) { fwrite(STDOUT, date('c') . " released $released stale job(s)\n"); }
+
+// Sweep work whose queue run is gone (a worker that kept crashing, a dispatch that failed after the debit), then prune
+// old finished queue rows. Each step is small and indexed; a failure here never stops the worker.
+try {
+    $sw = InfluencerJobService::sweep_orphans(25);
+    $sv = MediaVideoJob::sweep_stuck(25);
+    $sc = ClipRenderJob::sweep_stuck();
+    $pruned = (new JobsModel())->prune_finished(14, 500);
+    if ($sw['redispatched'] + $sw['failed'] + $sv + $sc > 0) {
+        fwrite(STDOUT, date('c') . " sweep: {$sw['redispatched']} influencer job(s) re-queued, {$sw['failed']} failed, $sv video(s) failed, $sc clip export(s) failed\n");
+    }
+    if ($pruned > 0) { fwrite(STDOUT, date('c') . " pruned $pruned old queue row(s)\n"); }
+} catch (\Throwable $e) {
+    fwrite(STDOUT, date('c') . ' sweep error: ' . $e->getMessage() . "\n");
+}
 
 $done = 0;
 $idle_since = time();

@@ -15,13 +15,10 @@ class GeoIp {
 
     public static function db_path(): string { return rtrim(Main::app_path(), '/') . '/' . self::DB_FILE; }
 
-    /** The visitor's public IP: the first public address in X-Forwarded-For, else REMOTE_ADDR when it is public, else ''. */
+    /** The visitor's public IP (Controller::request_ip: REMOTE_ADDR, or behind a trusted proxy the right-most untrusted X-Forwarded-For hop), else ''. */
     public static function client_ip(): string {
-        foreach (array_map('trim', explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))) as $ip) {
-            if (self::is_public($ip)) { return $ip; }
-        }
-        $remote = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
-        return self::is_public($remote) ? $remote : '';
+        $ip = Controller::request_ip();   // the right-most untrusted X-Forwarded-For hop, as the rate limits use
+        return self::is_public($ip) ? $ip : '';
     }
 
     public static function is_public(string $ip): bool {

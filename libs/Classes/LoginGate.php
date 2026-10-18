@@ -9,9 +9,17 @@ class LoginGate {
 
     const SUSPENDED_MESSAGE = 'This account has been suspended. Contact support if you believe this is a mistake.';
 
-    /** 'suspended' | 'seat' | '' — reasons this account may not sign in at all. */
+    /** The sign-in error for a blocked() reason. */
+    public static function message(string $reason): string {
+        if ($reason === 'owner') { return Plan::OWNER_SUSPENDED_MESSAGE; }
+        if ($reason === 'seat') { return Plan::SEAT_LOCKED_MESSAGE; }
+        return self::SUSPENDED_MESSAGE;
+    }
+
+    /** 'suspended' | 'owner' | 'seat' | '' — reasons this account may not sign in at all. */
     public static function blocked(array $user): string {
         if (($user['user_status'] ?? 'Active') === 'Disabled' || (int) ($user['deleted'] ?? 0) === 1) { return 'suspended'; }
+        if (Plan::team_owner_inactive($user)) { return 'owner'; }   // a collaborator whose owner is suspended or gone
         if (Plan::team_member_locked($user)) { return 'seat'; }   // a collaborator over the owner's seat limit
         return '';
     }

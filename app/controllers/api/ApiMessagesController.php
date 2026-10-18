@@ -5,6 +5,9 @@
  */
 class ApiMessagesController extends BaseApiController {
 
+    const INBOX_PAGE  = 30;   // conversations per page of the inbox list
+    const THREAD_PAGE = 50;   // messages per page of a thread
+
     const MAX_ATTACH = 10;
 
     /** Send a message — into an existing conversation, or start one with a creator. */
@@ -96,7 +99,18 @@ class ApiMessagesController extends BaseApiController {
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
         $model  = new MessagesModel();
-        $rows   = $model->inbox_rows($me);
+        // Paged (INBOX_PAGE at a time, "Load More" passes the last row's before_at/before_id); the poll passes since
+        // (the newest activity the page has) and gets only conversations that changed since.
+        $since  = preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string) ($this->post['since'] ?? '')) ? (string) $this->post['since'] : '';
+        $b_at   = preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string) ($this->post['before_at'] ?? '')) ? (string) $this->post['before_at'] : '';
+        // Search and the Unread tab look through the whole inbox, not just the loaded page.
+        $q      = trim(html_entity_decode((string) ($this->post['q'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $only_unread = (string) ($this->post['unread'] ?? '') === '1';
+        $finding = ($q !== '' || $only_unread);
+        $rows   = $finding ? $model->inbox_find($me, $q, $only_unread)
+                           : $model->inbox_rows($me, $since !== '' ? 0 : self::INBOX_PAGE + 1, $b_at !== '' ? [$b_at, (int) ($this->post['before_id'] ?? 0)] : [], $since);
+        $more   = !$finding && $since === '' && count($rows) > self::INBOX_PAGE;
+        if ($more) { array_pop($rows); }
         $others = [];
         foreach ($rows as $c) { $others[] = ((int) $c['creator_id'] === $me) ? (int) $c['user_id'] : (int) $c['creator_id']; }
         $ids = $model->identity_map($others);
@@ -107,13 +121,14 @@ class ApiMessagesController extends BaseApiController {
             $id    = $ids[$other] ?? ['handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false];
             $out[] = [
                 'id' => (int) $c['id'], 'other_id' => $other, 'other_name' => $id['name'], 'other_handle' => $id['handle'],
-                'other_avatar' => $id['avatar'], 'other_is_creator' => !empty($id['is_creator']),
+                'other_avatar' => $id['avatar'], 'other_is_creator' => !empty($id['is_creator']), 'other_is_team' => !empty($id['is_team']),
                 'preview' => (string) $c['last_body'], 'last_at' => (string) $c['last_message_at'],
                 'unread' => $i_am_creator ? (int) $c['creator_unread'] : (int) $c['user_unread'],
                 'last_mine' => ((int) $c['last_sender_id'] === $me),
             ];
         }
-        $this->jsonSuccess(['conversations' => $out]);
+        $this->jsonSuccess(['conversations' => $out, 'has_more' => $more, 'unread_total' => $since !== '' ? $model->total_unread($me) : null,
+            'unread_convs' => $model->unread_conversations($me), 'found' => $finding]);
     }
 
     /** Full thread for a conversation (marks it read for the viewer). */
@@ -278,10 +293,27 @@ class ApiMessagesController extends BaseApiController {
         $other   = ((int) $c['creator_id'] === $me) ? (int) $c['user_id'] : (int) $c['creator_id'];
         $id      = $model->identity_map([$other])[$other] ?? ['handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false];
         $id['id'] = $other;
-        $msgs    = $this->shape($model->thread($conv_id, MessagesModel::cleared_id($c, $me)), $me, $c);
+        // The newest THREAD_PAGE messages; before_id loads the page before it ("Load Earlier"); after_id (the poll) only
+        // the ones newer than what the page has, plus the unlock counts of the priced messages it shows (watch).
+        $cleared = MessagesModel::cleared_id($c, $me);
+        $after   = (int) ($this->post['after_id'] ?? 0);
+        $more    = false;
+        if ($after > 0) {
+            $rows = $model->thread($conv_id, max($cleared, $after));
+        } else {
+            $rows = $model->thread($conv_id, $cleared, self::THREAD_PAGE + 1, (int) ($this->post['before_id'] ?? 0));
+            $more = count($rows) > self::THREAD_PAGE;
+            if ($more) { array_shift($rows); }
+        }
+        $msgs    = $this->shape($rows, $me, $c);
         $model->mark_read($conv_id, $me);
-        $this->jsonSuccess(['conversation_id' => $conv_id, 'other' => $id, 'messages' => $msgs,
-            'viewer_credits' => (new CreditsModel())->get_balance($me), 'i_am_creator' => ((int) $c['creator_id'] === $me)]);
+        $extra = [];
+        if ($after > 0) {
+            $watch = array_slice(array_values(array_filter(array_map('intval', explode(',', (string) ($this->post['watch'] ?? ''))))), 0, 100);
+            $extra['unlocks'] = (object) (($watch && (int) $c['creator_id'] === $me) ? $model->unlock_counts_in($conv_id, $watch) : []);   // counts are the creator's to see
+        }
+        $this->jsonSuccess(['conversation_id' => $conv_id, 'other' => $id, 'messages' => $msgs, 'has_more' => $more, 'partial' => $after > 0,
+            'viewer_credits' => (new CreditsModel())->get_balance($me), 'i_am_creator' => ((int) $c['creator_id'] === $me)] + $extra);
     }
 
     /**

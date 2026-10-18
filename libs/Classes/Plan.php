@@ -253,11 +253,36 @@ class Plan {
     {
         if (!is_array($member) || empty($member['team_role']) || (int) ($member['created_by'] ?? 0) <= 0) { return false; }
         $rows = (new UsersModel())->get_user_by_id((int) $member['created_by']);
-        if (!is_array($rows) || count($rows) !== 1) { return false; }
+        if (!is_array($rows) || count($rows) !== 1) { return true; }   // owner gone: no seat to sit in
+        if (!self::account_active($rows[0])) { return true; }   // owner suspended: the team is paused with them
         return self::is_locked($rows[0], 'seats', (int) $member['user_id']);
     }
 
     const SEAT_LOCKED_MESSAGE = 'Your seat on this team is paused because the account owner\'s plan has fewer team seats. Ask them to upgrade to get back in.';
+
+    const OWNER_SUSPENDED_MESSAGE = 'The account you work on has been suspended, so team access is paused.';
+
+    /** Is this account row live (not suspended, not deleted)? */
+    public static function account_active($user): bool
+    {
+        return is_array($user) && (string) ($user['user_status'] ?? '') === 'Active' && (int) ($user['deleted'] ?? 0) === 0;
+    }
+
+    /** Is this a collaborator whose owner account is suspended or gone? */
+    public static function team_owner_inactive($member): bool
+    {
+        if (!is_array($member) || empty($member['team_role']) || (int) ($member['created_by'] ?? 0) <= 0) { return false; }
+        $rows = (new UsersModel())->get_user_by_id((int) $member['created_by']);   // deleted rows are filtered out
+        return !(is_array($rows) && count($rows) === 1 && self::account_active($rows[0]));
+    }
+
+    /** Is this creator account live (not suspended, not deleted)? */
+    public static function creator_active(int $creator_id): bool
+    {
+        if ($creator_id <= 0) { return false; }
+        $rows = (new UsersModel())->get_user_by_id($creator_id);
+        return is_array($rows) && count($rows) === 1 && self::account_active($rows[0]);
+    }
 
     /** The message shown when something locked is used. */
     public static function locked_message($user, $key): string

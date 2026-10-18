@@ -21,6 +21,7 @@ class InfluencerTrainingService {
         if (count($asset_ids) > $max) { return array('ok' => false, 'error' => 'Training accepts at most ' . $max . ' images.'); }
         if (!empty($infl['pending_model_id'])) { return array('ok' => false, 'error' => 'A training run is already in progress.'); }
         if (!InfluencerConfig::enabled()) { return array('ok' => false, 'error' => 'Image generation is not configured (fal_api_key).'); }
+        if (($blk = InfluencerActions::free_run_block($infl, 'training')) !== '') { return array('ok' => false, 'error' => $blk); }
 
         $model = InfluencerConfig::resolve_model('training', '');
         if (!$model) { return array('ok' => false, 'error' => 'No training model is configured.'); }

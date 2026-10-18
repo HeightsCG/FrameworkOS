@@ -111,22 +111,41 @@ class AgeVerification {
         return self::status($user_id);
     }
 
-    /** Trigger 2's predicate: a post is adult when any of its media is flagged or approved-as-adult (PostsModel). */
+    /**
+     * Trigger 2's predicate: a post is adult when any of its media is flagged or approved-as-adult, even while other
+     * media on it is still being scanned (PostsModel::adult_status).
+     */
     public static function post_is_adult(int $post_id): bool {
-        $map = (new PostsModel())->studio_moderation_map(array($post_id));
-        return (string) ($map[$post_id] ?? '') === 'adult';
+        return (new PostsModel())->adult_status($post_id) === 'adult';
+    }
+
+    /** 'adult' | 'pending' (some media not scanned yet, none adult so far) | 'ok'. */
+    public static function post_adult_status(int $post_id): string {
+        return (new PostsModel())->adult_status($post_id);
     }
 
     /**
-     * A due scheduled post with adult media whose creator is not verified goes back to drafts (nothing is deleted),
-     * like Plan::hold_unsellable_post. True when the post was held.
+     * A due scheduled post (or a live one whose media was just flagged) with adult media whose creator is not verified
+     * goes back to drafts (nothing is deleted), like Plan::hold_unsellable_post. True when the post was held.
      */
-    public static function hold_unverified_adult_post(int $creator_id, int $post_id): bool {
+    public static function hold_unverified_adult_post(int $creator_id, int $post_id, bool $was_live = false): bool {
         if (!self::post_is_adult($post_id) || self::is_verified($creator_id)) { return false; }
         (new PostsModel())->hold_for_plan($creator_id, $post_id, self::HELD_REASON);
-        Notify::send($creator_id, 'creator_activity', 'Your scheduled post was held',
+        Notify::send($creator_id, 'creator_activity', $was_live ? 'Your post was held' : 'Your scheduled post was held',
             'It is marked adult, and adult posts publish once your age is verified. It is in your drafts: verify once in Settings, then publish it.', '/account/settings#privacy', 'fa-id-card');
         return true;
+    }
+
+    /**
+     * After the scanner marks an asset adult: every published or scheduled post using it is held when its creator is
+     * not age verified (a post published during the scan window). Returns the held post ids.
+     */
+    public static function rehold_posts_for_asset(int $asset_id): array {
+        $held = array();
+        foreach ((new PostsModel())->live_posts_for_asset($asset_id) as $p) {
+            if (self::hold_unverified_adult_post((int) $p['creator_id'], (int) $p['id'], true)) { $held[] = (int) $p['id']; }
+        }
+        return $held;
     }
 
     /**

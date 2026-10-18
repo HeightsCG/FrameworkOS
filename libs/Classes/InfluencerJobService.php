@@ -63,8 +63,43 @@ class InfluencerJobService {
         if ($id <= 0 && $price > 0) {
             (new AiCreditsModel())->apply_delta($creator_id, $price, 'refund', 'Run could not be created');
         }
-        if ($id > 0 && $dispatch) { self::dispatch($id, 0); }
+        if ($id > 0 && $dispatch) {
+            // The credits are taken and the row exists: a dispatch failure must not lose the run. sweep_orphans puts it on the queue.
+            try { self::dispatch($id, 0); } catch (\Throwable $e) { error_log('[influencer] job ' . $id . ' dispatch failed, left for the sweep: ' . $e->getMessage()); }
+        }
         return $id;
+    }
+
+    const SWEEP_IDLE_SECONDS = 600;     // an unfinished job untouched this long is checked
+    const SWEEP_GRACE_SECONDS = 1800;   // past its deadline by this much: failed and refunded
+    const SWEEP_MAX_AGE_SECONDS = 21600;   // with no queue row and older than this: failed and refunded (a run that keeps crashing its worker)
+
+    /**
+     * Queue-worker sweep. An unfinished job with no live queue row (its worker crashed until the queue gave up, or the
+     * dispatch after the debit failed) is put back on the queue; one long past its deadline, or too old to retry, is
+     * failed through the guarded fail_job, which refunds once. Returns ['redispatched' => n, 'failed' => n].
+     */
+    public static function sweep_orphans($limit = 25){
+        $m = new InfluencerJobsModel();
+        $q = new JobsModel();
+        $out = array('redispatched' => 0, 'failed' => 0);
+        foreach ($m->idle_unfinished(gmdate('Y-m-d H:i:s', time() - self::SWEEP_IDLE_SECONDS), $limit) as $job) {
+            $id   = (int) $job['id'];
+            $late = !empty($job['deadline_at']) && strtotime((string) $job['deadline_at'] . ' UTC') < time() - self::SWEEP_GRACE_SECONDS;
+            if (!$late && $q->has_live_with_prefix('infl_job:' . $id . ':')) { continue; }   // its chain is alive
+            $old  = strtotime((string) $job['created_at'] . ' UTC') < time() - self::SWEEP_MAX_AGE_SECONDS;
+            if ($late || $old) {
+                if ((string) $job['status'] === 'running' && !empty($job['provider_cancel_url'])) {
+                    $class = InfluencerConfig::provider_class((string) $job['provider']);
+                    if ($class !== '') { try { $class::cancel(self::handle($job)); } catch (\Throwable $e) {} }
+                }
+                $r = self::fail_job($job, $m, (string) $job['status'], 'timeout', 'This run stopped before it finished.' . ((int) $job['credits_charged'] > 0 ? ' Your AI credits were returned.' : ''));
+                if (!empty($r['terminal'])) { $out['failed']++; }
+                continue;
+            }
+            try { self::dispatch($id, 0); $out['redispatched']++; } catch (\Throwable $e) { error_log('[influencer] sweep could not re-dispatch job ' . $id . ': ' . $e->getMessage()); }
+        }
+        return $out;
     }
 
     /** Give a failed/cancelled job's credits back. Only call after a guarded terminal transition returned 1. */
@@ -638,8 +673,7 @@ class InfluencerJobService {
                 ucfirst((string) $job['type']) . ' run ' . (int) $job['id'] . ' moved to a cheaper model', (int) $job['id']);
         }
         error_log('[influencer job] ' . (int) $job['id'] . ': ' . $job['model_key'] . ' refused on safety, retrying on ' . $next['key']);
-        self::dispatch((int) $job['id'], 0);
-        return true;
+        return true;   // fail_job answers next_after 0: the caller (queue handler or inline loop) runs it again; no second chain here
     }
 
     /** Job types rerun once with her body words taken out when a model's content checker refuses the prompt. */
@@ -665,8 +699,7 @@ class InfluencerJobService {
             'submitted_at' => null, 'deadline_at' => null, 'poll_count' => 0));
         if ($n !== 1) { return false; }
         error_log('[influencer job] ' . (int) $job['id'] . ': ' . $job['model_key'] . ' refused on safety, retrying without her body words');
-        self::dispatch((int) $job['id'], 0);
-        return true;
+        return true;   // the caller re-runs it (see retry_on_next_model)
     }
 
     private static function fail_job($job, InfluencerJobsModel $m, $from, $code, $error){

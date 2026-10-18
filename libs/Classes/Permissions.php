@@ -72,6 +72,7 @@ class Permissions {
 
     /**
      * Does the current user's team role permit a capability tier?
+     *  - 'view'    : every team role, Viewer included (read-only lists and details)
      *  - 'content' : Editor and Manager (posts, media, automations, broadcast, profile/brand/links)
      *  - 'manage'  : Manager only (membership plans/pricing, promo, bundles, integrations)
      *  - 'owner'   : the account owner only (payouts, billing, team)
@@ -80,6 +81,7 @@ class Permissions {
     public static function team_allows(string $capability): bool
     {
         if (!self::is_team_member()) { return true; }   // owner / solo creator
+        if ($capability === 'view')   { return in_array(self::team_role(), array('manager', 'editor', 'viewer'), true); }
         if ($capability === 'owner')  { return false; }
         if ($capability === 'manage') { return self::team_role() === 'manager'; }
         return in_array(self::team_role(), array('manager', 'editor'), true);   // 'content'

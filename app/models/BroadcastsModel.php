@@ -91,7 +91,7 @@ class BroadcastsModel extends Model {
 
     /** An announcement audience: active, real accounts (never deleted, suspended, demo or the team account itself). */
     private function platform_segment_ids($cid, $segment){
-        $where = "u.deleted = 0 AND u.user_status = 'Active' AND u.is_demo = 0 AND u.is_platform = 0 AND u.user_id <> :me";
+        $where = "u.deleted = 0 AND u.user_status = 'Active' AND u.is_demo = 0 AND u.user_id <> :me";
         $p = array('me' => (int) $cid);
         if ($segment === 'creators' || $segment === 'fans') {
             $where .= " AND u.role_id " . ($segment === 'creators' ? '=' : '<>') . " (SELECT id FROM user_roles WHERE role_name = 'Creator' LIMIT 1)";
@@ -105,8 +105,7 @@ class BroadcastsModel extends Model {
 
     /** How many accounts an announcement to this audience reaches right now. */
     public function platform_count($segment){
-        $cid = PlatformAccount::id();
-        return $cid > 0 ? count($this->recipient_ids($cid, array((string) $segment))) : 0;
+        return count($this->recipient_ids(PlatformAccount::ID, array((string) $segment)));
     }
 
     /** broadcast id => messages actually delivered so far (a queued announcement fills in over a few minutes). */

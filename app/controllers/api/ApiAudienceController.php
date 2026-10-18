@@ -82,11 +82,12 @@ class ApiAudienceController extends BaseApiController {
 
     /* ---------- Notifications (PRD §27) ---------- */
 
-    /** Guard: current user is a creator and the fan is in their audience. Returns [creator_id, fan_id] or exits with JSON error. */
+    /** Guard: current user is a creator (or a collaborator on one) and the fan is in that audience. Returns [owner creator_id, fan_id] or exits with JSON error. */
     private function audience_guard(): array{
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
-        if (!Permissions::has_role('Creator')) { $this->jsonError('Creators only'); }
+        $owner = $this->require_creator('content', false);   // collaborators work on the owner's audience
+        $me  = (int) $owner['user_id'];
         $fan = (int) ($this->post['fan_id'] ?? 0);
         if ($fan <= 0 || !(new AudienceModel())->is_audience_member($me, $fan)) {
             $this->jsonError('Not in your audience');

@@ -108,13 +108,22 @@ class ReportsModel extends Model {
         return true;
     }
 
-    /** Take a post's content down by blocking its image assets (hidden by the moderation gate). */
+    /**
+     * Take a post down: archive it (so a text-only post goes too, and it can't be scheduled back) and block its media
+     * (hidden by the moderation gate wherever else it is used).
+     */
     public function takedown_post($post_id){
+        $asset_ids = array_map('intval', array_column((array) parent::select("SELECT asset_id FROM post_assets WHERE post_id = :p", array('p' => (int) $post_id)), 'asset_id'));
         $res = parent::update('media_assets',
             array('moderation_status' => 'blocked'),
             'id IN (SELECT asset_id FROM post_assets WHERE post_id = :p)',
             array('p' => (int) $post_id));
+        $archived = parent::update('posts',
+            array('state' => 'archived', 'scheduled_at' => null, 'updated_at' => date('Y-m-d H:i:s')),
+            "id = :p AND state <> 'archived'",
+            array('p' => (int) $post_id));
         PublicThumbService::queue_purge(array('post' => (int) $post_id));   // removed content loses its public copies
-        return $res;
+        if (!empty($asset_ids)) { PublicThumbService::queue_purge(array('assets' => $asset_ids)); }
+        return (int) $res + (int) $archived;
     }
 }

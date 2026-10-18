@@ -24,6 +24,17 @@ spl_autoload_register(function ($class) use ($root) {
     }
 });
 
+/** Media just marked adult: hold the posts using it whose creator is not age verified (published during the scan). */
+function cls_rehold(int $asset_id): void {
+    try {
+        foreach (AgeVerification::rehold_posts_for_asset($asset_id) as $pid) {
+            fwrite(STDOUT, date('c') . " post {$pid} held: adult media, creator not age verified, moved to drafts\n");
+        }
+    } catch (\Throwable $e) {
+        error_log('[moderate] re-hold for asset ' . $asset_id . ' failed: ' . $e->getMessage());
+    }
+}
+
 CronRuns::start('moderate');
 $media = new MediaAssetsModel();
 $due   = $media->due_for_moderation(20);
@@ -49,6 +60,7 @@ foreach ($due as $a) {
         }
         $media->set_moderation($id, $res['status'], $res['score'], $res['labels'], !empty($res['adult']));
         fwrite(STDOUT, date('c') . " video {$id}: {$res['status']} ({$res['frames']} frames, sexual " . $res['score'] . ")\n");
+        if ($res['status'] === 'flagged' || !empty($res['adult'])) { cls_rehold($id); }
         continue;
     }
     $key = $a['display_key'] ?: ($a['original_key'] ?: $a['thumb_key']);
@@ -82,6 +94,7 @@ foreach ($due as $a) {
     $media->set_moderation($id, $status, $res['score'], $res['labels'], !empty($res['adult']));
     fwrite(STDOUT, date('c') . " asset {$id}: {$status} (sexual " . $res['score'] . ')'
         . (!empty($res['minors']) ? ' [SEXUAL/MINORS — BLOCKED]' : '') . "\n");
+    if ($status === 'flagged' || !empty($res['adult'])) { cls_rehold($id); }
 }
 
 CronRuns::finish('moderate', true, count($due) . ' item(s)');

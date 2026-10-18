@@ -19,7 +19,9 @@ class CreatorLinksModel extends Model {
     /** A single enabled link by id (any owner) — for the public /go click-through. */
     public function get_public($id){
         $rows = parent::select(
-            "SELECT id, user_id, url, is_enabled FROM creator_links WHERE id = :id",
+            "SELECT l.id, l.user_id, l.url, l.is_enabled FROM creator_links l
+             JOIN user_accounts u ON u.user_id = l.user_id AND u.deleted = 0 AND u.user_status = 'Active'
+             WHERE l.id = :id",   // a suspended or deleted creator's links go nowhere
             array('id' => (int) $id)
         );
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;

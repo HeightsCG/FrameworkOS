@@ -8,10 +8,10 @@ class ContentBundlesModel extends Model {
 
     public function __construct(){ parent::__construct(); }
 
-    /** All of a creator's bundles (any status), with item count, for management. */
+    /** All of a creator's bundles (any status), with item count (live files only: not deleted, ready, not blocked), for management. */
     public function get_for_creator($creator_id){
         return parent::select(
-            "SELECT b.*, (SELECT COUNT(*) FROM bundle_items bi WHERE bi.bundle_id = b.id) AS item_count
+            "SELECT b.*, (SELECT COUNT(*) FROM bundle_items bi JOIN media_assets ma ON ma.id = bi.asset_id AND ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.moderation_status <> 'blocked' WHERE bi.bundle_id = b.id) AS item_count
              FROM content_bundles b
              WHERE b.creator_id = :c
              ORDER BY b.sort_order ASC, b.id DESC",
@@ -22,10 +22,10 @@ class ContentBundlesModel extends Model {
     /** Active, non-empty bundles for a creator's public profile. */
     public function get_active_for_creator($creator_id){
         return parent::select(
-            "SELECT b.*, (SELECT COUNT(*) FROM bundle_items bi WHERE bi.bundle_id = b.id) AS item_count
+            "SELECT b.*, (SELECT COUNT(*) FROM bundle_items bi JOIN media_assets ma ON ma.id = bi.asset_id AND ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.moderation_status <> 'blocked' WHERE bi.bundle_id = b.id) AS item_count
              FROM content_bundles b
              WHERE b.creator_id = :c AND b.is_active = 1
-               AND (SELECT COUNT(*) FROM bundle_items bi WHERE bi.bundle_id = b.id) > 0
+               AND (SELECT COUNT(*) FROM bundle_items bi JOIN media_assets ma ON ma.id = bi.asset_id AND ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.moderation_status <> 'blocked' WHERE bi.bundle_id = b.id) > 0
              ORDER BY b.sort_order ASC, b.id DESC",
             array('c' => (int) $creator_id)
         );
@@ -116,6 +116,13 @@ class ContentBundlesModel extends Model {
              ORDER BY bi.id ASC",
             array('b' => (int) $bundle_id)
         );
+    }
+
+    /** How many of a bundle's files a buyer would get (the same rule as get_media_for_bundle). */
+    public function live_item_count($bundle_id){
+        $r = parent::select("SELECT COUNT(*) AS n FROM bundle_items bi JOIN media_assets ma ON ma.id = bi.asset_id
+             WHERE bi.bundle_id = :b AND ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.moderation_status <> 'blocked'", array('b' => (int) $bundle_id));
+        return (int) ($r[0]['n'] ?? 0);
     }
 
     /** Has anyone bought this bundle? (Once sold, its contents can grow but not shrink, and it can't be deleted.) */

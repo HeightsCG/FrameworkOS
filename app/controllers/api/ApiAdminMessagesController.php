@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin messaging: staff write to users as the Creator Link Studio team account (PlatformAccount). A message lands in
+ * Admin messaging: staff write to users as Creator Link Studio (PlatformAccount: participant 0, not an account). A message lands in
  * the user's Inbox (they can reply) and is emailed to them; replies are answered from /admin/messages. Announcements
  * go to a whole audience through BroadcastsModel. Routed from /api/<action> by ApiRoutes; every send is audited.
  */
@@ -69,7 +69,7 @@ class ApiAdminMessagesController extends BaseApiController {
         if (!$c || !$model->is_participant($conv_id, $team)) { $this->jsonError('Conversation not found'); }
         $other = (int) $c['creator_id'] === $team ? (int) $c['user_id'] : (int) $c['creator_id'];
         $id = $model->identity_map(array($other))[$other] ?? array('handle' => '', 'name' => 'Deleted account', 'avatar' => '');
-        $msgs = array();
+        $msgs = array();   // whoever on the team wrote it, it reads as the team's
         foreach ($model->thread($conv_id) as $m) { $msgs[] = $this->message_json($m, $team); }
         $model->mark_read($conv_id, $team);
         $this->jsonSuccess(['conversation_id' => $conv_id,
@@ -97,13 +97,11 @@ class ApiAdminMessagesController extends BaseApiController {
 
     // ---- helpers ------------------------------------------------------------------------
 
-    /** Admins only; returns the team account id (missing until sql/2026-10-18_platform_account.sql runs). */
+    /** Admins only; returns the team's participant id (PlatformAccount::ID). */
     private function team_guard(): int{
         if ((int) Session::get('user_id') <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
         if (!Permissions::is_admin()) { $this->jsonError('Admins only'); }
-        $team = PlatformAccount::id();
-        if ($team <= 0) { $this->jsonError('The Creator Link Studio team account is missing. Run sql/2026-10-18_platform_account.sql.'); }
-        return $team;
+        return PlatformAccount::ID;
     }
 
     private function segment(): string{

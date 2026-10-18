@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.disabled = true; btn.textContent = 'Sending...';
         ApiDataSvc.apiCall('post', 'tool_run', {
             source: form.getAttribute('data-source'), niche: niche, first_name: first_name, email: email, consent: '1',
-            vibe: val('tl_vibe'), audience: val('tl_audience'), company: val('tl_company')
+            vibe: val('tl_vibe'), audience: val('tl_audience'), hp_field_x: val('tl_hp')
         }, function (data) {
             var obj = null;
             try { obj = JSON.parse(data); } catch (err) { obj = null; }

@@ -16,6 +16,16 @@ class TextOverlay {
     /** Where the block's centre sits, as a share of the frame height: upper third, below the platform's top bar. */
     const CENTER = 0.20;
 
+    /**
+     * 'hook': the automation's hook line (the constants above). 'label': a small disclosure line ("AI-generated
+     * content") low in the 9:16 safe area, above a Story's reply bar and clear of a hook at the top, on a dark backing
+     * so it reads over any picture.
+     */
+    const STYLES = array(
+        'hook'  => array('size' => self::SIZE, 'center' => self::CENTER, 'max_width' => self::MAX_WIDTH, 'max_lines' => 3, 'backing' => false),
+        'label' => array('size' => 0.030, 'center' => 0.80, 'max_width' => 0.80, 'max_lines' => 2, 'backing' => true),
+    );
+
     public static function available(){
         return function_exists('imagettftext') && self::font() !== '';
     }
@@ -26,15 +36,16 @@ class TextOverlay {
     }
 
     /** The line as a transparent PNG the size of a $W x $H frame. Returns the file path ('' on failure). */
-    public static function png($line, $W, $H){
+    public static function png($line, $W, $H, $style = 'hook'){
+        $st = self::STYLES[$style] ?? self::STYLES['hook'];
         $line = trim(preg_replace('/\s+/u', ' ', (string) $line));
         $font = self::font();
         $W = (int) $W; $H = (int) $H;
         if ($line === '' || $font === '' || $W <= 0 || $H <= 0 || !function_exists('imagettftext')) { return ''; }
-        $px    = max(14, (int) round($W * self::SIZE));
-        $lines = self::wrap($line, $font, $px, (int) ($W * self::MAX_WIDTH));
-        // A long line: step the size down until it fits in three lines.
-        while (count($lines) > 3 && $px > 14) { $px = (int) round($px * 0.9); $lines = self::wrap($line, $font, $px, (int) ($W * self::MAX_WIDTH)); }
+        $px    = max(14, (int) round($W * $st['size']));
+        $lines = self::wrap($line, $font, $px, (int) ($W * $st['max_width']));
+        // A long line: step the size down until it fits.
+        while (count($lines) > $st['max_lines'] && $px > 14) { $px = (int) round($px * 0.9); $lines = self::wrap($line, $font, $px, (int) ($W * $st['max_width'])); }
         $im = imagecreatetruecolor($W, $H);
         imagealphablending($im, false);
         imagefill($im, 0, 0, imagecolorallocatealpha($im, 0, 0, 0, 127));
@@ -44,8 +55,16 @@ class TextOverlay {
         $stroke = max(2, (int) round($px * 0.07));   // the thin outline
         $lh     = (int) round($px * 1.3);
         $block  = $lh * count($lines);
-        $y0     = (int) round($H * self::CENTER - $block / 2 + $px);
+        $y0     = (int) round($H * $st['center'] - $block / 2 + $px);
         $y0     = max((int) round($H * 0.12) + $px, $y0);   // never under the platform's top bar
+        if ($st['backing']) {
+            $wmax = 0;
+            foreach ($lines as $l) { $b = imagettfbbox($px, 0, $font, $l); $wmax = max($wmax, abs($b[2] - $b[0])); }
+            $pad = (int) round($px * 0.6);
+            $bx0 = (int) round(($W - $wmax) / 2) - $pad; $by0 = $y0 - $px - $pad;
+            imagefilledrectangle($im, max(0, $bx0), max(0, $by0), min($W - 1, $bx0 + $wmax + 2 * $pad), min($H - 1, $by0 + $block + 2 * $pad - ($lh - $px)),
+                imagecolorallocatealpha($im, 0, 0, 0, 64));   // about half-opaque black
+        }
         foreach ($lines as $i => $l) {
             $box = imagettfbbox($px, 0, $font, $l);
             $lx  = (int) round(($W - abs($box[2] - $box[0])) / 2 - min($box[0], $box[6]));
@@ -65,10 +84,10 @@ class TextOverlay {
     }
 
     /** Burn the line onto a video file. Writes a new MP4 and returns its path; '' on failure (the caller keeps the original). */
-    public static function burn_video($src, $line){
+    public static function burn_video($src, $line, $style = 'hook'){
         $p = VideoTools::probe($src);
         if (empty($p['has_video']) || $p['width'] <= 0 || $p['height'] <= 0) { return ''; }
-        $png = self::png($line, $p['width'], $p['height']);
+        $png = self::png($line, $p['width'], $p['height'], $style);
         if ($png === '') { return ''; }
         $ffmpeg = MediaService::bin('ffmpeg');
         $base = tempnam(sys_get_temp_dir(), 'hookv'); @unlink($base); $out = $base . '.mp4';
@@ -83,11 +102,11 @@ class TextOverlay {
     }
 
     /** Burn the line onto image bytes. Returns PNG bytes; '' on failure. */
-    public static function burn_image($bytes, $line){
+    public static function burn_image($bytes, $line, $style = 'hook'){
         $im = @imagecreatefromstring((string) $bytes);
         if (!$im) { return ''; }
         $W = imagesx($im); $H = imagesy($im);
-        $png = self::png($line, $W, $H);
+        $png = self::png($line, $W, $H, $style);
         if ($png === '') { imagedestroy($im); return ''; }
         $ov = imagecreatefrompng($png);
         @unlink($png);

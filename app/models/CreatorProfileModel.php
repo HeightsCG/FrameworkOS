@@ -166,19 +166,23 @@ class CreatorProfileModel extends Model {
     public function directory($category, $q, $sort, $limit, $offset){
         $params = array();
         $filter = $this->directory_filter($category, $q, $params);
+        $join   = '';
         if ($sort === 'new') {
             $extra = ''; $order = 'COALESCE(u.creator_since, cp.created_at) DESC, u.user_id DESC';
         } elseif ($sort === 'active') {
             $extra = ", (SELECT COUNT(*) FROM posts p WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1 AND p.published_at >= UTC_TIMESTAMP() - INTERVAL 30 DAY) AS posts_30d";
             $order = 'posts_30d DESC, last_post DESC, u.user_id DESC';
         } else {
+            // Views: one grouped pass over the last 7 days (idx_pv_created), not each creator's lifetime views.
             $extra = ", (SELECT COUNT(*) FROM follows f WHERE f.creator_id = u.user_id AND f.created_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY) AS follows_7d
-                    , (SELECT COUNT(*) FROM post_views pv JOIN posts p ON p.id = pv.post_id WHERE p.creator_id = u.user_id AND pv.created_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY) AS views_7d";
+                    , COALESCE(v7.n, 0) AS views_7d";
+            $join  = " LEFT JOIN (SELECT p.creator_id, COUNT(*) AS n FROM post_views pv JOIN posts p ON p.id = pv.post_id
+                                   WHERE pv.created_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY GROUP BY p.creator_id) v7 ON v7.creator_id = u.user_id";
             $order = 'follows_7d DESC, views_7d DESC, followers DESC, u.user_id DESC';
         }
         return (array) parent::select(
             "SELECT " . $this->directory_cols() . $extra . "
-             FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id
+             FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id" . $join . "
              WHERE " . $this->directory_where() . $filter . "
              ORDER BY " . $order . "
              LIMIT " . (int) $limit . " OFFSET " . (int) $offset, $params);

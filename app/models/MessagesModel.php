@@ -194,9 +194,11 @@ class MessagesModel extends Model {
             $sender_is_creator = ((int) $c['creator_id'] === (int) $sender_id);
             $preview = self::preview_text((string) $body, count($asset_ids), $price);
             $data = array('last_message_at' => $now, 'last_body' => $preview, 'last_sender_id' => (int) $sender_id);
-            if ($sender_is_creator) { $data['user_unread'] = (int) $c['user_unread'] + 1; $data['user_deleted'] = 0; }
-            else { $data['creator_unread'] = (int) $c['creator_unread'] + 1; $data['creator_deleted'] = 0; }
+            $data[$sender_is_creator ? 'user_deleted' : 'creator_deleted'] = 0;
             parent::update('conversations', $data, 'id = :id', array('id' => (int) $conversation_id));
+            // In the database, not read-then-write: two messages sent at once both count.
+            $col = $sender_is_creator ? 'user_unread' : 'creator_unread';
+            parent::sql("UPDATE conversations SET $col = $col + 1 WHERE id = :id", array(':id' => (int) $conversation_id));
         }
         return (int) $mid;
     }
@@ -241,6 +243,18 @@ class MessagesModel extends Model {
         return $out;
     }
 
+    /** unlock_counts limited to priced messages of one conversation (the thread poll's watch list): message_id => n, 0 included. */
+    public function unlock_counts_in($conversation_id, array $message_ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $message_ids))));
+        if (empty($ids)) { return array(); }
+        $in = implode(',', $ids);
+        $rows = parent::select("SELECT m.id, (SELECT COUNT(*) FROM message_unlocks u WHERE u.message_id = m.id) AS n
+             FROM messages m WHERE m.conversation_id = :c AND m.id IN ($in) AND m.price_credits > 0", array('c' => (int) $conversation_id));
+        $out = array();
+        foreach ((array) $rows as $r) { $out[(int) $r['id']] = (int) $r['n']; }
+        return $out;
+    }
+
     /** How many fans unlocked each priced message (creator's own bubbles): message_id => n. */
     public function unlock_counts(array $message_ids){
         $ids = array_values(array_unique(array_filter(array_map('intval', $message_ids))));
@@ -252,28 +266,92 @@ class MessagesModel extends Model {
         return $out;
     }
 
-    /** Raw conversations for an account's inbox (either side), newest activity first. */
-    public function inbox_rows($account_id){
+    /** Conversations of either side with nobody blocked between the two (inbox_rows, total_unread). */
+    const NOT_BLOCKED = "NOT EXISTS (SELECT 1 FROM user_blocks ub
+                    WHERE (ub.user_id = :bv1 AND ub.blocked_user_id IN (c.creator_id, c.user_id))
+                       OR (ub.blocked_user_id = :bv2 AND ub.user_id IN (c.creator_id, c.user_id)))";
+
+    /**
+     * Raw conversations for an account's inbox (either side), newest activity first. $limit 0 = all.
+     * Paging: $before = [last_message_at, id] of the last row shown (older ones). Polling: $since = activity at or after this (UTC).
+     */
+    public function inbox_rows($account_id, $limit = 0, array $before = array(), $since = ''){
         $aid = (int) $account_id;
+        $p = array('a1' => $aid, 'a2' => $aid, 'bv1' => $aid, 'bv2' => $aid);
+        $extra = '';
+        if ((string) $since !== '') { $extra .= ' AND c.last_message_at >= :since'; $p['since'] = (string) $since; }
+        if (!empty($before[0])) {
+            $extra .= ' AND (c.last_message_at < :ba1 OR (c.last_message_at = :ba2 AND c.id < :bid))';
+            $p['ba1'] = (string) $before[0]; $p['ba2'] = (string) $before[0]; $p['bid'] = (int) ($before[1] ?? 0);
+        }
         return (array) parent::select(
             "SELECT c.* FROM conversations c
              WHERE ((c.creator_id = :a1 AND c.creator_deleted = 0) OR (c.user_id = :a2 AND c.user_deleted = 0))
                AND c.last_message_at IS NOT NULL
-               AND NOT EXISTS (SELECT 1 FROM user_blocks ub
-                    WHERE (ub.user_id = :bv1 AND ub.blocked_user_id IN (c.creator_id, c.user_id))
-                       OR (ub.blocked_user_id = :bv2 AND ub.user_id IN (c.creator_id, c.user_id)))
-             ORDER BY c.last_message_at DESC",
-            array('a1' => $aid, 'a2' => $aid, 'bv1' => $aid, 'bv2' => $aid)
+               AND " . self::NOT_BLOCKED . $extra . "
+             ORDER BY c.last_message_at DESC, c.id DESC" . ((int) $limit > 0 ? ' LIMIT ' . (int) $limit : ''),
+            $p
         );
     }
 
-    /** Messages in a conversation, oldest first; deleted ones never, and only newer than $after_id (what the viewer cleared). */
-    public function thread($conversation_id, $after_id = 0){
+    /**
+     * Search the whole inbox (not just the loaded page): the other person's name or handle, or the last message, and/or
+     * only conversations with unread messages. Newest first, at most $limit. The team side matches "Creator Link Studio".
+     */
+    public function inbox_find($account_id, $q = '', $unread_only = false, $limit = 100){
+        $aid = (int) $account_id;
+        $p = array('a1' => $aid, 'a2' => $aid, 'a3' => $aid, 'bv1' => $aid, 'bv2' => $aid);
+        $extra = '';
+        $q = trim((string) $q);
+        if ($q !== '') {
+            $like = '%' . addcslashes(mb_substr($q, 0, 100), '%_\\') . '%';
+            $extra .= " AND (o.u_name LIKE :q1 OR CONCAT(o.first_name, ' ', o.last_name) LIKE :q2 OR op.display_name LIKE :q3 OR c.last_body LIKE :q4"
+                    . " OR (IF(c.creator_id = :a4, c.user_id, c.creator_id) = 0 AND :q5 LIKE :q6))";
+            $p += array('q1' => $like, 'q2' => $like, 'q3' => $like, 'q4' => $like, 'a4' => $aid, 'q5' => PlatformAccount::NAME, 'q6' => $like);
+        }
+        if ($unread_only) {
+            $extra .= ' AND ((c.creator_id = :a5 AND c.creator_unread > 0) OR (c.user_id = :a6 AND c.user_unread > 0))';
+            $p += array('a5' => $aid, 'a6' => $aid);
+        }
         return (array) parent::select(
-            "SELECT id, sender_id, body, price_credits, media_count, trigger_key, created_at
-             FROM messages WHERE conversation_id = :c AND id > :a AND deleted_at IS NULL ORDER BY id ASC",
-            array('c' => (int) $conversation_id, 'a' => (int) $after_id)
+            "SELECT c.* FROM conversations c
+             LEFT JOIN user_accounts o ON o.user_id = IF(c.creator_id = :a3, c.user_id, c.creator_id)
+             LEFT JOIN creator_profiles op ON op.user_id = o.user_id
+             WHERE ((c.creator_id = :a1 AND c.creator_deleted = 0) OR (c.user_id = :a2 AND c.user_deleted = 0))
+               AND c.last_message_at IS NOT NULL
+               AND " . self::NOT_BLOCKED . $extra . "
+             ORDER BY c.last_message_at DESC, c.id DESC LIMIT " . max(1, (int) $limit),
+            $p
         );
+    }
+
+    /** How many conversations have unread messages for this account (the Unread tab's number). */
+    public function unread_conversations($account_id){
+        $aid = (int) $account_id;
+        $r = parent::select(
+            "SELECT COUNT(*) AS n FROM conversations c
+             WHERE ((c.creator_id = :a1 AND c.creator_deleted = 0 AND c.creator_unread > 0) OR (c.user_id = :a2 AND c.user_deleted = 0 AND c.user_unread > 0))
+               AND " . self::NOT_BLOCKED, array('a1' => $aid, 'a2' => $aid, 'bv1' => $aid, 'bv2' => $aid));
+        return (int) ($r[0]['n'] ?? 0);
+    }
+
+    /**
+     * Messages in a conversation, oldest first; deleted ones never, and only newer than $after_id (what the viewer
+     * cleared, or the last one the page has). $limit > 0: only the newest $limit (older than $before_id when given).
+     */
+    public function thread($conversation_id, $after_id = 0, $limit = 0, $before_id = 0){
+        $p = array('c' => (int) $conversation_id, 'a' => (int) $after_id);
+        $extra = '';
+        if ((int) $before_id > 0) { $extra = ' AND id < :b'; $p['b'] = (int) $before_id; }
+        if ((int) $limit <= 0) {
+            return (array) parent::select(
+                "SELECT id, sender_id, body, price_credits, media_count, trigger_key, created_at
+                 FROM messages WHERE conversation_id = :c AND id > :a AND deleted_at IS NULL" . $extra . " ORDER BY id ASC", $p);
+        }
+        $rows = (array) parent::select(
+            "SELECT id, sender_id, body, price_credits, media_count, trigger_key, created_at
+             FROM messages WHERE conversation_id = :c AND id > :a AND deleted_at IS NULL" . $extra . " ORDER BY id DESC LIMIT " . (int) $limit, $p);
+        return array_reverse($rows);
     }
 
     /** The highest message id this account deleted in the conversation (0 = nothing cleared). */
@@ -306,11 +384,11 @@ class MessagesModel extends Model {
             ? array('last_message_at' => $last['created_at'], 'last_body' => self::preview_text((string) $last['body'], (int) $last['media_count'], (int) $last['price_credits']), 'last_sender_id' => (int) $last['sender_id'])
             : array('last_body' => '', 'last_sender_id' => null);
         // It was the newest message and the other side hadn't read it yet: take it off their unread count.
+        parent::update('conversations', $data, 'id = :id', array('id' => $conv_id));
         if (!$last || (int) $last['id'] < (int) $message_id) {
             $col = ((int) $c['creator_id'] === (int) $m['sender_id']) ? 'user_unread' : 'creator_unread';
-            if ((int) $c[$col] > 0) { $data[$col] = (int) $c[$col] - 1; }
+            parent::sql("UPDATE conversations SET $col = $col - 1 WHERE id = :id AND $col > 0", array(':id' => $conv_id));
         }
-        parent::update('conversations', $data, 'id = :id', array('id' => $conv_id));
         return true;
     }
 
@@ -326,10 +404,11 @@ class MessagesModel extends Model {
     public function total_unread($account_id){
         $aid = (int) $account_id;
         $rows = parent::select(
-            "SELECT COALESCE(SUM(IF(creator_id = :a1, creator_unread, 0)) + SUM(IF(user_id = :a2, user_unread, 0)), 0) AS n
-             FROM conversations
-             WHERE (creator_id = :a3 AND creator_deleted = 0) OR (user_id = :a4 AND user_deleted = 0)",
-            array('a1' => $aid, 'a2' => $aid, 'a3' => $aid, 'a4' => $aid)
+            "SELECT COALESCE(SUM(IF(c.creator_id = :a1, c.creator_unread, 0)) + SUM(IF(c.user_id = :a2, c.user_unread, 0)), 0) AS n
+             FROM conversations c
+             WHERE ((c.creator_id = :a3 AND c.creator_deleted = 0) OR (c.user_id = :a4 AND c.user_deleted = 0))
+               AND " . self::NOT_BLOCKED,   // a blocked conversation is hidden from the inbox, so it can't hold the badge up
+            array('a1' => $aid, 'a2' => $aid, 'a3' => $aid, 'a4' => $aid, 'bv1' => $aid, 'bv2' => $aid)
         );
         return is_array($rows) && count($rows) ? (int) $rows[0]['n'] : 0;
     }
@@ -359,8 +438,9 @@ class MessagesModel extends Model {
 
     /** Platform-identity map (NO PII): id => {handle, name, avatar, is_creator}. */
     public function identity_map(array $ids){
+        $team = in_array(PlatformAccount::ID, array_map('intval', $ids), true);   // the Creator Link Studio side of a team conversation
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
-        if (empty($ids)) { return array(); }
+        if (empty($ids)) { return $team ? array(PlatformAccount::ID => PlatformAccount::identity()) : array(); }
         $in = implode(',', $ids);
         $creator_role = $this->creator_role_id();
         $rows = parent::select(
@@ -377,10 +457,11 @@ class MessagesModel extends Model {
             $map[(int) $r['user_id']] = array(
                 'handle'     => $handle,
                 'name'       => $name !== '' ? $name : ('@' . $handle),
-                'avatar'     => PlatformAccount::is($r['user_id']) ? PlatformAccount::AVATAR : (string) ($r['avatar'] ?? ''),   // the team account has no profile: the logo
+                'avatar'     => (string) ($r['avatar'] ?? ''),
                 'is_creator' => ($creator_role > 0 && (int) $r['role_id'] === $creator_role),
             );
         }
+        if ($team) { $map[PlatformAccount::ID] = PlatformAccount::identity(); }
         return $map;
     }
 }

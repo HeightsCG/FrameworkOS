@@ -99,6 +99,35 @@ class JobsModel extends Model {
         return $released;
     }
 
+    /** Is a queued or running row on the queue whose dedupe key starts with $prefix (e.g. "infl_job:12:")? */
+    public function has_live_with_prefix(string $prefix): bool {
+        $rows = parent::select("SELECT 1 FROM jobs WHERE dedupe_key LIKE :p AND state IN ('queued','running') LIMIT 1",
+            ['p' => str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $prefix) . '%']);
+        return is_array($rows) && count($rows) > 0;
+    }
+
+    /** Payloads of the queued / running rows of one type (the live queue is small). */
+    public function live_payloads(string $type): array {
+        $rows = (array) parent::select("SELECT payload_json FROM jobs WHERE type = :t AND state IN ('queued','running')", ['t' => $type]);
+        $out = [];
+        foreach ($rows as $r) { $p = json_decode((string) $r['payload_json'], true); if (is_array($p)) { $out[] = $p; } }
+        return $out;
+    }
+
+    /** The newest payload of a $type row whose payload field $field equals $value, or null. */
+    public function last_payload_where(string $type, string $field, int $value): ?array {
+        $rows = parent::select("SELECT payload_json FROM jobs WHERE type = :t AND CAST(JSON_EXTRACT(payload_json, :f) AS UNSIGNED) = :v ORDER BY id DESC LIMIT 1",
+            ['t' => $type, 'f' => '$.' . preg_replace('/[^a-z0-9_]/i', '', $field), 'v' => $value]);
+        $p = isset($rows[0]) ? json_decode((string) $rows[0]['payload_json'], true) : null;
+        return is_array($p) ? $p : null;
+    }
+
+    /** Delete finished rows (done / failed) older than $days days, at most $batch per call. Returns rows deleted. */
+    public function prune_finished(int $days = 14, int $batch = 500): int {
+        return (int) parent::delete('jobs', "state IN ('done','failed') AND updated_at < :cut", max(1, $batch),
+            ['cut' => gmdate('Y-m-d H:i:s', time() - $days * 86400)]);
+    }
+
     /** Is the worker named "<host>:<pid>" (the queue worker's id) still running? Unknown hosts count as dead. */
     public static function worker_alive(string $worker_id): bool {
         $at = strrpos($worker_id, ':');
