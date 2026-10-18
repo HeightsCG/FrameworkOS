@@ -92,4 +92,12 @@ class LifecycleEmailsModel extends Model {
             array('u' => (int) $user_id, 's' => (string) $since));
         return !empty($r);
     }
+    /** Did the account get any of these kinds (status sent) at or after $since (UTC)? NurtureEmails spacing. */
+    public function sent_kinds_since($user_id, array $kinds, $since): bool {
+        if (!$kinds) { return false; }
+        $in = array(); $p = array('u' => (int) $user_id, 's' => (string) $since);
+        foreach (array_values($kinds) as $i => $k) { $in[] = ':k' . $i; $p['k' . $i] = (string) $k; }
+        $r = parent::select("SELECT 1 FROM lifecycle_emails WHERE user_id = :u AND status = 'sent' AND created_at >= :s AND kind IN (" . implode(', ', $in) . ") LIMIT 1", $p);
+        return !empty($r);
+    }
 }

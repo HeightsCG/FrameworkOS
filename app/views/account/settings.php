@@ -207,10 +207,14 @@
                             <span class="notif__name"><?php echo htmlspecialchars($meta[0], ENT_QUOTES, 'UTF-8'); ?></span>
                             <span class="notif__desc"><?php echo htmlspecialchars($meta[1], ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
+                        <?php if (in_array($key, NotificationPrefsModel::$email_only, true)): /* email only: no in-app notices in this category */ ?>
+                        <span></span>
+                        <?php else: ?>
                         <label class="notif__switch">
                             <input type="checkbox" class="notif-pref" data-category="<?php echo $key; ?>" data-channel="in_platform" <?php echo !empty($pref['in_platform']) ? 'checked' : ''; ?>>
                             <span class="notif__slider"></span>
                         </label>
+                        <?php endif; ?>
                         <label class="notif__switch">
                             <input type="checkbox" class="notif-pref" data-category="<?php echo $key; ?>" data-channel="email" <?php echo !empty($pref['email']) ? 'checked' : ''; ?>>
                             <span class="notif__slider"></span>

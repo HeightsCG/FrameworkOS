@@ -664,4 +664,35 @@ class UsersModel extends Model {
         return parent::update('user_accounts', array('verify_reminders_sent' => (int) $step, 'verify_reminder_at' => gmdate('Y-m-d H:i:s')),
             'user_id = :uid AND email_verified = 0 AND verify_reminders_sent < :step', array('uid' => (int) $user_id, 'step' => (int) $step));
     }
+    /**
+     * Free creators due a nurture email (NurtureEmails): verified, Creator role (or signed up as a creator, not Admin),
+     * account owner (not a team seat), not deleted / suspended / demo, no paid plan, address not bounced, the
+     * Tips and Offers email switch not turned off, signed up between $max_age_h and $min_age_h hours ago and not
+     * before $since (UTC), and no lifecycle_emails claim of $kind + $ref yet. Oldest first, at most $limit.
+     */
+    public function nurture_candidates($kind, $ref, $min_age_h, $max_age_h, $since, $limit = 300){
+        return (array) parent::select(
+            "SELECT u.*
+               FROM user_accounts u
+               JOIN user_roles r ON r.id = u.role_id
+              WHERE u.email_verified = 1 AND u.deleted = 0 AND u.user_status = 'Active' AND u.is_demo = 0 AND u.team_role IS NULL
+                AND u.user_email <> ''
+                AND (r.role_name = 'Creator' OR (u.signup_role = 'creator' AND r.role_name <> 'Admin'))
+                AND NOT COALESCE(" . Plan::paid_sql('u') . ", 0)
+                AND (u.email_bounced_at IS NULL OR u.email_bounced_address <> u.user_email)
+                AND u.created_at <= UTC_TIMESTAMP() - INTERVAL " . (int) $min_age_h . " HOUR
+                AND u.created_at >  UTC_TIMESTAMP() - INTERVAL " . (int) $max_age_h . " HOUR
+                AND u.created_at >= :since
+                AND NOT EXISTS (SELECT 1 FROM user_notification_prefs p WHERE p.user_id = u.user_id AND p.category = 'tips_offers' AND p.email = 0)
+                AND NOT EXISTS (SELECT 1 FROM lifecycle_emails le WHERE le.user_id = u.user_id AND le.kind = :k AND le.ref = :r)
+              ORDER BY u.created_at ASC
+              LIMIT " . max(1, (int) $limit),
+            array('since' => (string) $since, 'k' => (string) $kind, 'r' => (string) $ref));
+    }
+
+    /** Ids of the live accounts using this email address. */
+    public function ids_by_email($email){
+        $rows = (array) parent::select("SELECT user_id FROM user_accounts WHERE user_email = :e AND deleted = 0", array('e' => trim((string) $email)));
+        return array_map(function ($r) { return (int) $r['user_id']; }, $rows);
+    }
 }

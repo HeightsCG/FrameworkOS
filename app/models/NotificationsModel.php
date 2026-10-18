@@ -270,8 +270,8 @@ class NotificationsModel extends Model {
       . '<body style="margin:0; padding:0; background:#f4f4f7;">'
       . '<div style="margin:0; padding:32px 12px; background:#f4f4f7;">'
       .   '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">'
-      .     '<table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" '
-      .            'style="width:480px; max-width:480px; background:#ffffff; border:1px solid #e7e7ee; border-radius:14px;">'
+      .     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '   // fluid up to 480px: fits a phone screen
+      .            'style="width:100%; max-width:480px; background:#ffffff; border:1px solid #e7e7ee; border-radius:14px;">'
                   // brand header
       .       '<tr><td style="padding:26px 32px 6px;">'
       .         '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'

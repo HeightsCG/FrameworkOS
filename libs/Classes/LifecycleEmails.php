@@ -1,7 +1,7 @@
 <?php
 /**
- * Account lifecycle email (transactional only; no marketing or nurture mail here — that needs a postal address and an
- * unsubscribe footer first, see NotificationsModel::send_lifecycle_email's $footer_html).
+ * Account lifecycle email (transactional only; the marketing nurture sequence for Free creators is NurtureEmails, on
+ * Postmark's broadcast stream with the postal address + unsubscribe footer).
  *
  *   - verification reminders for accounts that never confirmed (cron/lifecycle.php): up to 3, each with a fresh link
  *   - "Your 14-day free trial has started" when a founding trial starts ($0 subscribe, BillingService::receipt)
@@ -297,6 +297,10 @@ class LifecycleEmails {
         $e = json_decode($raw, true);
         if (!is_array($e)) { return array(400, 'bad request'); }
         $record = (string) ($e['RecordType'] ?? '');
+        if ($record === 'SubscriptionChange') {   // broadcast stream unsubscribe / resubscribe: the Tips and Offers switch follows it
+            $n = NurtureEmails::subscription_change($e);
+            return array(200, $n > 0 ? 'ok' : 'ignored');
+        }
         $type   = (string) ($e['Type'] ?? '');
         $email  = trim((string) ($e['Email'] ?? ''));
         $hard   = ($record === 'Bounce' && in_array($type, array('HardBounce', 'BadEmailAddress'), true)) || $record === 'SpamComplaint' || $type === 'SpamComplaint';

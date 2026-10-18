@@ -2,6 +2,7 @@
 /**
  * Lifecycle email worker (LifecycleEmails): verification reminders to accounts that never confirmed (up to 3, each with
  * a fresh link) and the "your plan didn't start" follow-up about an hour after a plan checkout that never finished.
+ * Then the Free-creator nurture emails (NurtureEmails, marketing, Postmark broadcast stream, at most NurtureEmails::CAP a run).
  * The trial-ending email runs from cron/billing.php. Every email is claimed before it is sent, so overlapping runs never
  * double-send; at most LifecycleEmails::REMINDER_CAP of each kind per run.
  * Cron (prod), every 15 minutes:
@@ -37,6 +38,10 @@ try {
     $n = LifecycleEmails::run_abandoned_checkouts();
     $notes[] = 'checkout follow-ups ' . $n;
 } catch (\Throwable $e) { $ok = false; error_log('[lifecycle] abandoned checkouts: ' . $e->getMessage()); $notes[] = 'checkout follow-ups failed'; }
+try {
+    $n = NurtureEmails::run();
+    $notes[] = 'nurture ' . $n;
+} catch (\Throwable $e) { $ok = false; error_log('[lifecycle] nurture: ' . $e->getMessage()); $notes[] = 'nurture failed'; }
 
 fwrite(STDOUT, date('c') . ' ' . implode(', ', $notes) . "\n");
 CronRuns::finish('lifecycle', $ok, implode(', ', $notes));

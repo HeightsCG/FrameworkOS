@@ -21,7 +21,17 @@ class NotificationPrefsModel extends Model {
         'security'           => array(1, 1),
         'system'             => array(1, 1),
         'marketing'          => array(0, 0),
+        'tips_offers'        => array(0, 1),   // Free-creator nurture email (NurtureEmails): email only, on by default
     );
+
+    /** Categories with no in-app notices: Settings shows only the email switch. */
+    public static $email_only = array('tips_offers');
+
+    /** Does the account want email in this category (saved switch, else the default)? */
+    public function email_on($user_id, $category): bool {
+        $map = $this->get_prefs_map($user_id);
+        return !empty($map[$category]['email']);
+    }
 
     public function __construct(){
         parent::__construct();

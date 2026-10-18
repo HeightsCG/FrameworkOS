@@ -12,11 +12,21 @@ class Notifications {
     /** Why the last Postmark send failed ('' after a success): Postmark's own message, for callers that report it (error digest). */
     public static $last_error = '';
 
+    /** Postmark's ErrorCode for the last failed send (0 after a success). 406 = inactive recipient (bounced or unsubscribed). */
+    public static $last_error_code = 0;
+
     /** Test seam: an array here collects every outgoing Postmark payload instead of sending it (tests/lifecycle_emails_test.php). */
     public static $outbox = null;
 
     /** Where replies to our mail go (the From address is a no-reply). */
     const REPLY_TO = 'support@creatorlinkstudio.com';
+
+    /** Postmark message streams: transactional mail on 'outbound', marketing (NurtureEmails) on 'broadcast'. */
+    const STREAM_TRANSACTIONAL = 'outbound';
+    const STREAM_BROADCAST     = 'broadcast';
+
+    /** The postal address every marketing email carries (CAN-SPAM). Change it here only. */
+    const POSTAL_ADDRESS = 'Creator Link Studio · 504 W. Plant Street, Winter Garden, FL 34787';
 
     /** Load an HTML template from app/email_templates and substitute {vars}. */
     public function clean_template($template_name, $variables){
@@ -44,8 +54,9 @@ class Notifications {
      * Send an HTML email to each recipient in $to_array (each ['email'=>, 'name'=>]).
      * $cc_array is an optional array of the same shape (or 0/null for none).
      * Returns true if at least one message was handed to the MTA, false otherwise.
+     * $stream: the Postmark message stream (STREAM_BROADCAST for marketing; everything else stays transactional).
      */
-    public function send_email($to_array, $cc_array, $subject, $message){
+    public function send_email($to_array, $cc_array, $subject, $message, $stream = self::STREAM_TRANSACTIONAL){
         $from = (string) Main::config('global', 'mail_from', '');
         if ($from === '' || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
             error_log('[mailer] mail_from is not configured in app.ini; email not sent');
@@ -83,7 +94,7 @@ class Notifications {
                 if (empty($to['email']) || !filter_var($to['email'], FILTER_VALIDATE_EMAIL)) {
                     continue;
                 }
-                if ($this->postmark_send($token, $from_field, $to['email'], $cc, $subject, $message)) {
+                if ($this->postmark_send($token, $from_field, $to['email'], $cc, $subject, $message, '', $stream)) {
                     $sent = true;
                 }
             }
@@ -144,7 +155,7 @@ class Notifications {
     }
 
     /** Deliver one HTML message through the Postmark HTTP API. Returns true on a 200. */
-    private function postmark_send($token, $from_field, $to_email, $cc, $subject, $message, $reply_to = ''){
+    private function postmark_send($token, $from_field, $to_email, $cc, $subject, $message, $reply_to = '', $stream = self::STREAM_TRANSACTIONAL){
         if (self::undeliverable($to_email)) {
             error_log('[postmark] skipped reserved test address ' . $to_email . ': ' . $subject);
             return true;   // nothing could deliver it: treat as handled so test flows carry on
@@ -156,7 +167,7 @@ class Notifications {
             'Subject'       => $subject,
             'HtmlBody'      => $message,
             'TextBody'      => self::html_to_text($message),
-            'MessageStream' => 'outbound',
+            'MessageStream' => $stream === self::STREAM_BROADCAST ? self::STREAM_BROADCAST : self::STREAM_TRANSACTIONAL,
             'ReplyTo'       => $reply_to !== '' ? $reply_to : self::REPLY_TO,
         );
         if (!empty($cc)) {
@@ -165,6 +176,7 @@ class Notifications {
         if (is_array(self::$outbox)) {   // test seam: record, never send
             self::$outbox[] = $payload;
             self::$last_error = '';
+            self::$last_error_code = 0;
             return true;
         }
 
@@ -187,10 +199,12 @@ class Notifications {
 
         if ($code === 200) {
             self::$last_error = '';
+            self::$last_error_code = 0;
             return true;
         }
         error_log('[postmark] send failed (http ' . $code . '): ' . ($resp !== false ? $resp : $err));
         $j = $resp !== false ? json_decode((string) $resp, true) : null;
+        self::$last_error_code = is_array($j) ? (int) ($j['ErrorCode'] ?? 0) : 0;
         self::$last_error = is_array($j) && !empty($j['Message']) ? (string) $j['Message'] : ('http ' . $code . ($err !== '' ? ': ' . $err : ''));
         return false;
     }

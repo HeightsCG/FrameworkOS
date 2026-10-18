@@ -61,6 +61,7 @@ class AccountController extends Controller {
             'security'           => array('Security',           'Password and two-factor changes. Always emailed.'),
             'system'             => array('System',             'Verification decisions and account notices.'),
             'marketing'          => array('Marketing',          'Product news and promotions.'),
+            'tips_offers'        => array('Tips and Offers',    'Getting-started tips and plan offers for your creator account.'),
         );
 
         // This user's connected social accounts, grouped by platform.
