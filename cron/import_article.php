@@ -1,9 +1,9 @@
 <?php
 /**
- * Import a hand-written blog article (e.g. one supplied by HeyCatch) from a Markdown file in docs/articles/ into seo_articles,
+ * Import a hand-written blog article (e.g. one supplied by HeyCatch) from a file in app/articles/ (.txt: a global gitignore drops .md files from commits) into seo_articles,
  * through the same SeoDrafter::validate() rules as a drafted article. Run on demand, never from cron.
  *
- *   APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/import_article.php docs/articles/<slug>.md [--cover] [--publish]
+ *   APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/import_article.php app/articles/<slug>.txt [--cover] [--publish]
  *
  * File format: "key: value" header lines (title, slug, target_keyword, cluster, meta_description, excerpt; others ignored),
  * a "---" line, then the Markdown body. A trailing "## FAQ" section of "### question" + answer paragraphs becomes the faq field.
@@ -26,7 +26,8 @@ foreach (array_slice($argv, 1) as $a) { if (substr($a, 0, 2) !== '--') { $file =
 $cover   = in_array('--cover', $argv, true);
 $publish = in_array('--publish', $argv, true);
 if ($file !== '' && !is_file($file) && is_file($root . '/' . $file)) { $file = $root . '/' . $file; }
-if ($file === '' || !is_file($file)) { fwrite(STDERR, "usage: php cron/import_article.php docs/articles/<slug>.md [--cover] [--publish]\n"); exit(1); }
+if ($file === '') { fwrite(STDERR, "usage: php cron/import_article.php app/articles/<slug>.txt [--cover] [--publish]\n"); exit(1); }
+if (!is_file($file)) { fwrite(STDERR, "file not found: $file (is it committed and deployed?)\n"); exit(1); }
 
 $raw = str_replace("\r\n", "\n", (string) file_get_contents($file));
 $parts = preg_split('/^---\s*$/m', $raw, 2);
