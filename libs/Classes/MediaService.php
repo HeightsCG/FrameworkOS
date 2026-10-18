@@ -361,30 +361,42 @@ class MediaService {
 
     const MODERATION_FRAMES = 5;
 
+    /** The moderation worker's pass on a stored video (cron/moderate.php): frames from the S3 original. */
+    public static function moderate_video(array $asset): array
+    {
+        if ((string) ($asset['original_key'] ?? '') === '') {
+            return array('ok' => false, 'status' => 'error', 'score' => null, 'labels' => array(), 'adult' => false, 'frames' => 0, 'error' => 'no stored video');
+        }
+        return self::moderate_video_src(S3Service::presigned_get_url((string) $asset['original_key'], 1800), (float) ($asset['duration_sec'] ?? 0));
+    }
+
     /**
-     * Moderate a stored video on frames taken across its length (5%, 25%, 50%, 75%, 95%) from the S3 original, never
-     * on a frame the uploader supplied. The worst frame decides: any suspected minors = 'blocked', any adult = 'flagged',
-     * else 'approved'. Fails closed: when no frame can be read or a frame can't be classified the result is not ok, so
-     * the caller leaves the asset hidden and retries later.
+     * Moderate a video on frames taken across its length (5%, 25%, 50%, 75%, 95%) from the video itself ($src: a local
+     * path or a signed URL of the stored file), never on a frame the uploader supplied. The worst frame decides: any
+     * suspected minors = 'blocked', any adult = 'flagged', else 'approved'. Fails closed: when no frame can be read, a
+     * frame can't be classified or $budget seconds run out, the result is not ok and the video stays hidden.
      * Returns ['ok' => bool, 'status', 'score', 'labels' => [], 'adult' => bool, 'frames' => int, 'error'].
      */
-    public static function moderate_video(array $asset): array
+    public static function moderate_video_src($src, $duration = 0, $frame_timeout = 90, $budget = 600): array
     {
         $out = array('ok' => false, 'status' => 'error', 'score' => null, 'labels' => array(), 'adult' => false, 'frames' => 0, 'error' => '');
         $ffmpeg = self::bin('ffmpeg');
         if ($ffmpeg === '') { $out['error'] = 'ffmpeg not installed'; return $out; }
-        if ((string) ($asset['original_key'] ?? '') === '') { $out['error'] = 'no stored video'; return $out; }
-        $url = S3Service::presigned_get_url((string) $asset['original_key'], 1800);
-        $duration = (float) ($asset['duration_sec'] ?? 0);
-        if ($duration <= 0) { $duration = (float) self::probe_video($url)['duration']; }
+        if ((string) $src === '') { $out['error'] = 'no video source'; return $out; }
+        $deadline = microtime(true) + (int) $budget;
+        $duration = (float) $duration;
+        if ($duration <= 0) { $duration = (float) self::probe_video($src)['duration']; }
         $times = $duration > 1
             ? array_values(array_unique(array_map(function ($f) use ($duration) { return round($duration * $f, 1); }, array(0.05, 0.25, 0.5, 0.75, 0.95))))
             : array(0);
+        $net = preg_match('#^https?://#i', (string) $src) ? ' -rw_timeout 20000000' : '';
         $worst = 0; $score = 0.0; $labels = array();   // 0 approved, 1 flagged, 2 blocked
         foreach (array_slice($times, 0, self::MODERATION_FRAMES) as $t) {
+            $left = (int) floor($deadline - microtime(true));
+            if ($left < 5) { $out['error'] = 'ran out of time after ' . $out['frames'] . ' frame(s)'; return $out; }
             $base = tempnam(sys_get_temp_dir(), 'modf'); @unlink($base); $jpg = $base . '.jpg';
-            self::run_with_timeout(escapeshellarg($ffmpeg) . ' -y -rw_timeout 20000000 -ss ' . escapeshellarg((string) $t) . ' -i ' . escapeshellarg($url)
-                . ' -frames:v 1 -vf ' . escapeshellarg("scale='min(768,iw)':-2") . ' -q:v 4 ' . escapeshellarg($jpg), 90);
+            self::run_with_timeout(escapeshellarg($ffmpeg) . ' -y' . $net . ' -ss ' . escapeshellarg((string) $t) . ' -i ' . escapeshellarg((string) $src)
+                . ' -frames:v 1 -vf ' . escapeshellarg("scale='min(768,iw)':-2") . ' -q:v 4 ' . escapeshellarg($jpg), min((int) $frame_timeout, $left));
             if (!is_file($jpg) || filesize($jpg) === 0) { @unlink($jpg); continue; }   // past the end of a short clip: the others still count
             $res = ModerationService::classify_image('data:image/jpeg;base64,' . base64_encode((string) file_get_contents($jpg)));
             @unlink($jpg);
@@ -404,7 +416,11 @@ class MediaService {
         return $out;
     }
 
-    public static function process_video($creator_id, $asset_id, $src, array $user, $client_poster_path = ''): array
+    /**
+     * $scan_src: the stored video (local path or signed URL) to moderate frames from; defaults to $src. $duration: its
+     * length in seconds when the caller knows it (saves a probe).
+     */
+    public static function process_video($creator_id, $asset_id, $src, array $user, $client_poster_path = '', $scan_src = '', $duration = 0): array
     {
         $poster_path = ((string) $src !== '') ? self::extract_poster_frame($src) : '';
         $from_client = false;
@@ -426,6 +442,20 @@ class MediaService {
         }
         $res = self::poster_variants($creator_id, $asset_id, $poster_path, $user);
         if (!$from_client) { @unlink($poster_path); }
+        // Decide the video now from its own frames, so it can be shown and cross-posted at once. If that can't finish
+        // here (slow storage, classifier down) it stays 'pending' and cron/moderate.php tries again.
+        $scan_src = ((string) $scan_src !== '') ? (string) $scan_src : (string) $src;
+        if (!isset($res['error']) && $scan_src !== '' && ($res['moderation_status'] ?? '') !== 'blocked') {
+            $scan = self::moderate_video_src($scan_src, $duration, 20, 45);
+            if (!empty($scan['ok'])) {
+                $res['moderation_status'] = $scan['status'];
+                $res['moderation_score']  = $scan['score'];
+                $res['moderation_labels'] = empty($scan['labels']) ? null : implode(',', $scan['labels']);
+                if ($scan['status'] === 'blocked') { error_log('[MODERATION][BLOCKED] video ' . (int) $asset_id . ' creator ' . (int) $creator_id . ' — suspected sexual/minors, quarantined.'); }
+            } else {
+                error_log('[media] video ' . (int) $asset_id . ': frame check deferred to the moderation worker (' . $scan['error'] . ')');
+            }
+        }
         return $res;
     }
 

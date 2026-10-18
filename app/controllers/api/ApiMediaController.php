@@ -283,11 +283,13 @@ class ApiMediaController extends BaseApiController {
         $client_probe  = ['duration' => (int) ($this->post['client_duration'] ?? 0), 'width' => (int) ($this->post['client_width'] ?? 0), 'height' => (int) ($this->post['client_height'] ?? 0)];
         if ($client_poster !== '' && $client_probe['width'] > 0) {
             $probe = $client_probe;
-            $res   = MediaService::process_video($creator_id, $asset_id, '', $user, $client_poster);
+            // the browser poster is only the preview: moderation reads frames from the stored file
+            $res   = MediaService::process_video($creator_id, $asset_id, '', $user, $client_poster,
+                         S3Service::presigned_get_url($session['storage_key'], 900), (int) $client_probe['duration']);
         } else {
             $src   = S3Service::presigned_get_url($session['storage_key'], 900);
             $probe = MediaService::probe_video($src);
-            $res   = MediaService::process_video($creator_id, $asset_id, $src, $user, $client_poster);
+            $res   = MediaService::process_video($creator_id, $asset_id, $src, $user, $client_poster, '', (int) $probe['duration']);
         }
         if (isset($res['error'])) {
             $model->set_failed($creator_id, $asset_id, $res['error']);

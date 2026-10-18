@@ -204,7 +204,7 @@ class MediaIngestService {
             throw new RuntimeException('Could not store the video');
         }
         $probe = MediaService::probe_video($path);
-        $res   = MediaService::process_video($cid, $aid, $path, $user, $poster_path);
+        $res   = MediaService::process_video($cid, $aid, $path, $user, $poster_path, '', (int) ($probe['duration'] ?? 0));
         @unlink($path); if ($poster_path !== '') { @unlink($poster_path); }
         if (isset($res['error'])) {
             $mm->set_failed($cid, $aid, $res['error']);
