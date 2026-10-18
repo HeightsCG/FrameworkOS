@@ -1,0 +1,162 @@
+title: Selling Pay Per View Content: Pricing and Fees
+slug: selling-pay-per-view-content-pricing-and-fees
+target_keyword: pay per view content platforms
+cluster: memberships-and-ppv
+meta_description: How to price pay per view content, what OnlyFans, Fanvue, Patreon and a direct storefront take from a $10 sale, and how often to pitch fans.
+excerpt: Pay per view content pays best when you know what each sale leaves you, how to price by content depth, and how often to pitch fans.
+source: HeyCatch.ai
+---
+## Key takeaways
+
+- On a $10 PPV sale, OnlyFans takes 20% leaving you $8, while a direct storefront at a 10% take leaves you $9 before payout fees.
+- Price PPV by matching content depth to fan commitment: $5-15 for photo sets, $20-50 for full videos, and $75-200 for premium custom work.
+- PPV beats a subscription when purchases per fan per month multiplied by your PPV price exceeds the subscription price.
+- Mass-DM your PPV drops no more than twice a week to prevent unsubscribe and mute rates from climbing.
+- A direct storefront trades discovery for a lower fee, so it fits creators who already bring their own traffic.
+
+Pay per view content works best when you know what you keep per sale: on a $10 PPV post, the 20% OnlyFans take leaves you $8 before payout fees, while a direct storefront at a 10% take leaves $9. This guide covers PPV pricing, messaging cadence, fee structures, and the worked math.
+
+## What is pay per view content and how does it differ from a subscription?
+
+Pay per view content is a single piece of content a fan pays once to access: a locked post, a paid message, or a bundle of photos and videos sold at a set price. The fan pays per piece, so your income tracks how many purchases you drive, not how many subscribers you hold.
+
+### What counts as PPV: posts, paid messages and locked bundles
+
+OnlyFans supports all three formats: locked posts on your feed, pay-per-view messages sent in DMs, and priced bundles, each subject to the 20% fee in the [OnlyFans terms of service](https://onlyfans.com/terms). The same formats work on a direct storefront.
+
+### Why subscriptions and PPV are complements, not substitutes
+
+A subscription sets a predictable monthly floor; PPV monetizes your hottest drops at prices a flat tier can't justify. Most creators run both: subs cover baseline income, PPV captures upsell. Creator Link Studio sells both formats, with [pay-per-view posts](/features/pay-per-view) alongside [membership tiers](/features/memberships).
+
+## How should you price a PPV post or PPV message?
+
+PPV pricing works best as a ladder that rises with content depth and fan trust.
+
+### A pricing ladder by content type (illustrative ranges)
+
+Most creators price PPV by matching content depth to fan commitment. These ranges are illustrative, not benchmarks, but a common ladder looks like this: a single photo set or short clip at $5-15, a full-length video at $20-50, and a premium or custom piece at $75-200. A fan who has paid $10 twice will usually pay $25 once, so step prices up as trust builds rather than opening at your ceiling.
+
+### Bundles and the credit wallet: raising average order value
+
+Bundles lift the order without raising the sticker: three clips priced at $15 each becomes a bundle at $35, and the buyer feels the discount while you collect more per transaction. A credit wallet works the same way: fans preload a balance, spend it down, and each purchase skips the payment friction of a fresh checkout. On Creator Link Studio, fans buy credits once and unlock PPV posts and bundles from their credit wallet, straight from your link-in-bio page.
+
+The fee math matters more at high prices: on a $10 PPV, a 20% take rate costs you $2, but on a $100 bundle it costs $20, which is why big-ticket PPV is where platform fees hurt most. The gap is also why bundles pair naturally with a lower-take storefront when you scale. For a fuller breakdown of income streams, see [how to monetize content as a creator](/blog/how-to-monetize-content-as-a-creator).
+
+### Testing price without killing conversion
+
+Price tests belong on new content only, never retroactive changes, and you should watch conversion over your first 20-30 sales. If a $25 video converts above roughly 15-20% of buyers who open the message, test $30 on the next drop. If conversion collapses below your usual rate, drop back; a price you never test is a price you are leaving on the table.
+
+## How does pay per view content work on OnlyFans, step by step?
+
+Pay per view content on OnlyFans works two ways. First, you lock a post: upload the content, set a price, and only fans who pay can view the post. Second, you send a PPV message through mass DMs, attaching locked media to a message at a set price. Fans pay, the content unlocks in their chat, and tips work separately as an optional extra on top of any post or message.
+
+### Locking a post vs sending a PPV message
+
+Locked posts suit content on your feed that every paying subscriber scrolls past. PPV messages suit targeted sends: you can segment by who has bought before and price per bundle. Both run through OnlyFans, so the platform takes its cut before anything reaches your bank.
+
+### Discovery: why OnlyFans PPV depends on external traffic
+
+OnlyFans has no meaningful internal discovery feed, so nearly every PPV sale starts with traffic you brought yourself: X, Reddit, TikTok. Most subscription sites handle payment and delivery, not audience building. Many creators therefore pair a subscription platform with a direct link-in-bio storefront, a funnel we cover alongside AI influencer workflows in [how to make money with an AI influencer](/blog/how-to-make-money-with-an-ai-influencer).
+
+## What fees cut into PPV earnings on subscription platforms vs a direct storefront?
+
+PPV fees, not the price tag, decide what a $10 sale is worth. On subscription platforms the take rate is a percentage of every sale, and payment processing sits on top.
+
+### The same $10 PPV sale, four ways (worked table)
+
+The math below is illustrative, uses an estimated $0.40 for card processing, and assumes each platform's published rate; check each platform's current terms before switching.
+
+| Platform | Sale price | Platform take | Est. processing | You keep |
+|---|---|---|---|---|
+| OnlyFans | $10.00 | 20% ($2.00) | ~$0.40 | ~$7.60 |
+| Fanvue | $10.00 | 20% ($2.00) | ~$0.40 | ~$7.60 |
+| Patreon | $10.00 | 10% ($1.00) | ~$0.40 | ~$8.60 |
+| Creator Link Studio, Creator plan | $10.00 | 10% ($1.00) | ~$0.40 | ~$8.60 |
+
+The 20% OnlyFans cut is stated in its terms of service, Fanvue publishes a 20% fee in its creator earnings terms, and Patreon charges 10% on pages published after August 4, 2025, per [Patreon's creator fees overview](https://support.patreon.com/hc/en-us/articles/11111747095181-Creator-fees-overview). Creator Link Studio charges a 10% platform fee on the Creator plan and 3% on Studio. A side-by-side breakdown lives at [Creator Link Studio vs OnlyFans](/compare/onlyfans).
+
+### Where the stitched-together stack adds hidden costs
+
+Before a single sale, you may already be paying for a link-in-bio tool, a scheduler, and a store separately. Those subscriptions stack on top of the platform take rate, and each tool takes its own payment cut. Consolidating into one tool removes the double-dipping, which is where the real savings live, not just the headline percentage.
+
+### Honest limits of the direct-storefront math
+
+A direct storefront has honest limits: the lower fee helps only if you supply the traffic. Direct storefronts also push discovery and marketing onto you, so you trade a bigger cut for more operational work.
+
+## When is PPV more profitable than a subscription tier, and when is it not?
+
+PPV is more profitable than a subscription tier when fans buy often enough to outspend the tier price.
+
+### The formula with a worked example
+
+PPV beats a subscription when: fans × purchases per month × PPV price × (1 − take rate) > fans × sub price × (1 − take rate). The take rate cancels out, so the comparison is purchases × PPV price vs sub price.
+
+Worked example: a $10/month tier versus $15 PPV posts. One purchase per month per fan means $15 > $10, so PPV-only wins. Below roughly 0.67 purchases per fan per month, the subscription earns more. If your PPV price is $20, the threshold drops to half a purchase per fan monthly.
+
+### When subscriptions win: predictable fans, low purchase frequency
+
+Subscriptions win with casual fans who buy once or twice a quarter. Subscriptions also win on predictability: you can forecast membership income, while PPV income swings with your messaging cadence.
+
+PPV-only suits fans who binge: fewer, higher-spending buyers. If you're weighing a hybrid, the fee math per platform is in [how to choose an OnlyFans alternative](/blog/how-to-choose-an-onlyfans-alternative).
+
+## How do you funnel free or subscribed fans into PPV purchases without burning them out?
+
+Funneling fans into PPV works when the pitch is spaced out and the teaser earns trust.
+
+### A weekly cadence that doesn't exhaust the list
+
+Mass DMs for PPV drops should go out no more than twice a week. Anything more and unsubscribe and mute rates climb, and muted fans stop seeing your free posts too. Space drops so each one gets 48 hours of breathing room before the next pitch.
+
+Bundle pushes work best at one per month. Bundles sell when they feel like an event, not a clearance sale. Time them to payday weekends or right after a well-received free post.
+
+### Teaser-to-purchase: what to show, what to lock
+
+A good teaser shows enough free content that fans trust what they're buying: a short clip, a censored preview frame, or a first photo with the rest behind the paywall. Lock the payoff, never the proof. A teaser with zero visible quality reads as a scam, even when the content is real.
+
+Price the locked post against what the teaser promised, not against your last drop. If a $20 teaser sells, your next one can hold that price; if one stalls, drop to $12 before assuming the audience is done.
+
+## Which platforms let you sell pay per view content without an existing audience?
+
+Platforms with discovery let you sell pay per view content without an existing audience; storefronts ask you to bring one.
+
+### Discovery platforms vs bring-your-own-traffic storefronts
+
+Fanvue puts creators in front of fans through built-in discovery, and OnlyFans runs a referral program, so a cold account can still find buyers. The trade is the take rate: both platforms cut 20% off every PPV sale and subscription. A bring-your-own-traffic storefront like Beacons or Crownerr charges less per sale but starts with zero fans on it. Beacons lists its seller fees on its pricing page, and you should check them before moving PPV income there.
+
+### What a direct storefront asks of you instead
+
+A direct storefront asks you to supply the traffic yourself: link-in-bio placement, social posts, DMs. Creator Link Studio sits in this camp, and the honest catch is that no storefront sends you fans. If discovery is what you're paying OnlyFans for, a lower take rate alone won't replace the discovery.
+
+## How do you switch to a direct storefront without losing PPV income?
+
+Switching without losing PPV income means running both platforms side by side before you move the catalog.
+
+### Run both for 30 days, then shift the bestsellers
+
+Keep your existing platform live while you build the storefront. Start by porting your top three PPV bundles at the same prices fans already pay, then add tiers and a free trial once purchases flow. Run every PPV drop on both platforms for a month and compare net earnings after fees. When the storefront outsells the old platform on a per-fan basis, move the rest of your catalog, and keep the old account open for another billing cycle so subscribers can finish what they paid for.
+
+### What to tell paying fans, and when
+
+Tell fans before you post, not after. A short message two weeks out, a reminder the week of, and a day-of post with your link covers the move. Frame the switch as more content for the same price, since a lower fee lets bundles stay priced the same while you earn more. Never delete the old account mid-transition; a dead link burns trust faster than any platform fee ever did.
+
+## FAQ
+
+### How much does OnlyFans take from pay per view content?
+
+OnlyFans takes 20% of every PPV sale. On a $10 locked post or paid message, that is $2, leaving you about $8 before payment processing costs, which run roughly $0.40. So a $10 sale nets you around $7.60 in practice.
+
+### Can you sell pay per view content without OnlyFans?
+
+Yes. Fanvue and Patreon both support paid posts, and direct storefronts like Creator Link Studio let you sell locked posts and bundles from a link-in-bio page, with a 10% platform fee on the Creator plan. The catch: a storefront supplies no discovery, so you bring the traffic yourself.
+
+### What should I charge for a PPV message?
+
+Match price to content depth: a single photo set or short clip at $5-15, a full video at $20-50, custom work at $75-200. Step prices up as fans buy repeatedly. Test upward on new drops only, watching conversion across your first 20-30 sales.
+
+### Is PPV or subscription better for new creators?
+
+PPV-only wins when fans binge and spend big; subscriptions win with casual fans who buy once or twice a quarter and when you want predictable income. The comparison is simple: purchases per fan per month times your PPV price versus the sub price. One $15 purchase beats a $10 tier.
+
+### Do you pay fees on PPV sales twice if you use a link-in-bio store?
+
+No. A consolidated storefront takes one percentage per sale, not stacked cuts. The double-dipping risk comes from stitching separate tools together, where each one takes its own payment slice. One tool for the bio page, scheduler and store removes that overlap, which is where the savings actually sit.

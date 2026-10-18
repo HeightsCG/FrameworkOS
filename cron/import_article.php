@@ -79,7 +79,7 @@ $row = array(
 if ($existing) { $id = (int) $existing['id']; $m->update_fields($id, $row); }
 else { $row['status'] = 'review'; $id = $m->create($row); }
 echo "article $id /blog/{$f['slug']} (" . Markdown::word_count($body) . " words, " . count($faq) . " FAQ)\n";
-foreach ($dropped as $l) { echo "  - link kept as plain text (not available here): $l\n"; }
+foreach ($dropped as $l) { echo "  - link kept as plain text (no such page on this site, or outside this article's topic group): $l\n"; }
 foreach ($errors as $e) { echo '  - ' . (SeoDrafter::is_soft($e) ? '[advisory] ' : '') . $e . "\n"; }
 $hard = SeoDrafter::split_errors($errors)[0] ?? $errors;
 if (empty($errors)) { echo "  validator: clean\n"; }
