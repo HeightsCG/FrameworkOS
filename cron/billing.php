@@ -46,5 +46,10 @@ try {
     $sent = Founding::send_due_testimonials();
     if ($sent > 0) { fwrite(STDOUT, date('c') . ' founding testimonial requests: ' . $sent . "\n"); }
 } catch (\Throwable $e) { error_log('[billing] founding testimonials: ' . $e->getMessage()); }
+// founding trials: "Your trial ends {date}" once per trial, 3 days before the first charge (LifecycleEmails)
+try {
+    $ending = LifecycleEmails::send_trial_ending();
+    if ($ending > 0) { fwrite(STDOUT, date('c') . ' trial ending emails: ' . $ending . "\n"); }
+} catch (\Throwable $e) { error_log('[billing] trial ending emails: ' . $e->getMessage()); }
 CronRuns::finish('billing', true);
 exit(0);

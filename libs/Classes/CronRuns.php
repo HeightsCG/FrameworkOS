@@ -13,6 +13,7 @@ class CronRuns {
         'queue_worker'   => 60,
         'moderate'       => 120,
         'billing'        => 900,
+        'lifecycle'      => 900,
         'social_metrics' => 21600,
         'domains'        => 86400,
         'seo_draft'      => 86400,

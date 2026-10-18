@@ -522,4 +522,19 @@ class WebhookController extends Controller {
         echo 'ok';
         exit;
     }
+
+    /**
+     * Postmark bounce + spam-complaint webhook: POST /webhook/postmark/<secret> (or HTTP basic auth with the secret as
+     * the password). The secret is app.ini postmark_webhook_secret. Hard bounces and spam complaints mark the address
+     * (LifecycleEmails::postmark_webhook); soft bounces are acknowledged and ignored.
+     */
+    public function postmarkAction(){
+        $url   = Main::get_url();
+        $given = (string) ($url[2] ?? '');
+        if ($given === '') { $given = (string) ($_SERVER['PHP_AUTH_PW'] ?? ''); }
+        $res = LifecycleEmails::postmark_webhook((string) file_get_contents('php://input'), $given);
+        http_response_code((int) $res[0]);
+        echo $res[1];
+        exit;
+    }
 }

@@ -1,5 +1,5 @@
 <?php
-/* Admin > Growth > Funnel: the signup funnel by UTC day, by first-touch source, referred signups, free creators building. Demo accounts are
+/* Admin > Growth > Funnel: the signup funnel by UTC day, by first-touch source, ads by campaign, referred signups, free creators building. Demo accounts are
    left out. Every period (7 / 30 / 90 days) is rendered here; the period switch just shows one set. */
 $g_pct = function ($n, $of) { return $of > 0 ? round($n * 100 / $of) . '%' : '0%'; };
 $g_cell = function ($n, $of) use ($g_pct) { return '<td class="adm-r adm-t__num' . ((int) $n === 0 ? ' adm-t__muted' : '') . '">' . $g_pct((int) $n, (int) $of) . ' <span class="adm-t__faint">' . (int) $n . '</span></td>'; };
@@ -50,6 +50,47 @@ $g_sum = function ($rows) { $t = array('signups' => 0, 'verified' => 0, 'became_
                 <tr><td><?php echo $e($r['source'] === 'direct' ? 'Direct' : $r['source']); ?></td><td class="adm-t__muted"><?php echo $e($r['medium'] !== '' ? $r['medium'] : '—'); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo (int) $r['signups']; ?></td><?php echo $g_cell($r['verified'], $r['signups']) . $g_cell($r['became_creator'], $r['signups']) . $g_cell($r['paid'], $r['signups']) . $g_cell($r['referred'], $r['signups']); ?></tr>
                 <?php endforeach; ?>
                 <tr class="adm-t__total"><td>Total</td><td></td><td class="adm-r adm-t__num"><?php echo $gt['signups']; ?></td><?php echo $g_cell($gt['verified'], $gt['signups']) . $g_cell($gt['became_creator'], $gt['signups']) . $g_cell($gt['paid'], $gt['signups']) . $g_cell($gt['referred'], $gt['signups']); ?></tr>
+            </tbody>
+        </table>
+        <?php endif; ?>
+        </section>
+
+        <?php /* paid ads: signups cohorted by signup date, by the ad campaign stored at signup; a campaign row opens its ads (AdminModel::ad_funnel) */
+        $ga = (array) ($gs['ads'] ?? array()); $ga_c = (array) ($ga['campaigns'] ?? array()); $ga_t = (array) ($ga['total'] ?? array());
+        $ga_rps = function ($r) use ($usd) { return (int) $r['signups'] > 0 ? $usd((int) round((int) $r['revenue_cents'] / (int) $r['signups'])) : '—'; };
+        $ga_cells = function ($r) use ($g_cell, $usd, $ga_rps) {
+            return '<td class="adm-r adm-t__num adm-t__strong">' . (int) $r['signups'] . '</td>' . $g_cell($r['verified'], $r['signups']) . $g_cell($r['built'], $r['signups']) . $g_cell($r['trial'], $r['signups']) . $g_cell($r['paid'], $r['signups'])
+                . '<td class="adm-r adm-t__num' . ((int) $r['revenue_cents'] === 0 ? ' adm-t__muted' : ' adm-t__strong') . '">' . $usd($r['revenue_cents']) . '</td><td class="adm-r adm-t__num adm-t__muted">' . $ga_rps($r) . '</td>';
+        }; ?>
+        <section class="adm-box"><header class="adm-box__h"><h2 class="adm-box__t">Ads by campaign</h2>
+            <form method="post" action="/api/admin_ads_csv" class="adm-box__end">
+                <?php echo CSRF::field(); ?>
+                <input type="hidden" name="days" value="<?php echo (int) $gd; ?>">
+                <button type="submit" class="adm-btn">Export CSV</button>
+            </form>
+        </header>
+        <?php if (empty($ga_c)): ?>
+            <?php echo adm_empty('No signups or campaign visits in this period', 'fa-bullhorn'); ?>
+        <?php else: ?>
+        <table class="adm-t adm-t--num adm-t--ads">
+            <thead><tr><th>Campaign</th><th>Source</th><th class="adm-r">Visits</th><th class="adm-r">Signups</th><th class="adm-r">Verified</th><th class="adm-r">Built</th><th class="adm-r">Trial Started</th><th class="adm-r">Paid</th><th class="adm-r">Revenue</th><th class="adm-r">Revenue per Signup</th></tr></thead>
+            <tbody>
+                <?php foreach ($ga_c as $ci => $c): $ga_open = count($c['ads']) > 1 || (count($c['ads']) === 1 && $c['ads'][0]['content'] !== '(none)'); $ga_id = 'ga' . (int) $gd . '_' . $ci; ?>
+                <tr<?php echo $ga_open ? ' class="adm-t__toggle" tabindex="0" aria-expanded="false" data-ads="' . $ga_id . '"' : ''; ?>>
+                    <td class="adm-t__trunc adm-t__main" title="<?php echo $e($c['campaign']); ?>"><i class="fa-solid fa-chevron-right adm-t__chev<?php echo $ga_open ? '' : ' adm-t__chev--none'; ?>" aria-hidden="true"></i><?php echo $e($c['campaign'] === '(none)' ? 'No campaign' : $c['campaign']); ?></td>
+                    <td class="adm-t__muted"><?php echo $e($c['source'] !== '' ? $c['source'] : '—'); ?></td>
+                    <td class="adm-r adm-t__num<?php echo $c['visits'] === null || (int) $c['visits'] === 0 ? ' adm-t__muted' : ''; ?>"><?php echo $c['visits'] === null ? '—' : (int) $c['visits']; ?></td>
+                    <?php echo $ga_cells($c); ?>
+                </tr>
+                <?php foreach ($ga_open ? $c['ads'] : array() as $a): ?>
+                <tr class="adm-t__child" data-ads-of="<?php echo $ga_id; ?>" hidden>
+                    <td class="adm-t__trunc" title="<?php echo $e($a['content']); ?>"><?php echo $e($a['content'] === '(none)' ? 'No ad tag' : $a['content']); ?></td>
+                    <td></td><td class="adm-r adm-t__muted">—</td>
+                    <?php echo $ga_cells($a); ?>
+                </tr>
+                <?php endforeach; ?>
+                <?php endforeach; ?>
+                <tr class="adm-t__total"><td>Total</td><td></td><td class="adm-r adm-t__num"><?php echo (int) ($ga_t['visits'] ?? 0); ?></td><?php echo $ga_cells($ga_t); ?></tr>
             </tbody>
         </table>
         <?php endif; ?>

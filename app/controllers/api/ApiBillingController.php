@@ -48,12 +48,14 @@ class ApiBillingController extends BaseApiController {
         if (isset($this->post['plan'])) {
             $q = BillingService::quote_plan($uid, (string) $this->post['plan'], $this->plan_code());
             if (empty($q['ok'])) { $this->jsonError((string) $q['message']); }
+            Analytics::event('checkout_started', array('user_id' => $uid, 'creator_id' => $uid, 'value_cents' => (int) $q['recurring'], 'meta' => $q['mode'] . ' ' . (string) $this->post['plan'] . (Founding::presented() ? ' founding' : '')));   // a plan checkout opened (LifecycleEmails follows up if it never finishes)
             $t = PlanTiers::get((string) $this->post['plan']);
             $this->jsonSuccess(['mode' => $q['mode'], 'today' => BillingService::money($q['today']), 'lines' => $fmt($q['lines']),
                 'recurring' => BillingService::money($q['recurring']) . ' / month for ' . $t['name'], 'next_at' => date('M j, Y', strtotime($q['next_at'] . ' UTC')),
                 'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card'],
                 'promo_ok' => in_array($q['mode'], array('subscribe', 'upgrade'), true), 'promo_label' => (string) ($q['promo_label'] ?? ''),
-                'today_zero' => (int) $q['today'] === 0, 'card_needed' => !empty($q['card_needed'])]);
+                'today_zero' => (int) $q['today'] === 0, 'card_needed' => !empty($q['card_needed']),
+                'founding' => stripos((string) ($q['promo_label'] ?? ''), Founding::CODE) !== false]);   // the founding trial is what this quote prices
         }
         if (isset($this->post['pack'])) {
             if (!BillingService::is_paid($acct)) { $this->jsonError('Choose a plan to buy AI credits.', ['need_plan' => true]); }   // same gate as billing_set_pack

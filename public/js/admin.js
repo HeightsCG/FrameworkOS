@@ -528,6 +528,17 @@
             panel.querySelectorAll('.adm-gset, .fz-period__range').forEach(function (s) { s.hidden = s.getAttribute('data-g') !== g; });
         });
     });
+    /* Ads by campaign: a campaign row opens and closes its ads */
+    function ads_toggle(row) {
+        var open = row.getAttribute('aria-expanded') !== 'true';
+        row.setAttribute('aria-expanded', open ? 'true' : 'false');
+        panel.querySelectorAll('tr[data-ads-of="' + row.getAttribute('data-ads') + '"]').forEach(function (r) { r.hidden = !open; });
+    }
+    panel.addEventListener('click', function (e) { var row = e.target.closest('tr.adm-t__toggle'); if (row) { ads_toggle(row); } });
+    panel.addEventListener('keydown', function (e) {
+        var row = e.target.closest ? e.target.closest('tr.adm-t__toggle') : null;
+        if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ads_toggle(row); }
+    });
 })();
 
 /* Admin > Leads: source subtabs filter the rows and set the CSV export's source */

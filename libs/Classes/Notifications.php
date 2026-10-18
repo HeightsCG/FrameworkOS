@@ -12,6 +12,12 @@ class Notifications {
     /** Why the last Postmark send failed ('' after a success): Postmark's own message, for callers that report it (error digest). */
     public static $last_error = '';
 
+    /** Test seam: an array here collects every outgoing Postmark payload instead of sending it (tests/lifecycle_emails_test.php). */
+    public static $outbox = null;
+
+    /** Where replies to our mail go (the From address is a no-reply). */
+    const REPLY_TO = 'support@creatorlinkstudio.com';
+
     /** Load an HTML template from app/email_templates and substitute {vars}. */
     public function clean_template($template_name, $variables){
         $template = $this->get_email_template($template_name);
@@ -127,14 +133,14 @@ class Notifications {
     }
 
     /**
-     * Reserved test domains (RFC 2606/6761: example.com/.net/.org, .example, .invalid, .test, .localhost) can never
+     * Reserved test domains (RFC 2606/6761: example.com/.net/.org, .example, .invalid, .test, .localhost, plus mDNS .local) can never
      * receive mail. Test accounts use them; sending would only bounce and count against the Postmark sender reputation.
      */
     public static function undeliverable($email): bool {
         $domain = strtolower((string) substr(strrchr((string) $email, '@'), 1));
         if ($domain === '') { return true; }
         if (in_array($domain, array('example.com', 'example.net', 'example.org'), true)) { return true; }
-        return (bool) preg_match('/(^|\.)(example|invalid|test|localhost)$|\.example\.(com|net|org)$/', $domain);
+        return (bool) preg_match('/(^|\.)(example|invalid|test|localhost|local)$|\.example\.(com|net|org)$/', $domain);
     }
 
     /** Deliver one HTML message through the Postmark HTTP API. Returns true on a 200. */
@@ -149,13 +155,17 @@ class Notifications {
             'To'            => $to_email,
             'Subject'       => $subject,
             'HtmlBody'      => $message,
+            'TextBody'      => self::html_to_text($message),
             'MessageStream' => 'outbound',
+            'ReplyTo'       => $reply_to !== '' ? $reply_to : self::REPLY_TO,
         );
         if (!empty($cc)) {
             $payload['Cc'] = implode(',', $cc);
         }
-        if ($reply_to !== '') {
-            $payload['ReplyTo'] = $reply_to;
+        if (is_array(self::$outbox)) {   // test seam: record, never send
+            self::$outbox[] = $payload;
+            self::$last_error = '';
+            return true;
         }
 
         $ch = curl_init('https://api.postmarkapp.com/email');
@@ -183,6 +193,29 @@ class Notifications {
         $j = $resp !== false ? json_decode((string) $resp, true) : null;
         self::$last_error = is_array($j) && !empty($j['Message']) ? (string) $j['Message'] : ('http ' . $code . ($err !== '' ? ': ' . $err : ''));
         return false;
+    }
+
+    /**
+     * The plain-text part of an HTML email: links become "label (url)" (buttons included), block ends become line
+     * breaks, everything else is stripped. Good enough for the simple table layouts brand_wrap() builds.
+     */
+    public static function html_to_text($html): string {
+        $h = (string) $html;
+        $h = preg_replace('#<(head|style|script|title)\b[^>]*>.*?</\1>#is', '', $h);
+        $h = preg_replace_callback('#<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>#is', function ($m) {
+            $label = trim(html_entity_decode(strip_tags($m[2]), ENT_QUOTES, 'UTF-8'));
+            $url   = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
+            return ($label === '' || $label === $url) ? $url : $label . ' (' . $url . ')';
+        }, $h);
+        $h = preg_replace('#<br\s*/?>#i', "\n", $h);
+        $h = preg_replace('#</(p|h[1-6]|tr|div|li|table)>#i', "\n\n", $h);
+        $h = preg_replace('#</td>#i', '  ', $h);
+        $t = html_entity_decode(strip_tags($h), ENT_QUOTES, 'UTF-8');
+        $t = str_replace("\xc2\xa0", ' ', $t);
+        $t = preg_replace("/[ \t]+/", ' ', $t);
+        $t = preg_replace("/ *\n */", "\n", $t);
+        $t = preg_replace("/\n{3,}/", "\n\n", $t);
+        return trim($t);
     }
 
     private function strip_header($value){

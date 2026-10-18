@@ -312,7 +312,7 @@ class BillingService {
         $acct  = self::account($uid);
         $ai    = new AiCreditsModel();
         $f     = array('last_charge_id' => (int) $row['id'], 'last_charge_status' => 'succeeded');
-        Analytics::event('plan_paid', array('user_id' => $uid, 'creator_id' => $uid, 'value_cents' => (int) ($row['amount_cents'] ?? 0), 'meta' => (string) $row['kind'] . ' ' . (string) ($fx['plan'] ?? '')));   // every successful plan charge: subscribe, renew, upgrade, slots, pack
+        Analytics::event('plan_paid', array('user_id' => $uid, 'creator_id' => $uid, 'value_cents' => (int) ($row['amount_cents'] ?? 0), 'meta' => (string) $row['kind'] . ' ' . (string) ($fx['plan'] ?? ''), 'charge_id' => (int) $row['id']));   // every successful plan charge: subscribe, renew, upgrade, slots, pack
 
         switch ((string) $row['kind']) {
             case 'subscribe':
@@ -751,7 +751,10 @@ class BillingService {
 
     private static function receipt(array $row): void
     {
-        if ((int) $row['amount_cents'] <= 0) { return; }
+        if ((int) $row['amount_cents'] <= 0) {   // nothing paid, no receipt; a founding trial start gets its own email instead
+            try { LifecycleEmails::trial_started($row); } catch (\Throwable $e) { error_log('[billing] trial started email ' . (int) $row['user_id'] . ': ' . $e->getMessage()); }
+            return;
+        }
         $acct = self::account((int) $row['user_id']);
         $next = !empty($acct['next_charge_at']) ? ' Next charge: ' . date('M j, Y', strtotime($acct['next_charge_at'] . ' UTC')) . '.' : '';
         self::email((int) $row['user_id'], 'Your receipt from ' . Main::site_name(), 'Thanks, we received your payment.' . $next,

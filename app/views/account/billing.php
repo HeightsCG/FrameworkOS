@@ -44,10 +44,13 @@ $(function () {
     // ?return= from an upgrade prompt (site.js cls_need_plan): a same-site path to go back to once the plan starts.
     var plan_return = (function () { var r = new URLSearchParams(window.location.search).get('return') || ''; return /^\/(?![\/\\])[^\s\\]*$/.test(r) ? r : ''; })();
     function after_plan() {
-        if (plan_return === '' || !pending || pending.endpoint !== 'billing_change_plan') { return false; }
-        setTimeout(function () { window.location.href = plan_return; }, 1100);
+        if (!pending || pending.endpoint !== 'billing_change_plan') { return false; }
+        var to = plan_return !== '' ? plan_return : (pending.body.founding ? '/influencers/create' : '');   // the trial: on to making their AI influencer
+        if (to === '') { return false; }
+        setTimeout(function () { window.location.href = to; }, 1100);
         return true;
     }
+    function plan_ok_message(o) { return (pending && pending.body.founding) ? 'Your <?php echo (int) Founding::TRIAL_DAYS; ?>-day trial has started. Now create your AI influencer.' : o.message; }
     function esc(s) { return $('<div>').text(s == null ? '' : s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     /* A charge the bank wants the cardholder to confirm (3-D Secure): confirm it here, then record it. */
@@ -56,7 +59,7 @@ $(function () {
             if (res.error) { toastr.error(res.error.message); reload_after(1800); return; }
             ApiDataSvc.apiCall('post', 'billing_confirm', { charge_id: o.charge_id }, function (data) {
                 var r = parse(data);
-                if (r.success) { toastr.success(r.message); } else { toastr.error(r.message); }
+                if (r.success) { toastr.success(plan_ok_message(r)); } else { toastr.error(r.message); }
                 if (r.success && after_plan()) { return; }
                 reload_after();
             });
@@ -68,15 +71,30 @@ $(function () {
         if (!o.success) { toastr.error(o.message); if ($btn) { $btn.prop('disabled', false); } return; }
         if (o.status === 'requires_action') { $('#confirm_modal').modal('hide'); authenticate(o); return; }
         $('#confirm_modal').modal('hide');
-        toastr.success(o.message);
+        toastr.success(plan_ok_message(o));
         if (after_plan()) { return; }
         reload_after();
     }
+    /* The SetupIntent for the card form, asked for early (with the quote, or as the page opens a checkout) so the form shows sooner. */
+    var setup_req = null;   // {done: bool, o: answer, waiting: [callbacks]}
+    function prefetch_setup() {
+        if (setup_req) { return; }
+        var req = setup_req = { done: false, o: null, waiting: [] };
+        ApiDataSvc.apiCall('post', 'billing_card_setup', {}, function (data) {
+            req.done = true; req.o = parse(data);
+            req.waiting.forEach(function (f) { f(req.o); }); req.waiting = [];
+        });
+    }
+    function take_setup(cb) {   // one SetupIntent per card form: use the prefetched one once, then ask again
+        prefetch_setup();
+        var req = setup_req;
+        setup_req = null;
+        if (req.done) { cb(req.o); } else { req.waiting.push(cb); }
+    }
     function mount_card(target, cb) {
         $(target).html('<div class="billing__loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span></div>');
-        ApiDataSvc.apiCall('post', 'billing_card_setup', {}, function (data) {
-            var o = parse(data);
-            if (!o.success) { toastr.error(o.message); $(target).html(''); return; }
+        take_setup(function (o) {
+            if (!o || !o.success) { toastr.error((o && o.message) || 'Something went wrong'); $(target).html(''); return; }
             $(target).html('');
             card_elements = stripe.elements({ clientSecret: o.client_secret });
             card_elements.create('payment').mount(target);
@@ -102,7 +120,7 @@ $(function () {
         var rows = (q.lines || []).map(function (l) { return '<div class="disc__row' + (l.amount.charAt(0) === '-' ? ' disc__row--off' : '') + '"><span>' + esc(l.label) + '</span><span>' + esc(l.amount) + '</span></div>'; }).join('');
         $('#disc_lines').html(rows);
         $('#disc_today').text(q.mode === 'downgrade' ? '$0.00' : q.today);
-        $('#confirm_go').text(q.mode === 'downgrade' ? 'Schedule Change' : (q.today_zero ? 'Start Plan' : 'Pay ' + q.today));
+        $('#confirm_go').text(q.mode === 'downgrade' ? 'Schedule Change' : (q.today_zero ? (((quote_body && quote_body.founding) || q.founding) ? 'Start Free Trial' : 'Start Plan') : 'Pay ' + q.today));
         $('#disc_agree').prop('hidden', !(pending && pending.endpoint === 'billing_change_plan' && (q.mode === 'subscribe' || q.mode === 'upgrade')));   // Creator Agreement: plan checkouts only
         $('#disc_terms').text(q.mode === 'downgrade'
             ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
@@ -119,17 +137,17 @@ $(function () {
         if (q.card_needed === false || q.mode === 'downgrade') {
             card_elements = null;
             $('#disc_card').hide().html(''); $('#disc_card_form').hide().html('');
-            $('#confirm_go').prop('disabled', !terms_ok());
+            $('#confirm_go').prop('disabled', false);
         } else if (q.has_card) {
             card_elements = null;
             $('#disc_card').html('Charged to ' + esc(q.card) + ' <button type="button" class="disc__change" id="disc_change">Change</button>').show();
             $('#disc_card_form').hide().html('');
-            $('#confirm_go').prop('disabled', !terms_ok());
+            $('#confirm_go').prop('disabled', false);
         } else if (!$('#disc_card_form').children().length) {   // keep a card form that is already open (and anything typed in it)
             card_elements = null;
             $('#disc_card').hide();
             $('#disc_card_form').show();
-            $('#confirm_go').prop('disabled', !terms_ok());
+            $('#confirm_go').prop('disabled', false);
             mount_card('#disc_card_form');
         }
     }
@@ -148,16 +166,21 @@ $(function () {
         });
     });
     $('#disc_promo_code').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#disc_promo_apply').trigger('click'); } });
+    var opening = false;
     function disclose(body, title, action) {
+        if (opening) { return; }
+        opening = true;
+        if (!has_card && body.plan) { prefetch_setup(); }   // the card form's SetupIntent loads alongside the quote
         ApiDataSvc.apiCall('post', 'billing_quote', body, function (data) {
+            opening = false;
             var q = parse(data);
             if (!q.success) { toastr.error(q.message); return; }
             pending = action; quote_body = body;
             $('#confirm_title').text(title);
             $('#disc_promo_code').val('');
-            $('#disc_promo').prop('hidden', !q.promo_ok);
+            $('#disc_promo').prop('hidden', !q.promo_ok || !!body.founding);   // the founding trial is already the promo
             $('#disc_card_form').hide().html('');   // fresh card form per checkout (show_quote mounts it if needed)
-            $('#disc_agree_box').prop('checked', false);
+            $('#disc_agree_box').prop('checked', false); $('#disc_agree_err').prop('hidden', true); $('#disc_agree').removeClass('is-bad');
             $('#confirm_go').prop('disabled', false);
             show_quote(q);
             $('#confirm_modal').modal('show');
@@ -168,17 +191,22 @@ $(function () {
         $('#disc_card').hide();
         $('#disc_card_form').show();
         $('#confirm_go').prop('disabled', true);
-        mount_card('#disc_card_form', function () { $('#confirm_go').prop('disabled', !terms_ok()); });
+        mount_card('#disc_card_form', function () { $('#confirm_go').prop('disabled', false); });
     });
-    /* Creator Agreement at the plan checkout: Confirm waits for the box; the flag goes with the charge. */
+    /* Creator Agreement at the plan checkout: the button stays live; pressed without the box ticked, it points at the box. The flag goes with the charge. */
     function terms_ok() { return $('#disc_agree').prop('hidden') || $('#disc_agree_box').is(':checked'); }
-    $('#disc_agree_box').on('change', function () { $('#confirm_go').prop('disabled', !terms_ok()); });
+    $('#disc_agree_box').on('change', function () { if (this.checked) { $('#disc_agree_err').prop('hidden', true); $('#disc_agree').removeClass('is-bad'); } });
     $('#disc_agree_link').on('click', function (e) { e.preventDefault(); $('#terms_modal').modal('show'); });
     $('#terms_modal').on('shown.bs.modal', function () { $('.modal-backdrop').last().addClass('terms-backdrop'); });
     $('#terms_modal').on('hidden.bs.modal', function () { if ($('#confirm_modal').hasClass('show')) { $('body').addClass('modal-open'); } });   // the checkout stays open underneath
     $('#confirm_go').on('click', function () {
         var $b = $(this); if (!pending) { return; }
-        if (!terms_ok()) { return; }
+        if (!terms_ok()) {
+            $('#disc_agree').addClass('is-bad'); $('#disc_agree_err').prop('hidden', false);
+            $('#disc_agree')[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            $('#disc_agree_box').trigger('focus');
+            return;
+        }
         if (!$('#disc_agree').prop('hidden')) { pending.body.agree_terms = 1; }
         // A code typed but not applied: apply it and show the new total first, never charge full price by surprise.
         var typed = String($('#disc_promo_code').val() || '').trim();
@@ -192,6 +220,8 @@ $(function () {
     });
 
     /* ---- plans ---- */
+    $('#founding_go').on('click', function () { $('.plan-go[data-plan="' + $(this).data('plan') + '"]').trigger('click'); });   // the founding banner opens the trial checkout
+    var has_card = <?php echo $has_card ? 'true' : 'false'; ?>;
     $('.plan-go').on('click', function () {
         var $b = $(this);
         var extra = $b.data('founding') ? { founding: 1 } : {};   // founding offer: the internal promo rides with the quote and the charge
@@ -301,7 +331,17 @@ $(function () {
     var first = qs.get('tab') || (qs.get('buy') ? (has_plan ? 'credits' : 'plan') : (qs.get('add') ? 'plan' : ''));
     if (!first) { try { first = localStorage.getItem('cls_billing_tab') || 'plan'; } catch (e) { first = 'plan'; } }
     show_tab(first);
-    if (/^(creator|studio)$/.test(qs.get('plan') || '')) { $('.plan-go[data-plan="' + qs.get('plan') + '"]').trigger('focus'); }   // ?plan= from signup
+    if (/^(creator|studio)$/.test(qs.get('plan') || '')) {   // ?plan= from signup
+        var $want = $('.plan-go[data-plan="' + qs.get('plan') + '"]').first();
+        $want.trigger('focus');
+        // checkout=1 (the /setup step, an upgrade prompt) or founding=1: open that plan's checkout right away, once (the flags leave the address)
+        if ((qs.get('checkout') === '1' || qs.get('founding') === '1') && $want.length && $want.data('up') && !$want.prop('disabled')) {   // upgrades only: never opens a downgrade
+            show_tab('plan');
+            $want.trigger('click');
+            qs.delete('checkout'); qs.delete('founding');
+            try { history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs.toString() : '')); } catch (e) {}
+        }
+    }
     if (qs.get('pay')) { pay_pending(qs.get('pay')); }
     if (qs.get('add') === 'slot' && $('#slots_add').length && !$('#slots_add').prop('disabled')) { add_slot(); }
 
@@ -385,8 +425,13 @@ $(function () {
     $want = (string) ($_GET['plan'] ?? '');   // ?plan= from signup: that plan is the one to push, when it is offered and above the current one
     foreach ($ordered as $row) { if ($row['tier']['key'] === $want && in_array($want, array('creator', 'studio'), true) && BillingService::plan_cents($want) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $want; } }
     // founding offer (?founding=1 or the cls_founding cookie from /founding): shown while spots remain and this account can take it
-    $founding_on = ((string) ($_GET['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1') && Founding::eligible((int) $acct['user_id']);
-    if ($founding_on) { $next_up = Founding::PLAN; }
+    $founding_on = ((string) ($_GET['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1' || (int) ($this->user['signup_founding'] ?? 0) === 1) && Founding::eligible((int) $acct['user_id']);
+    $trial_first = $founding_on ? date('M j, Y', strtotime(Founding::trial_end() . ' UTC')) : '';   // the first charge of a trial started now
+    if ($founding_on) {
+        $next_up = Founding::PLAN;
+        // lead with the trial plan, the Free card (fan features) last
+        usort($ordered, function ($a, $b) { $r = function ($k) { return $k === Founding::PLAN ? 0 : ($k === PlanTiers::FREE_KEY ? 2 : 1); }; return $r($a['tier']['key']) <=> $r($b['tier']['key']); });
+    }
 ?>
     <div class="billing__head tut-head">
         <h1 class="billing__title">Billing</h1>
@@ -442,10 +487,11 @@ $(function () {
     </div>
     <?php endif; ?>
     <?php if ($founding_on): ?>
-    <div class="billing__notice">
+    <button type="button" class="billing__notice billing__notice--offer" id="founding_go" data-plan="<?php echo $e(Founding::PLAN); ?>">
         <i class="fa-solid fa-star"></i>
-        <div><p><b><?php echo $e(Founding::note()); ?></b></p></div>
-    </div>
+        <span class="billing__offer-body"><b><?php echo $e(Founding::note()); ?></b><span>$0 today. First charge <?php echo $e($trial_first); ?>.</span></span>
+        <i class="fa-solid fa-chevron-right billing__offer-go" aria-hidden="true"></i>
+    </button>
     <?php endif; ?>
     <div class="plans" style="--plans:<?php echo count($ordered); ?>">
         <?php foreach ($ordered as $row): $tier = $row['tier']; ?>
@@ -506,8 +552,14 @@ $(function () {
             <?php elseif ($is_free_row): ?>
             <button type="button" class="btn btn-secondary plan__btn plan-cancel" <?php echo $locked ? 'disabled' : ''; ?>>Downgrade to Free</button>
             <?php else: ?>
-            <?php $label = ($up ? 'Upgrade to ' : 'Switch to ') . $tier['name']; ?>
-            <button type="button" class="btn <?php echo $tier['key'] === $next_up ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-go" data-plan="<?php echo $e($tier['key']); ?>"<?php echo ($founding_on && Founding::covers($tier['key'])) ? ' data-founding="1"' : ''; ?> data-title="<?php echo $e($label); ?>" <?php echo $locked ? 'disabled' : ''; ?>><?php echo $e($label); ?></button>
+            <?php
+                $label = ($up ? 'Upgrade to ' : 'Switch to ') . $tier['name'];
+                $trial_row = $founding_on && $tier['key'] === Founding::PLAN;   // the founding trial: say what it costs today and when the first charge is
+                $title = $label;
+                if ($trial_row) { $label = 'Start ' . Founding::TRIAL_DAYS . '-Day Free Trial'; $title = 'Start your ' . Founding::TRIAL_DAYS . '-day free trial'; }
+            ?>
+            <?php if ($trial_row): ?><p class="plan__trial"><b>$0 today.</b> First charge <?php echo $e($trial_first); ?>. Cancel anytime before.</p><?php endif; ?>
+            <button type="button" class="btn <?php echo $tier['key'] === $next_up ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-go" data-plan="<?php echo $e($tier['key']); ?>"<?php echo ($founding_on && Founding::covers($tier['key'])) ? ' data-founding="1"' : ''; ?> data-title="<?php echo $e($title); ?>"<?php echo $up ? ' data-up="1"' : ''; ?> <?php echo $locked ? 'disabled' : ''; ?>><?php echo $e($label); ?></button>
             <?php endif; ?>
         </div>
         <?php endforeach; ?>
@@ -673,14 +725,20 @@ $(function () {
                 <p class="disc__terms" id="disc_terms"></p>
                 <p class="disc__card" id="disc_card"></p>
                 <div id="disc_card_form"></div>
-                <label class="disc__agree" id="disc_agree" hidden>
-                    <input type="checkbox" class="form-check-input" id="disc_agree_box">
-                    <span>I Agree to the <a href="#" id="disc_agree_link">Creator Agreement</a></span>
-                </label>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirm_go">Confirm</button>
+            <div class="modal-footer disc__foot">
+                <?php /* in the footer so it is always on screen next to the button (phones: the card form scrolls) */ ?>
+                <div class="disc__agree-wrap" id="disc_agree" hidden>
+                    <label class="disc__agree">
+                        <input type="checkbox" class="form-check-input" id="disc_agree_box" aria-describedby="disc_agree_sum disc_agree_err">
+                        <span>I Agree to the <a href="#" id="disc_agree_link">Creator Agreement</a><small class="disc__agree-sum" id="disc_agree_sum">You are 18 or older, you have the rights to what you post, and you follow the content rules.</small></span>
+                    </label>
+                    <p class="disc__agree-err" id="disc_agree_err" role="alert" hidden>Tick the box to accept the Creator Agreement.</p>
+                </div>
+                <div class="disc__btns">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirm_go">Confirm</button>
+                </div>
             </div>
         </div>
     </div>

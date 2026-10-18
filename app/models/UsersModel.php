@@ -628,4 +628,40 @@ class UsersModel extends Model {
             if (is_array($fresh) && count($fresh) === 1) { Plan::grant_monthly($fresh[0]); }   // same as become_creatorAction (a no-op on Free)
         }
     }
+
+    /* ---- lifecycle emails (LifecycleEmails, cron/lifecycle.php, /webhook/postmark) ---- */
+
+    /** Postmark reported this address as a hard bounce or spam complaint: mark every live account using it. Returns rows marked. */
+    public function mark_email_bounced($email, $reason){
+        $email = trim((string) $email);
+        if ($email === '') { return 0; }
+        return parent::update('user_accounts',
+            array('email_bounced_at' => gmdate('Y-m-d H:i:s'), 'email_bounce_reason' => mb_substr((string) $reason, 0, 255), 'email_bounced_address' => $email),
+            'user_email = :e AND deleted = 0', array('e' => $email));
+    }
+
+    /**
+     * Unverified accounts due a reminder: signed up between $max_age_h and $min_age_h hours ago, fewer than $step reminders
+     * so far, with an address that has not bounced ($founding_only: signed up for the founding trial). Oldest first, at most $limit.
+     */
+    public function verify_reminder_candidates($step, $min_age_h, $max_age_h, $limit = 200, $founding_only = false){
+        return parent::select(
+            "SELECT u.user_id, u.user_email, u.first_name, u.last_name, u.u_name, u.signup_founding, u.email_verified,
+                    u.email_bounced_at, u.email_bounced_address, u.verify_reminders_sent, u.created_at
+               FROM user_accounts u
+              WHERE u.email_verified = 0 AND u.deleted = 0 AND u.user_email <> ''
+                AND u.verify_reminders_sent < :step
+                AND u.created_at <= UTC_TIMESTAMP() - INTERVAL " . (int) $min_age_h . " HOUR
+                AND u.created_at >  UTC_TIMESTAMP() - INTERVAL " . (int) $max_age_h . " HOUR
+                AND (u.email_bounced_at IS NULL OR u.email_bounced_address <> u.user_email)" . ($founding_only ? " AND u.signup_founding = 1" : "") . "
+              ORDER BY u.created_at ASC
+              LIMIT " . max(1, (int) $limit),
+            array('step' => (int) $step));
+    }
+
+    /** Claim reminder $step for an account (still unverified, not past that step yet). 1 = this run sends it. */
+    public function claim_verify_reminder($user_id, $step){
+        return parent::update('user_accounts', array('verify_reminders_sent' => (int) $step, 'verify_reminder_at' => gmdate('Y-m-d H:i:s')),
+            'user_id = :uid AND email_verified = 0 AND verify_reminders_sent < :step', array('uid' => (int) $user_id, 'step' => (int) $step));
+    }
 }

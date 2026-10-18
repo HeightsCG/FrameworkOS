@@ -27,7 +27,7 @@ $video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control',
 <?php if (!empty($this->needs_plan)): ?>
     <div class="plan-bar" role="status">
         <p class="plan-bar__text"><strong>You're on Free.</strong> Your influencers are still here to view or delete. Choose a plan to create, publish and sell.</p>
-        <a href="/account/billing" class="btn btn-primary plan-bar__btn">Choose a Plan</a>
+        <a href="<?php $up_o = UpgradePrompt::owner(); echo htmlspecialchars(UpgradePrompt::founding($up_o) ? UpgradePrompt::checkout_url(UpgradePrompt::plan($up_o), true, $_SERVER['REQUEST_URI'] ?? '/influencers') : UpgradePrompt::plan_url(UpgradePrompt::plan($up_o), $_SERVER['REQUEST_URI'] ?? '/influencers'), ENT_QUOTES, 'UTF-8'); ?>" class="btn <?php echo $page === 'index' ? 'btn-secondary' : 'btn-primary'; ?> plan-bar__btn">Choose a Plan</a>
     </div>
 <?php endif; ?>
 <?php $sub_modes = isset($image_modes[$page]) ? $image_modes : (isset($video_modes[$page]) ? $video_modes : array());

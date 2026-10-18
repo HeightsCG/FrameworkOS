@@ -183,7 +183,13 @@ class BaseApiController extends Controller {
     /** Refuse with the upgrade prompt (site.js cls_need_plan): the Creator plan, and the page to come back to after checkout. */
     protected function need_plan(string $action): void{
         $t = PlanTiers::TIERS['creator'];
-        $this->jsonError('Upgrade to ' . $t['name'] . ' to ' . $action . '.', ['need_plan' => true, 'plan' => $t['key'], 'return' => $this->upgrade_return()]);
+        if (in_array($action, array('use this', 'turn this on', 'use AI tools'), true)) {   // the generic defaults: name the action this request was for
+            foreach (debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 12) as $f) {
+                if (preg_match('/^([a-z0-9_]+)Action$/', (string) ($f['function'] ?? ''), $m)) { $w = UpgradePrompt::action_words($m[1]); if ($w !== '') { $action = $w; } break; }
+            }
+        }
+        // founding_eligible: the prompt offers the 14-day trial and goes straight into checkout
+        $this->jsonError('Upgrade to ' . $t['name'] . ' to ' . $action . '.', ['plan' => $t['key']] + UpgradePrompt::payload(UpgradePrompt::owner(), $this->upgrade_return()));
     }
 
     /** The same-site page this request came from (path and query), or ''. */

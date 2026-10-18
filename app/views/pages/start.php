@@ -162,7 +162,8 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
         <form class="st-form" id="st_form" novalidate>
             <h2 class="st-sheet__h" id="st_sheet_h">Create Your Account</h2>
             <label class="st-label" for="st_email">Email</label>
-            <input class="st-input" id="st_email" name="user_email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" required>
+            <input class="st-input" id="st_email" name="user_email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="you@example.com" aria-describedby="st_typo" required>
+            <p class="st-typo" id="st_typo" aria-live="polite" hidden>Did you mean <button type="button" class="st-typo__fix" id="st_typo_fix"></button>?</p>
             <label class="st-label" for="st_pw">Password</label>
             <div class="st-pw">
                 <input class="st-input" id="st_pw" name="p_word" type="password" autocomplete="new-password" placeholder="At least 8 characters" aria-describedby="st_rules" required>
@@ -200,8 +201,11 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
             <span class="st-done__ic"><?php echo $icon_mail; ?></span>
             <h2 class="st-sheet__h">Check Your Email</h2>
             <p class="st-done__p">We sent a link to <b id="st_done_email"></b>. Open it to verify your account<?php echo $trial ? ' and start your ' . $days . '-day trial' : ''; ?>. It works in any browser.</p>
+            <p class="st-done__p st-done__note">Not there? Check Spam or Promotions.</p>
             <p class="st-done__p st-done__warn" id="st_done_warn" hidden></p>
+            <a class="st-btn st-btn--primary st-done__gmail" id="st_gmail" href="https://mail.google.com/mail/u/0/#search/from%3Acreatorlinkstudio.com" target="_blank" rel="noopener" hidden>Open Gmail</a>
             <button type="button" class="st-btn st-btn--secondary" id="st_resend">Resend Email</button>
+            <button type="button" class="st-done__change" id="st_change">Wrong Email? Change It</button>
         </div>
     </div>
 </div>
@@ -382,12 +386,25 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
         if (!paint_rules(false).length && pw.classList.contains('is-bad')) { err.hidden = true; pw.classList.remove('is-bad'); pw.setAttribute('aria-invalid', 'false'); }
     });
 
+    // Common domain typos (gmial.com, hotmial.com...): offer the fix before the account is made. One tap applies it.
+    var typos = { 'gmial.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gamil.com': 'gmail.com', 'gnail.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com', 'gmail.om': 'gmail.com',
+        'hotmial.com': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmail.co': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'yahooo.com': 'yahoo.com', 'yaho.com': 'yahoo.com', 'yhoo.com': 'yahoo.com', 'yahoo.co': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+        'outlok.com': 'outlook.com', 'outllok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.co': 'outlook.com', 'outlook.con': 'outlook.com', 'icloud.co': 'icloud.com', 'icloud.con': 'icloud.com', 'iclod.com': 'icloud.com', 'icoud.com': 'icloud.com', 'icluod.com': 'icloud.com', 'aol.co': 'aol.com' };
+    var typo_box = document.getElementById('st_typo'), typo_fix = document.getElementById('st_typo_fix'), typo_seen = '';
+    var typo_for = function (v) { var m = /^([^\s@]+)@([^\s@]+)$/.exec(v.trim().toLowerCase()); return m && typos[m[2]] ? v.trim().split('@')[0] + '@' + typos[m[2]] : ''; };
+    var check_typo = function () { var t = typo_for(email.value); typo_fix.textContent = t; typo_box.hidden = !t; return t; };
+    email.addEventListener('blur', check_typo);
+    email.addEventListener('input', function () { if (!typo_box.hidden) { check_typo(); } });
+    typo_fix.addEventListener('click', function () { email.value = typo_fix.textContent; typo_box.hidden = true; pw.focus(); });
+
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         if (busy) { return; }
         start();
         var em = email.value.trim(), p = pw.value;
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { fail('Enter a valid email address.', email); return; }
+        var typo = check_typo();
+        if (typo && typo_seen !== em) { typo_seen = em; typo_fix.focus(); return; }   // asked once; submitting again keeps what they typed
         var pp = pw_problem(); if (pp) { fail(pp, pw); return; }
         err.hidden = true; [email, pw].forEach(function (x) { x.classList.remove('is-bad'); x.setAttribute('aria-invalid', 'false'); });
         if (trial) { set_cookie('cls_founding', '1', 30); }   // the trial offer, read on the billing plan tab in this browser
@@ -407,11 +424,19 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
             document.getElementById('st_done_email').textContent = em;
             var warn = document.getElementById('st_done_warn');
             if (o.email_failed) { warn.textContent = 'The email did not go out. Use Resend Email to try again.'; warn.hidden = false; }
+            document.getElementById('st_gmail').hidden = !/@(gmail|googlemail)\.com$/i.test(em);
             form.hidden = true; done.hidden = false; done.focus({ preventScroll: true });
         }).catch(function () {
             busy = false; btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = 'Create Account';
             fail('Could not reach the server. Check your connection and try again.', null);
         });
+    });
+
+    // Wrong address: back to the form with it filled in, ready to fix.
+    document.getElementById('st_change').addEventListener('click', function () {
+        done.hidden = true; form.hidden = false;
+        email.value = done_email;
+        email.focus(); email.select();
     });
 
     var resend = document.getElementById('st_resend');

@@ -27,7 +27,7 @@
         <span class="inf-empty__ic"><i class="fa-solid fa-lock"></i></span>
         <h2 class="inf-empty__title">AI Influencers Start on <?php echo htmlspecialchars((string) $lim['upgrade_name'], ENT_QUOTES, 'UTF-8'); ?></h2>
         <p class="inf-empty__text">Train an influencer once, then generate images and video of them whenever you post. Your plan doesn't include AI influencers.</p>
-        <a href="/account/billing" class="btn btn-primary">Upgrade to <?php echo htmlspecialchars((string) $lim['upgrade_name'], ENT_QUOTES, 'UTF-8'); ?></a>
+        <a href="<?php $up_o = UpgradePrompt::owner(); echo htmlspecialchars(UpgradePrompt::founding($up_o) ? UpgradePrompt::checkout_url(UpgradePrompt::plan($up_o), true, $_SERVER['REQUEST_URI'] ?? '/influencers') : UpgradePrompt::plan_url(UpgradePrompt::plan($up_o), $_SERVER['REQUEST_URI'] ?? '/influencers'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary">Upgrade to <?php echo htmlspecialchars((string) $lim['upgrade_name'], ENT_QUOTES, 'UTF-8'); ?></a>
     </div>
     <?php endif; ?>
     <div class="inf-cards" id="inf_cards" hidden></div>

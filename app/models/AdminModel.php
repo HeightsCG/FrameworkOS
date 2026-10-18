@@ -507,6 +507,70 @@ class AdminModel extends Model {
              GROUP BY day ORDER BY day DESC");
     }
 
+    /**
+     * Growth > Ads: accounts that signed up in the last $days UTC days (cohort by signup date, demo accounts left out),
+     * grouped by the ad touch stored at signup (user_accounts.ad_campaign / ad_source, written by record_ad_touch) and,
+     * inside a campaign, by ad (ad_content). Later steps count whenever they happened:
+     *   built   = 3+ setup steps done (creator_setup) or a post or media file
+     *   trial   = a founding claim that activated, or a succeeded $0 plan start
+     *   paid    = a succeeded plan charge above $0; revenue = the sum of those charges
+     * Visits = landing page views tagged with the campaign (analytics_events keeps utm_campaign, not utm_content, so
+     * per-ad rows have no visit count). Returns ['campaigns' => [... 'ads' => [...]], 'total' => [...]], biggest campaigns first.
+     */
+    public function ad_funnel($days){
+        $g = $this->growth_parts($days);
+        $rows = (array) parent::select(
+            "SELECT campaign, source, content, COUNT(*) AS signups, COALESCE(SUM(verified), 0) AS verified, COALESCE(SUM(built), 0) AS built,
+                    COALESCE(SUM(trial), 0) AS trial, COALESCE(SUM(revenue > 0), 0) AS paid, COALESCE(SUM(revenue), 0) AS revenue_cents
+             FROM (SELECT COALESCE(NULLIF(u.ad_campaign, ''), '(none)') AS campaign, COALESCE(u.ad_source, '') AS source, COALESCE(u.ad_content, '') AS content,
+                          u.email_verified = 1 AS verified,
+                          (COALESCE((SELECT IF(JSON_VALID(cs.steps_json), JSON_LENGTH(cs.steps_json), 0) FROM creator_setup cs WHERE cs.user_id = u.user_id), 0) >= 3
+                           OR EXISTS (SELECT 1 FROM posts p WHERE p.creator_id = u.user_id)
+                           OR EXISTS (SELECT 1 FROM media_assets m WHERE m.creator_id = u.user_id)) AS built,
+                          (EXISTS (SELECT 1 FROM founding_claims f WHERE f.user_id = u.user_id AND f.activated_at IS NOT NULL)
+                           OR EXISTS (SELECT 1 FROM billing_charges t WHERE t.user_id = u.user_id AND t.status = 'succeeded' AND t.kind = 'subscribe' AND t.amount_cents = 0)) AS trial,
+                          (SELECT COALESCE(SUM(c.amount_cents), 0) FROM billing_charges c WHERE c.user_id = u.user_id AND c.status = 'succeeded' AND c.amount_cents > 0) AS revenue
+                   FROM user_accounts u
+                   WHERE {$g['where']}) x
+             GROUP BY campaign, source, content");
+        $visits = array();
+        foreach ((array) parent::select(
+            "SELECT utm_campaign, utm_source, COUNT(*) AS n FROM analytics_events
+             WHERE kind = 'pageview' AND is_landing = 1 AND ts >= UTC_DATE() - INTERVAL " . (max(1, min(366, (int) $days)) - 1) . " DAY AND utm_campaign <> ''
+             GROUP BY utm_campaign, utm_source") as $v) {
+            $k = strtolower($v['utm_campaign']) . "\t" . strtolower($v['utm_source']);
+            $visits[$k] = ($visits[$k] ?? 0) + (int) $v['n'];
+        }
+        $blank = array('signups' => 0, 'verified' => 0, 'built' => 0, 'trial' => 0, 'paid' => 0, 'revenue_cents' => 0);
+        $camps = array(); $total = $blank + array('visits' => 0);
+        foreach ($rows as $r) {
+            $k = $r['campaign'] . "\t" . $r['source'];
+            if (!isset($camps[$k])) {
+                $vk = strtolower($r['campaign']) . "\t" . strtolower($r['source']);
+                $camps[$k] = array('campaign' => $r['campaign'], 'source' => $r['source'], 'visits' => $r['campaign'] === '(none)' ? null : (int) ($visits[$vk] ?? 0), 'ads' => array()) + $blank;
+                unset($visits[$vk]);
+            }
+            $ad = array('content' => $r['content'] !== '' ? $r['content'] : '(none)');
+            foreach ($blank as $f => $z) { $ad[$f] = (int) $r[$f]; $camps[$k][$f] += (int) $r[$f]; $total[$f] += (int) $r[$f]; }
+            $camps[$k]['ads'][] = $ad;
+        }
+        foreach ($visits as $vk => $n) {   // a campaign with visits and no signup yet still shows
+            list($c, $s) = explode("\t", $vk, 2);
+            $camps[$vk] = array('campaign' => $c, 'source' => $s, 'visits' => $n, 'ads' => array()) + $blank;
+        }
+        foreach ($camps as &$c) {
+            $total['visits'] += (int) $c['visits'];
+            usort($c['ads'], function ($a, $b) { return $b['signups'] <=> $a['signups'] ?: strcmp($a['content'], $b['content']); });
+        }
+        unset($c);
+        $camps = array_values($camps);
+        usort($camps, function ($a, $b) {   // paid campaigns first, then by signups; '(none)' last
+            if (($a['campaign'] === '(none)') !== ($b['campaign'] === '(none)')) { return $a['campaign'] === '(none)' ? 1 : -1; }
+            return $b['revenue_cents'] <=> $a['revenue_cents'] ?: ($b['signups'] <=> $a['signups'] ?: strcmp($a['campaign'], $b['campaign']));
+        });
+        return array('campaigns' => $camps, 'total' => $total);
+    }
+
     /** Accounts that signed up from a creator's referral, newest first. */
     public function referred_signups($days){
         $g = $this->growth_parts($days);

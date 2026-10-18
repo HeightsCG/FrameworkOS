@@ -39,7 +39,7 @@ window.AiTools = (function ($) {
         if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {
             if (o.need_credits && typeof o.balance !== 'undefined') { balance = parseInt(o.balance, 10) || 0; }
             toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),
-                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? '/account/billing?tab=credits' : '/account/billing'; } });
+                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? '/account/billing?tab=credits' : (o.need_plan && window.cls_plan_url ? window.cls_plan_url(o) : '/account/billing'); } });
             return;
         }
         toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.');
@@ -221,7 +221,7 @@ window.AiTools = (function ($) {
     }
     function edit_cost() {
         var m = edit_model(), price = m ? m.credits : 0;
-        if (!edit_can) { $('#aiEditCost').html('<a class="ai-buy" href="/account/billing">Choose a Plan to Edit</a>'); $('#aiEditGo').prop('disabled', true); return; }
+        if (!edit_can) { $('#aiEditCost').html('<a class="ai-buy" href="' + esc(window.cls_plan_url ? window.cls_plan_url({}) : '/account/billing') + '">Choose a Plan to Edit</a>'); $('#aiEditGo').prop('disabled', true); return; }
         $('#aiEditCost').html(m ? credits_html(price) : '');
         $('#aiEditGo').prop('disabled', !m || !can_afford(price));
     }
@@ -316,7 +316,7 @@ window.AiTools = (function ($) {
     }
     function env_cost() {
         var m = env_model();
-        if (!env_can) { $('#aiEnvCost').html('<a class="ai-buy" href="/account/billing">Choose a Plan to Enhance</a>'); $('#aiEnvGo').prop('disabled', true); return; }
+        if (!env_can) { $('#aiEnvCost').html('<a class="ai-buy" href="' + esc(window.cls_plan_url ? window.cls_plan_url({}) : '/account/billing') + '">Choose a Plan to Enhance</a>'); $('#aiEnvGo').prop('disabled', true); return; }
         if (m && m.credits == null) { $('#aiEnvCost').text('Videos up to ' + m.max_seconds + ' seconds'); $('#aiEnvGo').prop('disabled', true); return; }
         $('#aiEnvCost').html(m ? credits_html(m.credits) : '');
         $('#aiEnvGo').prop('disabled', !m || !can_afford(m.credits));

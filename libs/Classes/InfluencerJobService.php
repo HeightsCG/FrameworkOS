@@ -40,7 +40,7 @@ class InfluencerJobService {
         // The plan gate holds for every run, paid or free: a waived run is still an AI run.
         $user = self::user($creator_id);
         if (!Plan::can_use_creator_features($user)) {
-            throw new PlanLimitException('Choose a plan to generate with AI.', array('need_plan' => true));
+            throw new PlanLimitException('Choose a plan to generate with AI.', UpgradePrompt::payload($user));   // plan + founding_eligible for the upgrade prompt
         }
         // A model limited to some plans (Seedance 2.5 and Talking Scene: Creator and Studio).
         $gm = !empty($f['model_key']) ? InfluencerConfig::model((string) $f['model_key']) : null;

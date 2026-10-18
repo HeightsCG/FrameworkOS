@@ -9,7 +9,7 @@ $(function () {
     function api(action, body, cb) { ApiDataSvc.apiCall('post', action, body, function (resp) { cb(parse(resp)); }); }
     function error(msg) { $('#lcError').text(msg || '').prop('hidden', !msg); }
     function fail(o, fallback) {
-        if (o && o.need_plan) { window.location = '/account/billing'; return; }
+        if (o && o.need_plan && window.cls_need_plan) { bootstrap.Modal.getOrCreateInstance($modal[0]).hide(); window.cls_need_plan(o); return; }   // the standard upgrade prompt, back here after checkout
         error((o && o.message) || fallback);
     }
 
@@ -30,7 +30,7 @@ $(function () {
     function load() {
         stage('loading');
         api('launch_campaign_options', {}, function (o) {
-            if (!o || !o.success) { if (o && o.need_plan) { window.location = '/account/billing'; return; } stage('load_error'); return; }
+            if (!o || !o.success) { if (o && o.need_plan && window.cls_need_plan) { bootstrap.Modal.getOrCreateInstance($modal[0]).hide(); window.cls_need_plan(o); return; } stage('load_error'); return; }
             opts = o;
             var days = '';
             for (var d = 0; d <= o.max_days; d++) { days += '<option value="' + d + '"' + (d === 3 ? ' selected' : '') + '>' + (d === 0 ? 'None' : d + (d === 1 ? ' Day' : ' Days')) + '</option>'; }

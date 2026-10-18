@@ -5,7 +5,9 @@
  *
  *   signup           -> CompleteRegistration
  *   credits_bought   -> Purchase   (value = dollars paid)
- *   plan_paid        -> Purchase   (a creator plan bought or upgraded; renewals are not ad conversions and are skipped)
+ *   plan_paid        -> StartTrial (a $0 plan start, the founding trial: value = the plan's monthly price from PlanTiers)
+ *                       Purchase   (a paid plan start or upgrade; and once, the first paid renewal after a trial of an
+ *                                   ad-attributed account, sent from cron. Later renewals are not ad conversions: skipped)
  *   membership_paid  -> Purchase   (a fan's paid membership)
  *   follow           -> AddToWishlist (following a creator; FollowsModel::follow calls from_event directly)
  *
@@ -13,7 +15,9 @@
  * cached pages with no server work to hook.
  *
  * Hooked into Analytics::event(), the one funnel every business event already goes through, so admin/staff activity
- * is left out the same way. Only web requests are sent (a cron renewal or auto top-up was not caused by an ad).
+ * is left out the same way. Only web requests are sent (a cron renewal or auto top-up was not caused by an ad), except
+ * the first paid charge after a trial, which is the trial's real revenue. The account's stored ad click id
+ * (user_accounts.ad_ttclid, from /start) is added to every event when the request has none (another browser).
  * The request's IP, user agent, TikTok cookies (_ttp, and the ttclid the pixel block keeps in cls_ttclid) and page are
  * captured at the moment of the event; the call to TikTok runs from the queue so nobody waits on it.
  *
@@ -28,19 +32,33 @@ class TikTokEventJob {
     const PIXEL_ID = 'DB8ESIBC77U937USUOBG';
     const ENDPOINT = 'https://business-api.tiktok.com/open_api/v1.3/event/track/';
 
+    /**
+     * Test seam (tests/tiktok_events_test.php), null in real use: 'sink' => fn($type, $payload, $dedupe) instead of the
+     * queue, 'transport' => fn($body) returning array(raw, http, error) instead of curl, 'configured' => bool, 'web' => bool (act as a web request).
+     */
+    private static $seam = null;
+    public static function test_seam(?array $s): void { self::$seam = $s; }
+
+    private static function is_cli(): bool {
+        if (isset(self::$seam['web'])) { return !self::$seam['web']; }
+        return php_sapi_name() === 'cli';
+    }
+
     private static function setting(string $key): string {
         $cfg = Main::get_config();
         return trim((string) ($cfg['global'][$key] ?? ''));
     }
 
     public static function configured(): bool {
+        if (isset(self::$seam['configured'])) { return (bool) self::$seam['configured']; }
         return self::ENABLED && self::setting('tiktok_events_token') !== '';
     }
 
     /** Called from Analytics::event() after the row is recorded. Never throws. */
     public static function from_event(string $name, int $user_id, array $opts): void {
         try {
-            if (!self::configured() || php_sapi_name() === 'cli') { return; }
+            if (!self::configured()) { return; }
+            $cli = self::is_cli(); $allow_cli = false; $dedupe = '';
             if ($name === 'follow' && Analytics::excluded('', $user_id)) { return; }   // the other events arrive already filtered by Analytics::event
             $value = round(((int) ($opts['value_cents'] ?? 0)) / 100, 2);
             $meta  = (string) ($opts['meta'] ?? '');
@@ -48,26 +66,46 @@ class TikTokEventJob {
                 case 'signup':          $ev = 'CompleteRegistration'; $props = array('content_name' => 'creator_signup', 'value' => 0, 'currency' => 'USD'); break;   // the same properties as the browser pixel (CLSTikTokRegistration)
                 case 'credits_bought':  $ev = 'Purchase';  $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Credits'); break;
                 case 'plan_paid':
-                    $kind = strtok($meta, ' ');
-                    if (!in_array($kind, array('subscribe', 'upgrade'), true)) { return; }
-                    $ev = 'Purchase'; $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Creator plan'); break;
+                    $kind = (string) strtok($meta, ' '); $plan = trim((string) strtok(' '));
+                    $cid  = (int) ($opts['charge_id'] ?? 0);
+                    $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_id' => $plan, 'content_name' => 'Creator plan');
+                    if ($kind === 'subscribe' && $value <= 0) {   // the free first period: the value is the plan it trials
+                        $ev = 'StartTrial'; $props['value'] = (float) PlanTiers::price($plan);
+                        $opts['event_id'] = 'cls_trial_' . $user_id; $dedupe = 'tiktok_trial:' . $user_id;
+                    } elseif (in_array($kind, array('subscribe', 'upgrade'), true) && $value > 0) {
+                        $ev = 'Purchase';
+                        if ($cid > 0) { $opts['event_id'] = 'cls_plan_' . $cid; $dedupe = 'tiktok_plan:' . $cid; }
+                    } elseif ($kind === 'renewal' && $value > 0 && $cid > 0 && self::ad_attributed($user_id) && (new BillingChargesModel())->first_paid_after_trial($user_id, $cid)) {
+                        $ev = 'Purchase'; $allow_cli = true;   // the trial's first real charge, from cron/billing.php
+                        $opts['event_id'] = 'cls_plan_' . $cid; $dedupe = 'tiktok_plan:' . $cid;
+                    } else { return; }   // later renewals, $0 upgrades, slots, packs
+                    break;
                 case 'membership_paid': $ev = 'Purchase'; $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Membership'); break;
                 case 'follow':          $ev = 'AddToWishlist'; $props = array('content_type' => 'product', 'content_id' => (string) (int) ($opts['creator_id'] ?? 0), 'content_name' => 'Creator'); break;
                 default: return;
             }
 
             // the browser pixel sent the same event under this id (/start's CompleteRegistration): TikTok keeps one of the two
+            if ($cli && !$allow_cli) { return; }
             $eid = (string) ($opts['event_id'] ?? '');
-            self::queue($ev, $name, $user_id, $props, preg_match('/^[A-Za-z0-9_-]{8,64}$/', $eid) ? $eid : '');
+            self::queue($ev, $name, $user_id, $props, preg_match('/^[A-Za-z0-9_-]{8,64}$/', $eid) ? $eid : '', $dedupe);
         } catch (\Throwable $e) {
             error_log('[tiktok_event] ' . $name . ': ' . $e->getMessage());
         }
     }
 
-    /** Capture the request's person (IP, agent, TikTok cookies, page) now; the queue sends it. */
-    private static function queue(string $ev, string $name, int $user_id, array $props, string $event_id = ''): void {
+    /** The account came from a TikTok ad (/start stored its click id or utm_source=tiktok). */
+    private static function ad_attributed(int $user_id): bool {
+        if ($user_id <= 0) { return false; }
+        $rows = (new UsersModel())->get_user_by_id($user_id);
+        $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : array();
+        return (string) ($u['ad_ttclid'] ?? '') !== '' || strtolower((string) ($u['ad_source'] ?? '')) === 'tiktok';
+    }
+
+    /** Capture the request's person (IP, agent, TikTok cookies, page) now; the queue sends it. $dedupe: a queue key so the event is sent once. */
+    private static function queue(string $ev, string $name, int $user_id, array $props, string $event_id = '', string $dedupe = ''): void {
         $path    = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
-        $webhook = (bool) preg_match('#^/webhook#', $path);   // Stripe's request: its IP, agent and cookies are not the person's
+        $webhook = (bool) preg_match('#^/webhook#', $path) || self::is_cli();   // Stripe's request or cron: its IP, agent and cookies are not the person's
         $user = array();
         if (!$webhook) {
             $ip = GeoIp::client_ip();
@@ -91,7 +129,9 @@ class TikTokEventJob {
         $data = array('event' => $ev, 'event_time' => time(), 'event_id' => $event_id !== '' ? $event_id : 'cls_' . $name . '_' . bin2hex(random_bytes(8)), 'user' => $user);
         if (!empty($page)) { $data['page'] = $page; }
         if (!empty($props)) { $data['properties'] = $props; }
-        (new DatabaseJobQueue())->dispatch('tiktok_event', array('user_id' => $user_id, 'data' => $data));
+        $payload = array('user_id' => $user_id, 'data' => $data);
+        if (isset(self::$seam['sink'])) { (self::$seam['sink'])('tiktok_event', $payload, $dedupe !== '' ? $dedupe : null); return; }
+        (new DatabaseJobQueue())->dispatch('tiktok_event', $payload, $dedupe !== '' ? $dedupe : null);
     }
 
     /** Fan purchases that answer need_credits when the wallet is short: the person wanted it (AddToCart). */
@@ -100,7 +140,8 @@ class TikTokEventJob {
 
     /**
      * Called from BaseApiController::jsonSuccess/jsonError with the /api/<action> name and the response:
-     *   buy_credits, buy_ai_credits, a paid subscribe_plan, billing_quote for a plan -> InitiateCheckout
+     *   buy_credits, buy_ai_credits, a paid subscribe_plan, billing_quote for a plan -> InitiateCheckout (once per account,
+     *                                                                                   product and UTC day; a plan's value = its monthly price)
      *   billing_card_save                                                           -> AddPaymentInfo
      *   a fan purchase short of credits (PAYWALL_ACTIONS + need_credits)            -> AddToCart
      */
@@ -117,7 +158,8 @@ class TikTokEventJob {
                     $ev = 'InitiateCheckout'; $props = array('content_type' => 'product', 'content_name' => 'Membership');
                 } elseif ($action === 'billing_quote' && isset($post['plan']) && (string) ($post['promo_code'] ?? '') === '' && in_array((string) ($data['mode'] ?? ''), array('subscribe', 'upgrade'), true)) {
                     $ev = 'InitiateCheckout';
-                    $props = array('currency' => 'USD', 'value' => (float) preg_replace('/[^0-9.]/', '', (string) ($data['today'] ?? '0')), 'content_type' => 'product', 'content_name' => 'Creator plan');
+                    // the plan being considered, not what is due today ($0 on the founding trial)
+                    $props = array('currency' => 'USD', 'value' => (float) PlanTiers::price((string) $post['plan']), 'content_type' => 'product', 'content_id' => (string) $post['plan'], 'content_name' => 'Creator plan');
                 } elseif ($action === 'billing_card_save') {
                     $ev = 'AddPaymentInfo';
                 }
@@ -129,7 +171,12 @@ class TikTokEventJob {
             if ($ev === '') { return; }
             $uid = (int) Session::get('user_id');
             if (Analytics::excluded('', $uid)) { return; }
-            self::queue($ev, $action, $uid, $props);
+            $eid = ''; $dedupe = '';
+            if ($ev === 'InitiateCheckout' && $uid > 0) {   // a checkout modal opened again (or re-quoted) the same day is the same intent
+                $slug = preg_replace('/[^a-z0-9]/', '', strtolower((string) $props['content_name']));
+                $eid = 'cls_ic_' . $slug . '_' . $uid . '_' . gmdate('Ymd'); $dedupe = 'tiktok_ic:' . $slug . ':' . $uid . ':' . gmdate('Ymd');
+            }
+            self::queue($ev, $action, $uid, $props, $eid, $dedupe);
         } catch (\Throwable $e) {
             error_log('[tiktok_event] api ' . $action . ': ' . $e->getMessage());
         }
@@ -145,8 +192,12 @@ class TikTokEventJob {
         if ($uid > 0) {
             $data['user']['external_id'] = hash('sha256', (string) $uid);
             $rows = (new UsersModel())->get_user_by_id($uid);
-            $email = (is_array($rows) && count($rows) === 1) ? strtolower(trim((string) ($rows[0]['user_email'] ?? ''))) : '';
+            $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : array();
+            $email = strtolower(trim((string) ($u['user_email'] ?? '')));
             if ($email !== '') { $data['user']['email'] = hash('sha256', $email); }
+            // no click id in this browser (the email was verified elsewhere, or cron): the one stored from the ad landing
+            $ttclid = (string) ($u['ad_ttclid'] ?? '');
+            if ((string) ($data['user']['ttclid'] ?? '') === '' && $ttclid !== '' && preg_match('/^[A-Za-z0-9._-]{1,500}$/', $ttclid)) { $data['user']['ttclid'] = $ttclid; }
         }
         if (empty($data['user'])) { unset($data['user']); }
 
@@ -154,18 +205,22 @@ class TikTokEventJob {
         $test = self::setting('tiktok_test_event_code');
         if ($test !== '') { $body['test_event_code'] = $test; }
 
-        $ch = curl_init(self::ENDPOINT);
-        curl_setopt_array($ch, array(
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 20,
-            CURLOPT_HTTPHEADER => array('Content-Type: application/json', 'Access-Token: ' . self::setting('tiktok_events_token')),
-            CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_SLASHES),
-        ));
-        $raw  = curl_exec($ch);
-        $http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $err  = curl_error($ch);
-        curl_close($ch);
+        if (isset(self::$seam['transport'])) {
+            list($raw, $http, $err) = (self::$seam['transport'])($body);
+        } else {
+            $ch = curl_init(self::ENDPOINT);
+            curl_setopt_array($ch, array(
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_HTTPHEADER => array('Content-Type: application/json', 'Access-Token: ' . self::setting('tiktok_events_token')),
+                CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_SLASHES),
+            ));
+            $raw  = curl_exec($ch);
+            $http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $err  = curl_error($ch);
+            curl_close($ch);
+        }
         $res = json_decode((string) $raw, true);
         if ($raw === false || $http >= 500) { throw new RuntimeException('TikTok unreachable: ' . ($err !== '' ? $err : 'HTTP ' . $http)); }   // retried with back-off
         if (!is_array($res) || (int) ($res['code'] ?? -1) !== 0) {

@@ -276,3 +276,24 @@
     .ccard__repeat{ width:auto; align-items:flex-start; }
 }
 .ccard__note{ margin:.6rem 0 0; font-size:.82rem; color:var(--muted, #8a8797); }
+
+/* founding trial: the offer banner opens the checkout; the trial card says what is due today */
+.billing__notice--offer{width:100%; text-align:left; align-items:center; font:inherit; cursor:pointer; transition:border-color .15s, background-color .15s;}
+.billing__notice--offer:hover{border-color:rgba(180,120,0,.5);}
+.billing__notice--offer:focus-visible{outline:2px solid var(--acc); outline-offset:2px;}
+.billing__notice--offer i{margin-top:0;}
+.billing__offer-body{flex:1; display:flex; flex-direction:column; gap:.15rem; font-size:.88rem; line-height:1.45;}
+.billing__offer-body span{color:var(--t2);}
+.billing__notice--offer .billing__offer-go{color:var(--muted); font-size:.8rem;}
+.plan__trial{margin:0 0 .75rem; font-size:.84rem; line-height:1.45; color:var(--t2);}
+.plan__trial b{color:var(--text);}
+
+/* payment modal footer: the Creator Agreement sits above the buttons, always on screen */
+.disc__foot{flex-direction:column; align-items:stretch; gap:.6rem;}
+.disc__foot > *{margin:0;}
+.disc__agree-wrap[hidden]{display:none;}
+.disc__foot .disc__agree{margin:0; padding:0; border-top:0;}
+.disc__agree-sum{display:block; margin-top:.1rem; font-size:.8rem; line-height:1.4; color:var(--muted);}
+.disc__agree-err{margin:.35rem 0 0 1.6rem; font-size:.82rem; color:var(--danger);}
+.disc__agree-wrap.is-bad .form-check-input{border-color:var(--danger); box-shadow:0 0 0 3px rgba(207,59,59,.15);}
+.disc__btns{display:flex; justify-content:flex-end; gap:.5rem;}

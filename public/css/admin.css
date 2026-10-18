@@ -175,6 +175,17 @@ a.adm-seg__b{ text-decoration:none; }
 .adm-t__go{ width:32px; text-align:right; color:var(--muted2); font-size:11px; }
 .adm-t__link:hover .adm-t__go{ color:var(--acc-ink); }
 .adm-t__total td{ font-weight:600; border-top:1px solid var(--l); border-bottom:0; }
+.adm-t__toggle{ cursor:pointer; }
+.adm-t__toggle:hover td{ background:#FAFAFB; }
+.adm-t__toggle:focus-visible{ outline:none; }
+.adm-t__toggle:focus-visible td{ background:var(--vsoft); }
+.adm-t__chev{ width:16px; margin-right:6px; font-size:10px; color:var(--muted2); transition:transform .15s ease; }
+.adm-t__chev--none{ visibility:hidden; }
+.adm-t__toggle[aria-expanded="true"] .adm-t__chev{ transform:rotate(90deg); color:var(--text); }
+.adm-t__child td{ height:40px; background:#FCFCFD; font-size:13px; }
+.adm-t__child td:first-child{ padding-left:34px; color:var(--muted); }
+.adm-t--ads td:first-child{ max-width:280px; min-width:160px; }
+@media (prefers-reduced-motion: reduce){ .adm-t__chev{ transition:none; } }
 .adm-t--num td{ font-variant-numeric:tabular-nums; }
 .adm-t--attn td:first-child{ width:200px; }
 .adm-t--attn td, .adm-cols .adm-t td{ height:40px; }
@@ -432,3 +443,9 @@ a.adm-seg__b{ text-decoration:none; }
 /* Admin inputs focus in the site orange, never Bootstrap blue (pages and the admin dialogs) */
 .adm .form-control:focus, .adm-field .form-control:focus{ border-color:var(--acc); box-shadow:var(--ring); outline:none; }
 .adm-field .form-control.is-invalid:focus{ border-color:#e5484d; box-shadow:0 0 0 3px rgba(229,72,77,.18); }
+/* Ads by campaign on narrow screens: one real table that scrolls sideways, so campaign and ad rows stay in their columns */
+@media (max-width:900px){
+    .adm-t--ads thead{ display:table-header-group; } .adm-t--ads tbody{ display:table-row-group; } .adm-t--ads tr{ display:table-row; }
+    .adm-t--ads tr[hidden]{ display:none; }
+    .adm-t--ads td, .adm-t--ads th{ white-space:nowrap; }
+}

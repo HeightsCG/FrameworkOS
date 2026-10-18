@@ -26,7 +26,7 @@ class ApiInfluencerVoiceController extends BaseApiController {
 
     private function answer(array $r){
         if (empty($r['ok'])) {
-            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan', 'need_credits', 'price', 'balance', 'locked', 'need_voice', 'at_cap', 'field']));
+            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan', 'plan', 'founding_eligible', 'need_credits', 'price', 'balance', 'locked', 'need_voice', 'at_cap', 'field']));
             $this->jsonError((string) $r['error'], $extra);
         }
         unset($r['ok'], $r['error']);

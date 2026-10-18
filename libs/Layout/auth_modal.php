@@ -66,6 +66,7 @@
             </div>
 
             <div id="register_form" style="display:none;">
+              <div id="register_fields">
                 <p class="cos-form-title">Create Account</p>
                 <p class="cos-help">Free to join. Creators pick a plan after signing up.</p>
                 <?php if (GoogleAuth::configured()): ?>
@@ -81,6 +82,7 @@
                             <input type="email" id="register_user_email" class="form-control" placeholder="Email" autocomplete="email">
                             <label for="register_user_email">Email</label>
                         </div>
+                        <p class="cos-typo" id="register_typo" aria-live="polite" style="display:none;">Did you mean <button type="button" class="cos-link accent" id="register_typo_fix"></button>?</p>
                     </div>
                     <div class="col-md-6">
                         <div class="form-floating">
@@ -115,6 +117,18 @@
                         </div>
                     </div>
                 </div>
+              </div>
+              <?php /* after signing up: where the link went, a way to fix a mistyped address, and Gmail one tap away */ ?>
+              <div id="register_done" style="display:none;" tabindex="-1">
+                <p class="cos-form-title">Check Your Email</p>
+                <p class="cos-help cos-done__p">We sent a link to <b id="register_done_email"></b>. Open it to verify your account. It works in any browser.</p>
+                <p class="cos-help cos-done__p">Not there? Check Spam or Promotions.</p>
+                <a class="cos-submit cos-done__gmail" id="register_gmail" href="https://mail.google.com/mail/u/0/#search/from%3Acreatorlinkstudio.com" target="_blank" rel="noopener" style="display:none;">Open Gmail</a>
+                <div class="cos-links">
+                    <button type="button" class="cos-link" id="register_resend">Resend Email</button>
+                    <button type="button" class="cos-link accent" id="register_change">Wrong Email? Change It</button>
+                </div>
+              </div>
             </div>
 
         </div>

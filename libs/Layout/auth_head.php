@@ -17,6 +17,12 @@
     .cos-rules li.is-met .cos-rules__ic { color: #22c55e; }
     .cos-rules li.is-met .cos-rules__ck { opacity: 1; }
     .cos-rules li.is-miss { color: #ef4444; }
+    .cos-typo { margin: .5rem 0 0; font-size: .875rem; color: var(--ld-muted, #6e6e73); overflow-wrap: anywhere; }
+    .cos-typo .cos-link { text-decoration: underline; text-underline-offset: 2px; }
+    .cos-done__p { margin-bottom: .9rem; overflow-wrap: anywhere; }
+    .cos-done__p b { color: var(--ld-ink, #1d1d1f); font-weight: 600; }
+    a.cos-done__gmail { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+    a.cos-done__gmail:hover { color: #fff; }
     .cos-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     </style>
     <script>
@@ -41,6 +47,40 @@
             $('#forgot_form').hide();
             $('#register_form').show();
         }
+        // Common domain typos (gmial.com, hotmial.com...): offered before the account is made; one tap applies the fix.
+        var reg_typos = { 'gmial.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gamil.com': 'gmail.com', 'gnail.com': 'gmail.com', 'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com', 'gmail.om': 'gmail.com',
+            'hotmial.com': 'hotmail.com', 'hotmal.com': 'hotmail.com', 'hotmai.com': 'hotmail.com', 'hotmail.co': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'yahooo.com': 'yahoo.com', 'yaho.com': 'yahoo.com', 'yhoo.com': 'yahoo.com', 'yahoo.co': 'yahoo.com', 'yahoo.con': 'yahoo.com',
+            'outlok.com': 'outlook.com', 'outllok.com': 'outlook.com', 'outloo.com': 'outlook.com', 'outlook.co': 'outlook.com', 'outlook.con': 'outlook.com', 'icloud.co': 'icloud.com', 'icloud.con': 'icloud.com', 'iclod.com': 'icloud.com', 'icoud.com': 'icloud.com', 'icluod.com': 'icloud.com', 'aol.co': 'aol.com' };
+        var reg_typo_seen = '';
+        function reg_typo_check() {
+            var v = String($('#register_user_email').val() || '').trim(), m = /^([^\s@]+)@([^\s@]+)$/.exec(v.toLowerCase());
+            var t = m && reg_typos[m[2]] ? v.split('@')[0] + '@' + reg_typos[m[2]] : '';
+            $('#register_typo_fix').text(t); $('#register_typo').toggle(t !== '');
+            return t;
+        }
+        $(document).on('blur', '#register_user_email', reg_typo_check);
+        $(document).on('input', '#register_user_email', function () { if ($('#register_typo').is(':visible')) { reg_typo_check(); } });
+        $(document).on('click', '#register_typo_fix', function () { $('#register_user_email').val($(this).text()); $('#register_typo').hide(); $('#register_p_word').trigger('focus'); });
+        // Signed up: the check-your-email panel. Wrong Email? Change It reopens the form with the address filled in.
+        var reg_done_email = '';
+        function show_register_done(email) {
+            reg_done_email = email;
+            $('#register_done_email').text(email);
+            $('#register_gmail').toggle(/@(gmail|googlemail)\.com$/i.test(email));
+            $('#register_fields').hide(); $('#register_done').show().trigger('focus');
+        }
+        $(document).on('click', '#register_change', function () {
+            $('#register_done').hide(); $('#register_fields').show();
+            $('#register_user_email').val(reg_done_email).trigger('focus').trigger('select');
+        });
+        $(document).on('click', '#register_resend', function () {
+            var $b = $(this).prop('disabled', true);
+            ApiDataSvc.apiCall('post', 'resend_verification', { u_name: reg_done_email }, function (data) {
+                var obj = null; try { obj = JSON.parse(data); } catch (e) {}
+                if (obj && obj.success) { $b.text('Email Sent'); setTimeout(function () { $b.text('Resend Email').prop('disabled', false); }, 30000); }
+                else { $b.prop('disabled', false); toastr.error(obj ? obj.message : 'Something went wrong.'); }
+            });
+        });
 
         $('#do_login').on('click', function() {
 
@@ -233,6 +273,9 @@
                 return;
             }
 
+            var reg_typo = reg_typo_check(), reg_em = String($('#register_user_email').val() || '').trim();
+            if (reg_typo && reg_typo_seen !== reg_em) { reg_typo_seen = reg_em; $('#register_typo_fix').trigger('focus'); return; }   // asked once; Create Account again keeps what they typed
+
             var signup_q = new URLSearchParams(location.search);   // ?plan= / ?role= / ?ref= on this page (else the cls_signup cookie, server side)
             ApiDataSvc.apiCall('post', 'register', {
                 user_email: $('#register_user_email').val(),
@@ -247,17 +290,9 @@
                 var obj = JSON.parse(data);
                 if (obj.success) {
                     if (window.CLSTikTokRegistration) { window.CLSTikTokRegistration(obj.tt_registration); }   // TikTok CompleteRegistration: the account exists (server-confirmed, once)
-                    // Account created but not yet usable: the link in the email signs them in. Back to Sign In meanwhile.
-                    $('#register_form').hide();
-                    $('#forgot_form').hide();
-                    $('#login_form').show();
-                    if (obj.email_failed) {
-                        resend_identifier = $('#register_user_email').val();   // the email never left: offer Resend right here
-                        $('#resend_verify_wrap').show();
-                        toastr.warning(obj.message);
-                    } else {
-                        toastr.success(obj.message);
-                    }
+                    // Account created but not yet usable: the link in the email signs them in. The check-your-email panel meanwhile.
+                    show_register_done(String($('#register_user_email').val() || '').trim());
+                    if (obj.email_failed) { toastr.warning(obj.message); }   // the email never left: Resend Email is right there
                 } else {
                     toastr.error(obj.message);
                 }

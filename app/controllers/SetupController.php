@@ -28,6 +28,14 @@ class SetupController extends Controller {
         $rows = (new UsersModel())->get_user_by_id($creator_id);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
 
+        // First arrival from the verify link (?plan=) as a Free creator who signed up with the trial: straight into that
+        // plan's checkout, once per session. Coming back to /setup later shows the checklist (its first step is the trial).
+        if ($plan !== '' && $user && !Permissions::is_team_member() && !Session::get('setup_checkout_sent') && UpgradePrompt::founding($user)) {
+            Session::set('setup_checkout_sent', 1);
+            header('Location: ' . UpgradePrompt::checkout_url($plan, true));
+            exit;
+        }
+
         $this->view->progress = SetupService::progress($creator_id, true);
         $this->view->timezone = (string) ($user['content_timezone'] ?? 'UTC');
         $this->view->render();

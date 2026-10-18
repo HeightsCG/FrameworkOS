@@ -154,6 +154,12 @@ a { color: inherit; }
 .st-done__p { margin: -8px 0 20px; color: var(--t2); overflow-wrap: anywhere; }
 .st-done__p b { color: var(--ink); font-weight: 600; }
 .st-done__warn { margin-top: 0; color: var(--bad); }
+.st-done__note { margin-top: -12px; font-size: .9375rem; }
+.st-done__gmail { margin-bottom: 12px; }
+.st-done__change { margin: 16px 0 0; padding: 8px 0; border: 0; background: none; color: var(--t2); font: inherit; font-size: .9375rem; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.st-done__change:hover { color: var(--ink); }
+.st-typo { margin: -10px 0 16px; font-size: .9375rem; color: var(--t2); }
+.st-typo__fix { padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; overflow-wrap: anywhere; }
 
 @media (min-width: 560px) {
     .st-sheet { align-items: center; padding: 24px; }

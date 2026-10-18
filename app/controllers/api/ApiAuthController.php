@@ -101,10 +101,8 @@ class ApiAuthController extends BaseApiController {
         Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email', 'event_id' => $tt_event));
 
         // Email verification is required before the account can sign in.
-        $token       = $this->userModel->set_email_verify_token($user_id);
-        $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
-        $to_name     = '';
-        $sent = $this->notificationsModel->send_verification_email($email, $to_name, $verify_link, $u_name);
+        $fresh = $this->userModel->get_user_by_id($user_id);   // the row carries signup_founding (trial-focused email)
+        $sent  = LifecycleEmails::send_verify_link(is_array($fresh) && count($fresh) === 1 ? $fresh[0] : array('user_id' => $user_id, 'user_email' => $email, 'u_name' => $u_name), $ip, false);
         if (!$sent) {
             // The account exists but the link never left: tell the user (the panel offers Resend) and the admins.
             error_log('[register] verification email failed for user_id=' . $user_id . ' (' . $email . ')');
@@ -132,14 +130,7 @@ class ApiAuthController extends BaseApiController {
 
     /** A fresh verification link for an unconfirmed account, at most 3 an hour per account (callers answer the same either way). */
     private function send_verify_link(array $user): bool{
-        $uid = (int) $user['user_id'];
-        if ($uid <= 0 || (string) ($user['user_email'] ?? '') === '') { return false; }
-        if ($this->loginAttemptsModel->count_recent_for('uid:' . $uid, 'verify_sent', 60) >= 3) { return false; }
-        $this->loginAttemptsModel->record($this->get_ip_address(), 'uid:' . $uid, 'verify_sent');
-        $token       = $this->userModel->set_email_verify_token($uid);
-        $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
-        $to_name     = trim((string) ($user['first_name'] ?? '') . ' ' . (string) ($user['last_name'] ?? ''));
-        return (bool) $this->notificationsModel->send_verification_email((string) $user['user_email'], $to_name, $verify_link, (string) ($user['u_name'] ?? ''));
+        return LifecycleEmails::send_verify_link($user, $this->get_ip_address());   // capped 3/hour, never to a bounced address
     }
 
     public function loginAction(){
@@ -180,6 +171,7 @@ class ApiAuthController extends BaseApiController {
 
         // Hard gate: an unconfirmed email cannot sign in.
         if ((int) ($user['email_verified'] ?? 0) === 0) {
+            if (LifecycleEmails::bounced($user)) { $this->jsonError(LifecycleEmails::bounced_message($user)); }   // the link can never arrive
             $this->jsonError('Please verify your email before signing in. Check your inbox for the verification link.', ['unverified' => true]);
         }
 
@@ -369,6 +361,7 @@ class ApiAuthController extends BaseApiController {
 
         $rows = $this->userModel->get_user_by_login($identifier);
         if (is_array($rows) && count($rows) === 1 && (int) ($rows[0]['email_verified'] ?? 0) === 0) {
+            if (LifecycleEmails::bounced($rows[0])) { $this->jsonError(LifecycleEmails::bounced_message($rows[0])); }   // Postmark bounced this address
             $this->send_verify_link($rows[0]);   // capped per account; the reply never says
         }
 

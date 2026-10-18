@@ -520,7 +520,7 @@ class InfluencerImageActions {
         if (!$model) { return self::fail($m_err !== '' ? $m_err : 'No carousel model is configured.'); }
         // Nothing is planned or spent when the account cannot pay for the whole set.
         $user  = InfluencerJobService::user($cid);
-        if (!Plan::can_use_creator_features($user)) { return self::fail('Choose a plan to generate with AI.', array('need_plan' => true)); }
+        if (!Plan::can_use_creator_features($user)) { return self::fail('Choose a plan to generate with AI.', UpgradePrompt::payload($user)); }
         Plan::grant_monthly($user);
         $each  = Plan::ai_price('carousel', array('model_key' => (string) $model['key']));
         $bal   = (int) (new AiCreditsModel())->get_balance($cid);

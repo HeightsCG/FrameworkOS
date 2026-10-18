@@ -17,20 +17,48 @@ class NotificationsModel extends Model {
         return $this->deliver($to_email, $to_name, $subject, $message);
     }
 
-    public function send_verification_email($to_email, $to_name, $verify_link, $handle = ''){
-        $subject = 'Confirm your email';
-        $body    = '<p style="' . self::P . '">Welcome to ' . self::brand_name() . '! '
-                 . 'You\'re one step away. Confirm your email address to activate your account.</p>'
-                 . '<p style="' . self::P . '">This link is valid for <strong>24 hours</strong>.</p>';
-        if ($handle !== '') {
+    /**
+     * The confirm-your-email message. $o: 'founding' (signed up for the free trial: trial-focused subject),
+     * 'step' (0 = sign-up / resend, 1..3 = the reminders cron/lifecycle.php sends), 'trial_days'.
+     */
+    public function send_verification_email($to_email, $to_name, $verify_link, $handle = '', array $o = array()){
+        $m = self::build_verification_email($verify_link, $handle, $o);
+        return $this->deliver($to_email, $to_name, $m['subject'], $m['html']);
+    }
+
+    /** Subject + HTML of the verification email (pure, no send). */
+    public static function build_verification_email($verify_link, $handle = '', array $o = array()): array {
+        $founding = !empty($o['founding']);
+        $step     = (int) ($o['step'] ?? 0);
+        $days     = (int) ($o['trial_days'] ?? 14);
+        $brand    = self::brand_name();
+        $valid    = '<p style="' . self::P . '">This link is valid for <strong>24 hours</strong>.</p>';
+        $trial    = $founding ? '<p style="' . self::P . '">Confirm your email to claim your ' . $days . '-day free trial.</p>' : '';
+        if ($step === 1) {
+            $subject = 'Confirm your email to open your studio';
+            $body = '<p style="' . self::P . '">Your ' . $brand . ' account is set up. Confirm your email address and you can start building your page.</p>' . $trial . $valid;
+        } elseif ($step === 2) {
+            $subject = 'Your link expires soon — here\'s a new one';
+            $body = '<p style="' . self::P . '">The link we sent when you signed up expires soon, so here is a new one. Confirm your email address to open your ' . $brand . ' account.</p>' . $trial . $valid;
+        } elseif ($step === 3) {
+            $subject = 'Your account is waiting — your ' . $days . '-day trial starts when you confirm';
+            $body = '<p style="' . self::P . '">Your ' . $brand . ' account is still waiting for you, and your ' . $days . '-day free trial has not started yet. Confirm your email to claim it.</p>' . $valid;
+        } else {
+            $subject = $founding ? 'Confirm your email to start your free trial' : 'Confirm your email';
+            $body = '<p style="' . self::P . '">Welcome to ' . $brand . '! '
+                  . ($founding ? 'You\'re one step away. Confirm your email address to activate your account and claim your ' . $days . '-day free trial.</p>'
+                               : 'You\'re one step away. Confirm your email address to activate your account.</p>') . $valid;
+        }
+        // a handle the person chose; the auto-generated "creator123456" means nothing to them, so it is left out
+        if ($handle !== '' && !preg_match('/^creator\d{6}$/', (string) $handle)) {
             $safe = htmlspecialchars($handle, ENT_QUOTES, 'UTF-8');
             $body .= '<p style="' . self::P . ' margin-top:2px;">Your username is <strong>' . $safe . '</strong>. '
                    . 'You can sign in with either your username or your email address.</p>';
         }
-        $message = self::brand_wrap('Confirm your email', $body, 'Verify my email', $verify_link,
-                   'If you did not create an account, you can safely ignore this email.');
-
-        return $this->deliver($to_email, $to_name, $subject, $message);
+        $html = self::brand_wrap($subject, $body,
+                $founding ? 'Confirm and Start My Trial' : 'Verify My Email', $verify_link,
+                'If you did not create an account, you can safely ignore this email.');
+        return array('subject' => $subject, 'html' => $html);
     }
 
     public function send_mfa_code_email($to_email, $to_name, $code){
@@ -168,6 +196,40 @@ class NotificationsModel extends Model {
             'You’re receiving this because you registered for this event. Keep it — it’s your ticket.', $after);
     }
 
+    /**
+     * Account lifecycle email (trial started / ending, checkout didn't finish): a heading, paragraphs, optional fact rows
+     * [[label, value], ...], one button and a footer note. $footer_html is extra footer markup (e.g. a postal address and
+     * unsubscribe link once marketing email exists); transactional mail leaves it empty.
+     */
+    public function send_lifecycle_email($to_email, $to_name, $subject, $heading, array $paras, array $facts = array(), $button_label = '', $button_url = '', $footer = '', $footer_html = ''){
+        if ((string) $to_email === '') { return false; }
+        return $this->deliver($to_email, $to_name, (string) $subject, self::build_lifecycle_email($heading, $paras, $facts, $button_label, $button_url, $footer, $footer_html));
+    }
+
+    public static function build_lifecycle_email($heading, array $paras, array $facts = array(), $button_label = '', $button_url = '', $footer = '', $footer_html = ''){
+        $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $body = '';
+        foreach ($paras as $i => $p) {
+            if ($i === 1 && !empty($facts)) { $body .= self::facts_table($facts); }
+            $body .= '<p style="' . self::P . '">' . $h($p) . '</p>';
+        }
+        if (!empty($facts) && count($paras) < 2) { $body .= self::facts_table($facts); }
+        return self::brand_wrap((string) $heading, $body, (string) $button_label, (string) $button_url, (string) $footer, '', (string) $footer_html);
+    }
+
+    /** Label / value rows, like the billing email's line items. */
+    private static function facts_table(array $facts): string {
+        $td = 'padding:9px 0; border-bottom:1px solid #ecebf3; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#2b2940;';
+        $out = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:2px 0 18px;">';
+        $n = count($facts);
+        foreach (array_values($facts) as $i => $f) {
+            $last = $i === $n - 1 ? ' border-bottom:0;' : '';
+            $out .= '<tr><td style="' . $td . $last . ' color:#6f6c7b;">' . htmlspecialchars((string) $f[0], ENT_QUOTES, 'UTF-8') . '</td>'
+                  . '<td align="right" style="' . $td . $last . ' font-weight:700;">' . htmlspecialchars((string) $f[1], ENT_QUOTES, 'UTF-8') . '</td></tr>';
+        }
+        return $out . '</table>';
+    }
+
     private function deliver($to_email, $to_name, $subject, $message){
         $to = array(array('email' => $to_email, 'name' => $to_name));
         $notifications = new Notifications();
@@ -186,7 +248,7 @@ class NotificationsModel extends Model {
      * brand header, an optional CTA button, and a muted footer note. Table-based
      * with inline styles for broad email-client support.
      */
-    private static function brand_wrap($heading, $body_html, $button_label, $button_url, $footer_note, $after_html = ''){
+    private static function brand_wrap($heading, $body_html, $button_label, $button_url, $footer_note, $after_html = '', $footer_html = ''){
         $name = self::brand_name();
         $button_url = self::absolute_url($button_url);   // callers often pass an app path ('/account/billing')
 
@@ -230,6 +292,7 @@ class NotificationsModel extends Model {
       .       '<tr><td style="padding:18px 32px 22px; border-top:1px solid #f0f0f5;">'
       .         '<p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:12px; '
       .              'line-height:1.55; color:#9a97a8;">' . htmlspecialchars($footer_note, ENT_QUOTES, 'UTF-8') . '</p>'
+      .         $footer_html
       .         '<p style="margin:10px 0 0; font-family:Arial,Helvetica,sans-serif; font-size:12px; '
       .              'color:#c2c0cc;">&copy; ' . $name . '</p>'
       .       '</td></tr>'

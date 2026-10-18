@@ -82,6 +82,7 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
         <div><dt>Came from</dt><dd><?php echo $e($acq !== '' ? $acq : (array_key_exists('acq_landing', $u) && $u['acq_landing'] !== null ? 'Direct' : '—')); ?><?php if (!empty($u['acq_landing'])): ?> <span class="adm-t__muted">· landed on <?php echo $e(strtok((string) $u["acq_landing"], "?")); ?></span><?php endif; ?></dd></div>
         <div><dt>Last active</dt><dd><?php echo $e($fmtT($u['last_active_at'])); ?></dd></div>
         <div><dt>Email</dt><dd><?php echo $e($u['user_email']); ?> <?php echo !empty($u['email_verified']) ? '<span class="adm-t__muted">· verified</span>' : adm_pill('Not verified', 'warn'); ?></dd></div>
+        <?php if (LifecycleEmails::bounced($u)): ?><div><dt>Email bounced</dt><dd><?php echo adm_pill('Bounced', 'warn'); ?> <?php echo $e($fmtT($u['email_bounced_at'])); ?> <span class="adm-t__muted">· <?php echo $e((string) $u['email_bounce_reason']); ?> · no email is sent to this address</span></dd></div><?php endif; ?>
         <div><dt>Phone</dt><dd><?php echo $e($u['user_phone'] ?: '—'); ?></dd></div>
         <div><dt>Two-step sign-in</dt><dd><?php echo $e($m2 ? implode(', ', $m2) : 'Off'); ?></dd></div>
         <div><dt>Time zone</dt><dd><?php echo $e($u['content_timezone'] ?: 'UTC'); ?></dd></div>

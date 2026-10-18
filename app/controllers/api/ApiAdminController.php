@@ -69,6 +69,31 @@ class ApiAdminController extends BaseApiController {
         exit;
     }
 
+    /** Admin > Growth > Ads by campaign > Export CSV: one row per campaign, then one per ad, for the chosen period. Audited here (no JSON reply). */
+    public function admin_ads_csvAction(){
+        $this->admin_guard();
+        $days = (int) ($this->post['days'] ?? 30);
+        if (!in_array($days, array(7, 30, 90), true)) { $this->jsonError('Invalid request'); }
+        $r = (new AdminModel())->ad_funnel($days);
+        (new AuditModel())->record((int) Session::get('user_id'), 'admin_ads_csv', array('days' => $days), array('message' => 'Exported ads report (' . count($r['campaigns']) . ' campaigns, ' . $days . ' days)'), $this->get_ip_address());
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="ads-' . $days . 'd-' . gmdate('Y-m-d') . '.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Campaign', 'Source', 'Ad', 'Visits', 'Signups', 'Verified', 'Built', 'Trial Started', 'Paid', 'Revenue (USD)', 'Revenue per Signup (USD)'], ',', '"', '');
+        // a cell starting like a formula (= + - @ tab cr) is quoted so a spreadsheet shows it as text
+        $cell = function ($v) { $v = (string) $v; return ($v !== '' && strpos("=+-@\t\r", $v[0]) !== false) ? "'" . $v : $v; };
+        $line = function ($c, $ad, $visits, $x) use ($out, $cell) {
+            fputcsv($out, [$cell($c['campaign']), $cell($c['source']), $cell($ad), $visits, (int) $x['signups'], (int) $x['verified'], (int) $x['built'], (int) $x['trial'], (int) $x['paid'],
+                number_format((int) $x['revenue_cents'] / 100, 2, '.', ''), (int) $x['signups'] > 0 ? number_format((int) $x['revenue_cents'] / 100 / (int) $x['signups'], 2, '.', '') : ''], ',', '"', '');
+        };
+        foreach ($r['campaigns'] as $c) {
+            $line($c, '(all)', $c['visits'] === null ? '' : (int) $c['visits'], $c);
+            foreach ($c['ads'] as $a) { $line($c, $a['content'], '', $a); }
+        }
+        fclose($out);
+        exit;
+    }
+
     /** Mark / unmark a demo account so it never reads as a real creator in public listings. */
     public function admin_set_demoAction(){
         $this->admin_guard();

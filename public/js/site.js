@@ -1,17 +1,34 @@
 if (window.toastr) { toastr.options.escapeHtml = true; }   // names and messages land in toasts as text, never markup
 
 // A Free creator tried something that needs a paid plan: offer the upgrade, then come back to this page. True when it handled resp.
+// founding_eligible: the 14-day trial applies, so the button says so and opens the checkout straight away.
+window.cls_plan_url = function (o) {
+    var back = (o && o['return']) || (window.location.pathname + window.location.search);
+    return '/account/billing?tab=plan&plan=' + encodeURIComponent((o && o.plan) || 'creator') + (o && o.founding_eligible ? '&founding=1&checkout=1' : '') + '&return=' + encodeURIComponent(back);
+};
 window.cls_need_plan = function (resp) {
     var o = resp;
     if (typeof o === 'string') { try { o = JSON.parse(o); } catch (err) { o = null; } }
     if (!o || !o.need_plan) { return false; }
-    var back = o['return'] || (window.location.pathname + window.location.search);
-    var url = '/account/billing?tab=plan&plan=' + encodeURIComponent(o.plan || 'creator') + '&return=' + encodeURIComponent(back);
+    var url = window.cls_plan_url(o);
     if (typeof Swal === 'undefined') { window.location.href = url; return true; }
     Swal.fire({
         titleText: o.message || 'Upgrade to continue',
         width: 440, showCancelButton: true, reverseButtons: true,
-        confirmButtonText: 'Upgrade', cancelButtonText: 'Not Now',
+        confirmButtonText: o.founding_eligible ? 'Start Free Trial' : 'Upgrade', cancelButtonText: 'Not Now',
+        customClass: { actions: 'gap-2', confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
+    }).then(function (r) { if (r.isConfirmed) { window.location.href = url; } });
+    return true;
+};
+// A success that still waits on a plan (a Free creator's post is saved but their page is not public): say so and offer the plan. True when it showed.
+window.cls_plan_nudge = function (o) {
+    if (!o || !o.upgrade) { return false; }
+    var u = o.upgrade, url = window.cls_plan_url(u);
+    if (typeof Swal === 'undefined') { if (window.toastr) { toastr.success(o.message); } return true; }
+    Swal.fire({
+        titleText: o.message,
+        width: 440, showCancelButton: true, reverseButtons: true,
+        confirmButtonText: u.founding_eligible ? 'Start Free Trial' : 'Upgrade', cancelButtonText: 'Not Now',
         customClass: { actions: 'gap-2', confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
     }).then(function (r) { if (r.isConfirmed) { window.location.href = url; } });
     return true;

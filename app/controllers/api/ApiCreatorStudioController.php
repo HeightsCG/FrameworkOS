@@ -936,6 +936,9 @@ class ApiCreatorStudioController extends BaseApiController {
         }
         if (!empty($post['on_cls'])) { PostNotifier::published($creator_id, $id); }   // socials-only posts don't notify followers
         $share_error = $this->share_post_to_social($user, $post, $shares, null);
+        if (!Plan::can_sell($user)) {   // Free: saved, but the page is not public yet (studio.js shows it with the plan button)
+            $this->jsonSuccess(['message' => 'Saved. Your page goes public when you start Creator.', 'state' => 'published', 'share_error' => $share_error, 'upgrade' => UpgradePrompt::payload($user, '/studio')]);
+        }
         $this->jsonSuccess(['message' => 'Published', 'state' => 'published', 'share_error' => $share_error]);
     }
 

@@ -11,6 +11,8 @@ class SetupService {
     /** Ordered step definitions. 'cta' is the Title Case button label. */
     public static function steps(): array {
         return array(
+            // plan step: only for an account that cannot sell yet (and ticks once it can). Title, text and link are set per account in progress().
+            'plan'       => array('title' => 'Choose a plan',                    'text' => 'Your page goes public and selling and AI tools open.',                       'cta' => 'Choose a Plan',             'url' => '/account/billing?tab=plan',                     'optional' => false, 'skippable' => false),
             // handle step (begin): only for accounts still on the neutral signup handle, see handle_applies().
             'handle'     => array('title' => 'Choose your handle',               'text' => 'Pick the name fans see in your profile link.',                               'cta' => 'Choose Your Handle',        'url' => '/account/settings?section=account',              'optional' => false, 'skippable' => false),
             // handle step (end)
@@ -38,13 +40,19 @@ class SetupService {
         // handle step (end)
         // Free builds before it pays: the selling and AI steps (live tier, payouts, AI replies) wait for the upgrade.
         $owner = (new UsersModel())->get_user_by_id($creator_id);
-        if (!Plan::can_sell((is_array($owner) && count($owner) === 1) ? $owner[0] : null)) {
+        $owner = (is_array($owner) && count($owner) === 1) ? $owner[0] : null;
+        $can_sell = Plan::can_sell($owner);
+        if (!$can_sell) {
             unset($defs['tiers'], $defs['payouts'], $defs['inbox']);
             $defs['first_post']['text'] = 'It goes live on your page when you upgrade.';   // Free has no public page or feed yet
         }
         $done  = array(); $skipped = array();
         if ($row && !empty($row['steps_json']))   { $done    = (array) json_decode((string) $row['steps_json'], true); }
         if ($row && !empty($row['skipped_json'])) { $skipped = (array) json_decode((string) $row['skipped_json'], true); }
+        unset($skipped['plan']);   // never skippable
+        // plan step: shown while the account cannot sell, and kept (ticked) once it was shown and they started a plan.
+        if ($can_sell && !isset($done['plan']) && (string) ($owner['signup_role'] ?? '') !== 'creator') { unset($defs['plan']); }   // signed up as a creator: they started on Free, so the step shows ticked
+        elseif (!$can_sell) { unset($done['plan']); $defs['plan'] = self::plan_step($owner) + $defs['plan']; }   // back on Free after a plan: not done any more
 
         // Cheap DB checks run on every load so a step ticks the moment it's done — including after
         // the checklist was once marked complete (steps can be added later). Only the Stripe payouts
@@ -94,6 +102,7 @@ class SetupService {
 
     private static function check(CreatorSetupModel $m, $key, $creator_id): bool {
         switch ($key) {
+            case 'plan':       $u = (new UsersModel())->get_user_by_id($creator_id); return Plan::can_sell((is_array($u) && count($u) === 1) ? $u[0] : null);
             case 'handle':     return !UsersModel::is_neutral_username($m->current_username($creator_id));   // handle step
             case 'profile':    return $m->has_profile($creator_id);
             case 'brand':      return $m->has_brand($creator_id);
@@ -104,6 +113,17 @@ class SetupService {
             case 'inbox':      return $m->has_inbox_ready($creator_id);
         }
         return false;
+    }
+
+    /** The plan step for an account that cannot sell: the founding trial when it applies, else Choose a Plan; the link opens that plan's checkout. */
+    public static function plan_step(?array $owner): array {
+        $plan = UpgradePrompt::plan($owner);
+        if (UpgradePrompt::founding($owner)) {
+            $first = date('M j', strtotime(Founding::trial_end() . ' UTC'));
+            return array('title' => 'Start your ' . Founding::TRIAL_DAYS . '-day free trial', 'text' => '$0 today. Your page goes public and AI tools open. First charge ' . $first . ', cancel anytime before.',
+                'cta' => 'Start ' . Founding::TRIAL_DAYS . '-Day Free Trial', 'url' => UpgradePrompt::checkout_url($plan, true));
+        }
+        return array('url' => UpgradePrompt::checkout_url($plan, false));
     }
 
     private static function all_required_done(array $done, array $defs): bool {

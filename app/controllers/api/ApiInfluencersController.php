@@ -34,7 +34,7 @@ class ApiInfluencersController extends BaseApiController {
     /** Answer with a shared-service result: error -> jsonError (with need_* flags), ok -> jsonSuccess(payload). */
     private function answer(array $r){
         if (empty($r['ok'])) {
-            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan', 'need_credits', 'price', 'balance', 'addon', 'addon_price', 'locked']));
+            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan', 'plan', 'founding_eligible', 'need_credits', 'price', 'balance', 'addon', 'addon_price', 'locked']));
             $this->jsonError((string) $r['error'], $extra);
         }
         unset($r['ok'], $r['error']);

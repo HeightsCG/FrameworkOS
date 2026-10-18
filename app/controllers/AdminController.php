@@ -220,7 +220,7 @@ class AdminController extends Controller {
         $this->shell('growth');
         $model = new AdminModel();
         $this->view->growth = array();
-        try { foreach (array(7, 30, 90) as $gd) { $this->view->growth[$gd] = array('days' => $model->funnel($gd), 'sources' => $model->funnel_by_source($gd), 'referred' => $model->referred_signups($gd), 'builders' => $model->free_builders($gd)); } }
+        try { foreach (array(7, 30, 90) as $gd) { $this->view->growth[$gd] = array('days' => $model->funnel($gd), 'sources' => $model->funnel_by_source($gd), 'referred' => $model->referred_signups($gd), 'builders' => $model->free_builders($gd), 'ads' => $model->ad_funnel($gd)); } }
         catch (\Throwable $e) { error_log('[admin] growth: ' . $e->getMessage()); }
         $this->view->cross_promo_plans = '';
         try { $this->view->cross_promo_plans = implode(', ', PromoSwapsModel::plans()); } catch (\Throwable $e) { error_log('[admin] cross promo: ' . $e->getMessage()); }
