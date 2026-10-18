@@ -123,8 +123,24 @@ class Notifications {
         return $this->send_email(array(array('email' => (string) $email, 'name' => (string) $first_name)), 0, (string) $subject, $message);
     }
 
+    /**
+     * Reserved test domains (RFC 2606/6761: example.com/.net/.org, .example, .invalid, .test, .localhost) can never
+     * receive mail. Test accounts use them; sending would only bounce and count against the Postmark sender reputation.
+     */
+    public static function undeliverable($email): bool {
+        $domain = strtolower((string) substr(strrchr((string) $email, '@'), 1));
+        if ($domain === '') { return true; }
+        if (in_array($domain, array('example.com', 'example.net', 'example.org'), true)) { return true; }
+        return (bool) preg_match('/(^|\.)(example|invalid|test|localhost)$|\.example\.(com|net|org)$/', $domain);
+    }
+
     /** Deliver one HTML message through the Postmark HTTP API. Returns true on a 200. */
     private function postmark_send($token, $from_field, $to_email, $cc, $subject, $message, $reply_to = ''){
+        if (self::undeliverable($to_email)) {
+            error_log('[postmark] skipped reserved test address ' . $to_email . ': ' . $subject);
+            return true;   // nothing could deliver it: treat as handled so test flows carry on
+        }
+        $cc = array_values(array_filter((array) $cc, function ($c) { return !self::undeliverable($c); }));
         $payload = array(
             'From'          => $from_field,
             'To'            => $to_email,
