@@ -436,7 +436,8 @@ class AdminModel extends Model {
 
     /**
      * Growth tab: signups over the last $days UTC days (today included), demo accounts left out.
-     * "paid" = billing account active or past due on a selling plan (PagesController::selling_tiers()).
+     * "checkout" = opened a plan checkout (Analytics 'checkout_started', recorded since 2026-10-18).
+     * "paid" = billing account active or past due on a selling plan (PagesController::selling_tiers()); a started trial counts.
      */
     private function growth_parts($days){
         $days   = max(1, min(366, (int) $days));
@@ -447,6 +448,7 @@ class AdminModel extends Model {
         $sums   = "COUNT(*) AS signups,
                    COALESCE(SUM(u.email_verified = 1), 0) AS verified,
                    COALESCE(SUM(u.role_id = " . (int) $this->creator_role_id() . "), 0) AS became_creator,
+                   COALESCE(SUM(EXISTS (SELECT 1 FROM analytics_events ae WHERE ae.kind = 'event' AND ae.name = 'checkout_started' AND ae.user_id = u.user_id)), 0) AS checkout,
                    COALESCE(SUM($paid), 0) AS paid,
                    COALESCE(SUM(u.referred_by_creator_id IS NOT NULL), 0) AS referred";
         return array('where' => $where, 'sums' => $sums, 'paid' => $paid, 'params' => $params);
