@@ -9,6 +9,9 @@
  */
 class Notifications {
 
+    /** Why the last Postmark send failed ('' after a success): Postmark's own message, for callers that report it (error digest). */
+    public static $last_error = '';
+
     /** Load an HTML template from app/email_templates and substitute {vars}. */
     public function clean_template($template_name, $variables){
         $template = $this->get_email_template($template_name);
@@ -173,9 +176,12 @@ class Notifications {
         curl_close($ch);
 
         if ($code === 200) {
+            self::$last_error = '';
             return true;
         }
         error_log('[postmark] send failed (http ' . $code . '): ' . ($resp !== false ? $resp : $err));
+        $j = $resp !== false ? json_decode((string) $resp, true) : null;
+        self::$last_error = is_array($j) && !empty($j['Message']) ? (string) $j['Message'] : ('http ' . $code . ($err !== '' ? ': ' . $err : ''));
         return false;
     }
 

@@ -18,12 +18,19 @@ class BroadcastsModel extends Model {
                      'expired' => 'Expired subscribers', 'buyers' => 'Buyers');
     }
 
-    /** Keep only known segments, in canonical order. */
-    public static function clean_segments($segments){
+    /** Announcement audiences: the Creator Link Studio team account (PlatformAccount) writing to the whole platform. */
+    public static function platform_segments(){ return array('all_users', 'creators', 'fans', 'active30'); }
+
+    public static function platform_segment_labels(){
+        return array('all_users' => 'All Users', 'creators' => 'Creators', 'fans' => 'Fans', 'active30' => 'Active in Last 30 Days');
+    }
+
+    /** Keep only known segments, in canonical order ($platform: the announcement audiences instead). */
+    public static function clean_segments($segments, $platform = false){
         if (is_string($segments)) { $segments = json_decode($segments, true) ?: explode(',', $segments); }
         $segments = array_map('strval', (array) $segments);
         $out = array();
-        foreach (self::segments() as $s) { if (in_array($s, $segments, true)) { $out[] = $s; } }
+        foreach ($platform ? self::platform_segments() : self::segments() as $s) { if (in_array($s, $segments, true)) { $out[] = $s; } }
         return $out;
     }
 
@@ -38,7 +45,7 @@ class BroadcastsModel extends Model {
 
     /** Distinct recipient user ids for a creator across one or more segments (never the creator). */
     public function recipient_ids($creator_id, $segments){
-        $segments = self::clean_segments(is_array($segments) ? $segments : array($segments));
+        $segments = self::clean_segments(is_array($segments) ? $segments : array($segments), PlatformAccount::is($creator_id));
         if (empty($segments)) { return array(); }
         $ids = array();
         foreach ($segments as $s) { $ids = array_merge($ids, $this->segment_ids((int) $creator_id, $s)); }
@@ -51,6 +58,7 @@ class BroadcastsModel extends Model {
     }
 
     private function segment_ids($cid, $segment){
+        if (PlatformAccount::is($cid)) { return $this->platform_segment_ids($cid, $segment); }
         $p = array('c' => $cid, 'me' => $cid);
         switch ($segment) {
             case 'followers':
@@ -81,14 +89,45 @@ class BroadcastsModel extends Model {
         return $ids;
     }
 
+    /** An announcement audience: active, real accounts (never deleted, suspended, demo or the team account itself). */
+    private function platform_segment_ids($cid, $segment){
+        $where = "u.deleted = 0 AND u.user_status = 'Active' AND u.is_demo = 0 AND u.is_platform = 0 AND u.user_id <> :me";
+        $p = array('me' => (int) $cid);
+        if ($segment === 'creators' || $segment === 'fans') {
+            $where .= " AND u.role_id " . ($segment === 'creators' ? '=' : '<>') . " (SELECT id FROM user_roles WHERE role_name = 'Creator' LIMIT 1)";
+        } elseif ($segment === 'active30') {
+            $where .= " AND u.last_active_at >= UTC_TIMESTAMP() - INTERVAL 30 DAY";
+        }
+        $ids = array();
+        foreach ((array) parent::select("SELECT u.user_id AS uid FROM user_accounts u WHERE $where", $p) as $r) { $ids[] = (int) $r['uid']; }
+        return $ids;
+    }
+
+    /** How many accounts an announcement to this audience reaches right now. */
+    public function platform_count($segment){
+        $cid = PlatformAccount::id();
+        return $cid > 0 ? count($this->recipient_ids($cid, array((string) $segment))) : 0;
+    }
+
+    /** broadcast id => messages actually delivered so far (a queued announcement fills in over a few minutes). */
+    public function delivered_counts(array $broadcast_ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $broadcast_ids))));
+        if (empty($ids)) { return array(); }
+        $out = array();
+        foreach ((array) parent::select("SELECT broadcast_id, COUNT(*) AS n FROM messages WHERE broadcast_id IN (" . implode(',', $ids) . ") GROUP BY broadcast_id") as $r) {
+            $out[(int) $r['broadcast_id']] = (int) $r['n'];
+        }
+        return $out;
+    }
+
     /**
      * Log the broadcast and deliver it: in-request for small audiences, through the
      * job queue for big ones. Returns array(broadcast_id, recipient_count, queued).
      */
     public function create_and_send($creator_id, $segments, $body, array $asset_ids = array(), $price_credits = 0){
         $cid = (int) $creator_id;
-        $segments = self::clean_segments(is_array($segments) ? $segments : array($segments));
-        if (empty($segments)) { $segments = array('all'); }
+        $segments = self::clean_segments(is_array($segments) ? $segments : array($segments), PlatformAccount::is($cid));
+        if (empty($segments)) { $segments = array(PlatformAccount::is($cid) ? 'all_users' : 'all'); }
         $ids = $this->recipient_ids($cid, $segments);
         if (empty($ids)) { return array(0, 0, false); }
         $asset_ids = array_values(array_unique(array_filter(array_map('intval', $asset_ids))));
@@ -137,9 +176,11 @@ class BroadcastsModel extends Model {
         $messages = new MessagesModel();
         $name  = Notify::name_of($cid) ?: 'A creator you follow';
         $prev  = MessagesModel::preview_text($body, count($asset_ids), $price);
+        $team  = PlatformAccount::is($cid);   // an announcement: the whole text in the email, sent to everyone with Broadcasts email on
         foreach ($ids as $uid) {
             $conv_id = $messages->get_or_create($cid, $uid);   // creator is always creator_id side
             $messages->send($conv_id, $cid, $body, $bid, $asset_ids, $price);
+            if ($team) { Notify::send($uid, 'broadcasts', 'News from ' . PlatformAccount::NAME, (string) $body, '/inbox/thread/' . (int) $conv_id, 'fa-bullhorn'); continue; }
             Notify::send($uid, 'broadcasts', $name . ' sent a message to fans', mb_substr($prev, 0, 140), '/inbox/thread/' . (int) $conv_id, 'fa-bullhorn', true);
         }
     }

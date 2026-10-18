@@ -441,6 +441,12 @@ class UsersModel extends Model {
     }
 
     /** Every active admin's user id (in-platform notifications for review queues). */
+    /** The "Creator Link Studio" team account (is_platform): the sender of admin messages and announcements. 0 when missing. */
+    public function platform_id(){
+        $rows = parent::select("SELECT user_id FROM user_accounts WHERE is_platform = 1 AND deleted = 0 ORDER BY user_id LIMIT 1");
+        return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['user_id'] : 0;
+    }
+
     public function admin_ids(){
         $rows = parent::select("SELECT user_id FROM user_accounts WHERE is_admin = 1 AND deleted = 0");
         $out = array();

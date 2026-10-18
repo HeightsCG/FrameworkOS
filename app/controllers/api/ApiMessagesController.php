@@ -57,6 +57,15 @@ class ApiMessagesController extends BaseApiController {
         // Notify the recipient in-platform (email only if they are offline).
         $recipient = ((int) $conv['creator_id'] === $me) ? (int) $conv['user_id'] : (int) $conv['creator_id'];
         $sender = $model->identity_map([$me])[$me] ?? ['name' => 'Someone'];
+        if (PlatformAccount::is($recipient)) {
+            // A reply to the Creator Link Studio team: every admin is told, it's answered at /admin/messages (no inbox automation).
+            $preview = MessagesModel::preview_text($body, count($asset_ids), $price);
+            foreach ($this->userModel->admin_ids() as $aid) {
+                $this->notify((int) $aid, 'messages', $sender['name'] . ' replied to Creator Link Studio', $preview, '/admin/messages?c=' . $conv_id, 'fa-comment-dots', true);
+            }
+            $sent = $this->shape([$model->get_message($mid)], $me, $conv);
+            echo json_encode(['success' => true, 'conversation_id' => $conv_id, 'sent' => $sent[0] ?? null]); exit;
+        }
         $this->notify($recipient, 'messages', 'New message from ' . $sender['name'],
             MessagesModel::preview_text($body, count($asset_ids), $price), '/inbox/thread/' . $conv_id, 'fa-comment-dots', true);
 

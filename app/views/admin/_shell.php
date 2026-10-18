@@ -8,12 +8,13 @@ $adm_page = (string) ($this->page ?? ''); $adm_sec = (string) ($this->section ??
 $adm_sections = array(
     array('today', 'Today', '/admin', 0),
     array('moderation', 'Moderation', '/admin/moderation', (int) ($nav['queue'] ?? 0)),
-    array('users', 'Users', '/admin/users', 0),
+    array('users', 'Users', '/admin/users', (int) ($nav['messages'] ?? 0)),
     array('financials', 'Financials', '/admin/financials', 0), array('sales', 'Sales', '/admin/sales', 0),
     array('billing', 'Billing', '/admin/billing', 0),
     array('growth', 'Growth', '/admin/growth', 0), array('analytics', 'Analytics', '/admin/analytics', 0), array('content', 'Content', '/admin/content', 0), array('system', 'System', '/admin/system', 0),
 );
 $adm_groups = array(
+    'users'   => array(array('users', 'Users', '/admin/users'), array('messages', 'Messages', '/admin/messages'), array('announcements', 'Announcements', '/admin/announcements')),
     'growth'  => array(array('growth', 'Funnel', '/admin/growth'), array('leads', 'Leads', '/admin/leads'), array('founding', 'Founding', '/admin/founding'), array('affiliates', 'Affiliates', '/admin/affiliates'), array('testimonials', 'Testimonials', '/admin/testimonials')),
     'analytics' => array(array('analytics', 'Traffic', '/admin/analytics'), array('analytics_pages', 'Pages', '/admin/analytics?show=pages'), array('analytics_sources', 'Sources', '/admin/analytics?show=sources'),
                          array('analytics_conversions', 'Conversions', '/admin/analytics?show=conversions'), array('analytics_product', 'Product', '/admin/analytics?show=product'), array('analytics_creators', 'Creators', '/admin/analytics?show=creators')),
@@ -29,6 +30,6 @@ $adm_tabs = $adm_groups[$adm_sec] ?? array();
     </nav>
     <?php if ($adm_tabs): ?>
     <nav class="adm-subnav" aria-label="<?php echo $e(ucfirst($adm_sec)); ?> pages">
-        <?php foreach ($adm_tabs as $t): $on = $t[0] === $adm_page; ?><a class="adm-subnav__a<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo $e($t[2]); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><?php echo $e($t[1]); ?><?php if ($t[0] === 'content' && (int) ($nav['articles'] ?? 0) > 0): ?> <b><?php echo (int) $nav['articles']; ?></b><?php elseif ($t[0] === 'affiliates' && (int) ($nav['affiliates'] ?? 0) > 0): ?> <b><?php echo (int) $nav['affiliates']; ?></b><?php endif; ?></a><?php endforeach; ?>
+        <?php foreach ($adm_tabs as $t): $on = $t[0] === $adm_page; ?><a class="adm-subnav__a<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo $e($t[2]); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><?php echo $e($t[1]); ?><?php if ($t[0] === 'content' && (int) ($nav['articles'] ?? 0) > 0): ?> <b><?php echo (int) $nav['articles']; ?></b><?php elseif ($t[0] === 'affiliates' && (int) ($nav['affiliates'] ?? 0) > 0): ?> <b><?php echo (int) $nav['affiliates']; ?></b><?php elseif ($t[0] === 'messages' && (int) ($nav['messages'] ?? 0) > 0): ?> <b><?php echo (int) $nav['messages']; ?></b><?php endif; ?></a><?php endforeach; ?>
     </nav>
     <?php endif; ?>

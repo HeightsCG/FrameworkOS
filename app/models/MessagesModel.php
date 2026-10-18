@@ -377,7 +377,7 @@ class MessagesModel extends Model {
             $map[(int) $r['user_id']] = array(
                 'handle'     => $handle,
                 'name'       => $name !== '' ? $name : ('@' . $handle),
-                'avatar'     => (string) ($r['avatar'] ?? ''),
+                'avatar'     => PlatformAccount::is($r['user_id']) ? PlatformAccount::AVATAR : (string) ($r['avatar'] ?? ''),   // the team account has no profile: the logo
                 'is_creator' => ($creator_role > 0 && (int) $r['role_id'] === $creator_role),
             );
         }

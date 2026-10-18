@@ -375,3 +375,60 @@ a.adm-seg__b{ text-decoration:none; }
 .adm-form__l{ display:flex; flex-direction:column; gap:6px; font-size:.8125rem; font-weight:600; color:var(--t2, #4b4b57); }
 .adm-form__in{ width:100%; padding:10px 12px; border:1px solid var(--line, #e4e4e7); border-radius:6px; font:inherit; font-weight:400; color:inherit; }
 .adm-form__in:focus{ outline:2px solid var(--acc-btn, #CD4C00); outline-offset:1px; border-color:var(--acc-btn, #CD4C00); }
+/* Users > Messages: the Creator Link Studio team inbox (list + thread), fitted to the window on desktop */
+.adm-msgm__from{ margin:0 0 14px; font-size:14px; color:var(--muted); }
+.adm-msgm__from b{ color:var(--text); font-weight:600; }
+.adm-inbox{ display:grid; grid-template-columns:320px minmax(0,1fr); padding:0; overflow:hidden; height:max(520px, calc(100vh - 300px)); }
+.adm-inbox__list{ border-right:1px solid var(--l); overflow-y:auto; min-height:0; }
+.adm-inbox__items{ display:flex; flex-direction:column; }
+.adm-inbox__item{ display:flex; align-items:center; gap:12px; width:100%; padding:12px 16px; border:0; border-bottom:1px solid var(--l2, #F1F1F3); background:transparent; text-align:left; font:inherit; color:var(--text); cursor:pointer; }
+.adm-inbox__item:hover{ background:#FAFAFA; }
+.adm-inbox__item:focus-visible{ outline:none; box-shadow:inset var(--ring); }
+.adm-inbox__item.is-on{ background:#FFF4EC; }
+.adm-inbox__item-t{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.adm-inbox__item-top{ display:flex; align-items:baseline; gap:8px; }
+.adm-inbox__item-top b{ font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.adm-inbox__item-top time{ margin-left:auto; flex:none; font-size:12px; color:var(--muted); }
+.adm-inbox__item-p{ font-size:13px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.adm-inbox__item.is-unread .adm-inbox__item-top b{ font-weight:600; }
+.adm-inbox__item.is-unread .adm-inbox__item-p{ color:var(--text); }
+.adm-inbox__dot{ flex:none; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--acc-btn); color:var(--on-acc); font-size:11px; font-weight:600; display:inline-flex; align-items:center; justify-content:center; }
+.adm-inbox__hint{ font-size:13px; }
+.adm-inbox__err{ padding:16px; }
+.adm-inbox__pane{ display:flex; flex-direction:column; min-width:0; min-height:0; }
+.adm-inbox__none{ flex:1; display:flex; align-items:center; justify-content:center; }
+.adm-inbox__thread{ display:flex; flex-direction:column; flex:1; min-height:0; }
+.adm-inbox__thread[hidden], .adm-inbox__none[hidden]{ display:none; }
+.adm-inbox__head{ display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--l); }
+.adm-inbox__head .adm-btn{ margin-left:auto; }
+.adm-inbox__back{ display:none; width:36px; height:36px; border:0; border-radius:8px; background:transparent; color:var(--text); cursor:pointer; }
+.adm-inbox__back:focus-visible{ outline:none; box-shadow:var(--ring); }
+.adm-inbox__msgs{ flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; background:#FAFAFB; }
+.adm-inbox__msg{ max-width:min(560px, 80%); display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+.adm-inbox__msg p{ margin:0; padding:10px 12px; border-radius:8px; background:var(--surface); border:1px solid var(--l); line-height:1.5; overflow-wrap:anywhere; }
+.adm-inbox__msg time{ font-size:12px; color:var(--muted); padding:0 4px; }
+.adm-inbox__msg.is-mine{ align-self:flex-end; align-items:flex-end; }
+.adm-inbox__msg.is-mine p{ background:#FFF4EC; border-color:#F6DCC8; }
+.adm-inbox__media{ display:block; margin-top:4px; font-size:12px; color:var(--muted); }
+.adm-inbox__compose{ display:flex; gap:8px; align-items:flex-end; padding:12px 16px; border-top:1px solid var(--l); }
+.adm-inbox__compose textarea{ resize:vertical; min-height:44px; max-height:240px; }
+/* Users > Announcements */
+.adm-ann .adm-field:last-of-type{ margin-bottom:16px; }
+.adm-ann .adm-seg{ align-self:flex-start; }
+.adm-ann__foot{ display:flex; align-items:center; gap:16px; justify-content:flex-end; }
+.adm-ann__reach{ font-size:14px; color:var(--muted); }
+@media (max-width:900px){
+    .adm-inbox{ grid-template-columns:1fr; height:calc(100vh - 290px); height:calc(100dvh - 290px); min-height:420px; }
+    .adm-inbox__list{ border-right:0; }
+    .adm-inbox__pane{ display:none; }
+    .adm-inbox.is-open .adm-inbox__list{ display:none; }
+    .adm-inbox.is-open .adm-inbox__pane{ display:flex; }
+    .adm-inbox__back{ display:inline-flex; align-items:center; justify-content:center; }
+    .adm-inbox__msg{ max-width:88%; }
+    .adm-inbox__compose textarea{ font-size:16px; }
+    .adm-ann__foot{ flex-direction:column; align-items:stretch; }
+    .adm-ann__foot .adm-btn{ justify-content:center; height:44px; }
+}
+/* Admin inputs focus in the site orange, never Bootstrap blue (pages and the admin dialogs) */
+.adm .form-control:focus, .adm-field .form-control:focus{ border-color:var(--acc); box-shadow:var(--ring); outline:none; }
+.adm-field .form-control.is-invalid:focus{ border-color:#e5484d; box-shadow:0 0 0 3px rgba(229,72,77,.18); }

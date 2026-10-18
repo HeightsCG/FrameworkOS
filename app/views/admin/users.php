@@ -35,6 +35,7 @@ $users = (array) $this->users; $q = (string) $this->q; $me = (int) $this->me; ?>
             <td class="adm-t__muted adm-t__nowrap" data-value="<?php echo $e($u['last_active_at']); ?>"><?php echo $e($fmt($u['last_active_at'], true)); ?></td>
             <td class="adm-t__act"><?php echo adm_row_menu('Actions for @' . $u['u_name'], array(
                 array('text' => 'Open account', 'href' => '/admin/user/' . (int) $u['user_id']),
+                !PlatformAccount::is($u['user_id']) ? array('text' => 'Message', 'attrs' => 'data-message-user="' . (int) $u['user_id'] . '" data-name="' . $e($name) . '"') : null,
                 (!$isMe && !$isAdm && !$dis) ? array('text' => 'Sign in as user', 'attrs' => 'data-impersonate="' . (int) $u['user_id'] . '" data-handle="' . $e($u['u_name']) . '"') : null,
                 (!$isMe && !$isAdm) ? array('text' => $dis ? 'Reactivate' : 'Suspend…', 'attrs' => 'data-status="' . ($dis ? 'Active' : 'Disabled') . '"', 'danger' => !$dis) : null,
             )); ?></td>
@@ -46,4 +47,6 @@ $users = (array) $this->users; $q = (string) $this->q; $me = (int) $this->me; ?>
     <?php endif; ?>
 </section>
 <?php include __DIR__ . '/_shell_end.php'; ?>
+<?php include __DIR__ . '/_message_modal.php'; ?>
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>
+<script src="/js/admin-messages.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-messages.js'); ?>"></script>

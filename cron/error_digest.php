@@ -103,5 +103,7 @@ foreach ($users->admin_ids() as $aid) {
     if ($ok) { $sent++; }
 }
 echo date('c'), " sent to $sent admin(s)\n";
-CronRuns::finish('error_digest', $sent > 0, count($counts) . ' distinct, sent to ' . $sent);
+// Nothing went out: say why on the Jobs page (e.g. Postmark refusing a suppressed address), not just "sent to 0"
+$why = ($sent === 0 && Notifications::$last_error !== '') ? ': Postmark said ' . mb_substr(Notifications::$last_error, 0, 200) : '';
+CronRuns::finish('error_digest', $sent > 0, count($counts) . ' distinct, sent to ' . $sent . $why);
 exit($sent > 0 ? 0 : 1);

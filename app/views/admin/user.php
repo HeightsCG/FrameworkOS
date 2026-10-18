@@ -43,6 +43,9 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
         <?php if (!$this->is_me && !$deleted && !$disabled && empty($u['is_admin'])): ?>
         <button type="button" class="adm-btn" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>">Sign In as User</button>
         <?php endif; ?>
+        <?php if (!$deleted && !PlatformAccount::is($u['user_id'])): ?>
+        <button type="button" class="adm-btn" data-message-user="<?php echo (int) $u['user_id']; ?>" data-name="<?php echo $e(trim($u['first_name'] . ' ' . $u['last_name']) ?: '@' . $u['u_name']); ?>">Message</button>
+        <?php endif; ?>
         <button type="button" class="adm-btn adm-btn--primary" data-act="adjust">Adjust Balance</button>
         <div class="dropdown">
             <button type="button" class="adm-btn" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false">More <i class="fa-solid fa-chevron-down adm-btn__caret" aria-hidden="true"></i></button>
@@ -253,5 +256,7 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
 </div>
 <?php include __DIR__ . '/_shell_end.php'; ?>
 <?php include __DIR__ . '/_adjust_modal.php'; ?>
+<?php include __DIR__ . '/_message_modal.php'; ?>
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>
+<script src="/js/admin-messages.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-messages.js'); ?>"></script>
 <script src="/js/admin-user.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-user.js'); ?>"></script>

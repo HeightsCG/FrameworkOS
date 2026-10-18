@@ -82,6 +82,9 @@ class ApiRoutes {
             'admin_set_cross_promo_plans', 'admin_niche_save', 'admin_niche_set_active', 'admin_niche_move',
             'admin_founding_testimonial', 'admin_founding_refuse', 'admin_testimonial_add', 'admin_testimonial_status', 'admin_testimonial_remove',
         ],
+        'ApiAdminMessagesController' => [
+            'admin_message_send', 'admin_message_inbox', 'admin_message_thread', 'admin_announce_count', 'admin_announce_send',
+        ],
         'ApiTeamController' => [
             'team_invite', 'team_set_role', 'team_set_status', 'team_remove',
         ],
