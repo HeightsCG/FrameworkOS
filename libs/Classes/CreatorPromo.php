@@ -8,9 +8,11 @@
  *   - Lock: an eligible creator keeps $49 for as long as the subscription stays active; cancelling or moving to Free ends it.
  *   - The $49 price is open to everyone until the deadline; the 14-day trial stays limited to Founding::SPOTS.
  *
- * DISPLAY ONLY. Billing still charges PlanTiers::price('creator') on every charge and renewal (BillingService::plan_cents).
- * The promo shows only while that billing price equals PRICE, so the page never promises a price checkout does not charge.
- * The date switch and the $49 lock in billing are a separate, approved change (see the report of 2026-10-15).
+ * BILLING (2026-10-18): this class decides the Creator list price. PlanTiers::tiers() sets the creator tier's price from
+ * list_price(): PRICE until the offer ends, REGULAR after. Each account keeps the price it started at
+ * (billing_accounts.plan_price_cents, BillingService::account_plan_cents), so ending or extending the offer never changes
+ * what an existing subscriber pays. To extend the offer, change the end date on /admin (Growth tab, "Founding Creator
+ * price"; app_settings creator_promo_ends); ENDS below is only the default when nothing is saved.
  * Time is always the server's clock, never the browser's.
  */
 class CreatorPromo
@@ -18,13 +20,36 @@ class CreatorPromo
     const PLAN    = 'creator';
     const PRICE   = 49;                       // promotional monthly price (dollars)
     const REGULAR = 99;                       // announced regular monthly price from Nov 1, 2026
-    const ENDS    = '2026-10-31 23:59:59';    // last moment of the offer, in TZ
-    const STARTS_REGULAR = '2026-11-01';      // first day of the regular price, in TZ
+    const ENDS    = '2026-10-31 23:59:59';    // default last moment of the offer, in TZ (admin setting creator_promo_ends overrides)
     const TZ      = 'America/New_York';
+    const SETTING = 'creator_promo_ends';     // app_settings key: 'YYYY-MM-DD' (offer runs to 11:59:59 PM that day, Eastern)
 
-    /** Unix time of the end of the offer (Oct 31, 2026 23:59:59 Eastern, daylight-saving aware). */
+    /** The offer's last moment as 'Y-m-d H:i:s' in TZ: the admin's saved end date, else ENDS. */
+    public static function ends(): string {
+        if (self::$ends !== null) { return self::$ends; }
+        $d = '';
+        try { $d = trim((string) (new AdminSettingsModel())->get(self::SETTING, '')); } catch (\Throwable $e) { $d = ''; }   // no DB (a test): the default
+        self::$ends = preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) ? $d . ' 23:59:59' : self::ENDS;
+        return self::$ends;
+    }
+    private static $ends = null;
+
+    /** Forget the cached end date (after the admin saves a new one in this request). */
+    public static function reset(): void { self::$ends = null; }
+
+    /** Unix time of the end of the offer (daylight-saving aware). */
     public static function ends_at(): int {
-        return (new DateTime(self::ENDS, new DateTimeZone(self::TZ)))->getTimestamp();
+        return (new DateTime(self::ends(), new DateTimeZone(self::TZ)))->getTimestamp();
+    }
+
+    /** The Creator list price new subscribers get right now: PRICE while the offer runs, REGULAR after (dollars). */
+    public static function list_price(?int $at = null): int {
+        return self::running($at) ? self::PRICE : self::REGULAR;
+    }
+
+    /** Is the offer still open at $at (default now)? */
+    public static function running(?int $at = null): bool {
+        return ($at ?? self::now()) <= self::ends_at();
     }
 
     /** The clock the offer is judged by. On dev only, ?promo_at=<unix or date> previews another moment (never in production). */
@@ -38,11 +63,9 @@ class CreatorPromo
         return time();
     }
 
-    /** Is the offer running at $at (default now), and does billing actually charge the promotional price? */
+    /** Is the offer running at $at (default now)? Billing charges list_price(), so what the page shows is what checkout charges. */
     public static function active(?int $at = null): bool {
-        $at = $at ?? self::now();
-        if ($at > self::ends_at()) { return false; }
-        return (int) PlanTiers::price(self::PLAN) === self::PRICE;   // never advertise a price billing does not charge
+        return self::running($at);
     }
 
     /** A public page's cache lifetime, cut so nothing cached before the deadline is served after it (real clock, not the preview). */
@@ -54,9 +77,11 @@ class CreatorPromo
     public static function saving(): int { return self::REGULAR - self::PRICE; }
 
     /** "October 31, 2026" and "Nov 1" for the copy. */
-    public static function ends_label(): string { return (new DateTime(self::ENDS, new DateTimeZone(self::TZ)))->format('F j, Y'); }
-    public static function regular_from_short(): string { return (new DateTime(self::STARTS_REGULAR, new DateTimeZone(self::TZ)))->format('M j'); }
-    public static function regular_from_long(): string { return (new DateTime(self::STARTS_REGULAR, new DateTimeZone(self::TZ)))->format('F j, Y'); }
+    public static function ends_label(): string { return (new DateTime(self::ends(), new DateTimeZone(self::TZ)))->format('F j, Y'); }
+    /** The first day of the regular price: the day after the offer ends. */
+    private static function regular_from(): DateTime { return (new DateTime(self::ends(), new DateTimeZone(self::TZ)))->modify('+1 day'); }
+    public static function regular_from_short(): string { return self::regular_from()->format('M j'); }
+    public static function regular_from_long(): string { return self::regular_from()->format('F j, Y'); }
 
     /** One sentence for FAQs and plan summaries while the offer runs, or ''. */
     public static function sentence(): string {

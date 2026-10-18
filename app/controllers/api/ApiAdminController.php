@@ -109,6 +109,23 @@ class ApiAdminController extends BaseApiController {
     }
 
     /** Which plans may cross-promote (/promote): comma-separated PlanTiers keys, every one checked. */
+    /**
+     * The Founding Creator offer's end date (CreatorPromo; app_settings creator_promo_ends): new signups get $49 a month
+     * until 11:59 PM Eastern that day, then the regular price. Accounts already on Creator keep the price they started at.
+     */
+    public function admin_set_creator_promo_endAction(){
+        $this->admin_guard();
+        $d = trim((string) ($this->post['ends'] ?? ''));
+        $ok = preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && ($dt = DateTime::createFromFormat('!Y-m-d', $d, new DateTimeZone(CreatorPromo::TZ))) && $dt->format('Y-m-d') === $d;
+        if (!$ok) { $this->jsonError('Pick a valid end date.'); }
+        (new AdminSettingsModel())->set(CreatorPromo::SETTING, $d);
+        CreatorPromo::reset();
+        $this->jsonSuccess(['ends' => $d, 'label' => CreatorPromo::ends_label(), 'running' => CreatorPromo::running(),
+            'message' => CreatorPromo::running()
+                ? 'Saved. New signups pay $' . CreatorPromo::PRICE . ' until ' . CreatorPromo::ends_label() . ', 11:59 PM Eastern.'
+                : 'Saved. The offer has ended: new signups pay $' . CreatorPromo::REGULAR . '. Accounts already on $' . CreatorPromo::PRICE . ' keep it.']);
+    }
+
     public function admin_set_cross_promo_plansAction(){
         $this->admin_guard();
         $keys = array();

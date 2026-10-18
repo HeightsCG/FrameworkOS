@@ -136,6 +136,9 @@ class PlanTiers {
                 if ($id !== '') { $out[$key]['stripe_price_id'] = $id; break; }
             }
         }
+        // The Creator list price follows the Founding Creator promotion: $49 until the offer ends, then the regular price.
+        // What an existing subscriber pays is locked on their account (BillingService::account_plan_cents), not read here.
+        if (isset($out[CreatorPromo::PLAN])) { $out[CreatorPromo::PLAN]['price'] = CreatorPromo::list_price(); }
         $tiers = $out;
         return $tiers;
     }

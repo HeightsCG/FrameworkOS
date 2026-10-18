@@ -419,7 +419,7 @@ $(function () {
 
 <?php
     $cur_key = $has_plan ? $tier_key : PlanTiers::FREE_KEY;
-    $cur_cents = BillingService::plan_cents($cur_key);
+    $cur_cents = is_array($acct) ? BillingService::account_plan_cents($acct, $cur_key) : BillingService::plan_cents($cur_key);   // what they pay: their locked price
     $next_up = '';   // the one plan to push: the cheapest offered plan above the current one
     foreach ($ordered as $row) { if (BillingService::plan_cents($row['tier']['key']) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $row['tier']['key']; break; } }
     $want = (string) ($_GET['plan'] ?? '');   // ?plan= from signup: that plan is the one to push, when it is offered and above the current one
@@ -506,7 +506,7 @@ $(function () {
             <?php if ($is_current): ?><span class="plan__badge plan__badge--mine">Your plan</span><?php endif; ?>
             <div class="plan__name"><?php echo $e($tier['name']); ?></div>
             <div class="plan__price">
-                <span class="plan__amount">$<?php echo number_format((int) $tier['price']); ?></span>
+                <span class="plan__amount">$<?php echo number_format($is_current && !$is_free_row ? $cur_cents / 100 : (int) $tier['price']); ?></span>
                 <span class="plan__interval">/ month</span>
             </div>
             <dl class="plan__rows">

@@ -36,6 +36,19 @@ class BillingService {
         return PlanTiers::price($plan_key) * 100;
     }
 
+    /**
+     * What this account pays for $plan each period: the price locked when it started that plan
+     * (billing_accounts.plan_price_cents), so a later price change never reaches existing subscribers; the plan's
+     * current price for a plan it isn't on yet (a quote, a scheduled change) or when nothing is locked.
+     */
+    public static function account_plan_cents(array $acct, $plan_key): int
+    {
+        if ((string) $plan_key === (string) ($acct['plan_key'] ?? '') && isset($acct['plan_price_cents']) && $acct['plan_price_cents'] !== null && (int) $acct['plan_price_cents'] > 0) {
+            return (int) $acct['plan_price_cents'];
+        }
+        return self::plan_cents($plan_key);
+    }
+
     public static function slot_cents(): int
     {
         $a = PlanTiers::addon('influencer_slot');
@@ -120,10 +133,11 @@ class BillingService {
         $slots = self::takes_slots($plan) ? ($acct['influencer_slots_next'] !== null ? (int) $acct['influencer_slots_next'] : (int) $acct['influencer_slots']) : 0;
         $pack  = $acct['pack_dollars_next'] !== null ? (int) $acct['pack_dollars_next'] : (int) $acct['pack_dollars'];
         $pack_cents = ($acct['pack_dollars_next'] !== null) ? $pack * 100 : (int) ($acct['pack_price_cents'] ?? $pack * 100);
-        $lines = self::lines($plan, $slots, $pack, $pack_cents);
+        $plan_cents = self::account_plan_cents($acct, $plan);
+        $lines = self::lines($plan, $slots, $pack, $pack_cents, $plan_cents);
         if (empty($lines)) { return null; }
         if ($plan !== self::PLAN_FREE && !empty($acct['promo_code'])) {
-            $off = self::promo_off(self::plan_cents($plan), $acct);
+            $off = self::promo_off($plan_cents, $acct);
             if ($off > 0) { $lines[] = array('Promo ' . $acct['promo_code'], -$off); }
         }
         return array('at' => (string) $acct['next_charge_at'], 'lines' => $lines, 'total' => array_sum(array_column($lines, 1)),
@@ -131,12 +145,13 @@ class BillingService {
     }
 
     /** Line items for one full period: [[label, cents], ...]. */
-    public static function lines($plan, $slots, $pack_dollars, $pack_cents = null): array
+    /** $plan_cents: the account's own price for the plan (account_plan_cents); the current list price when not given. */
+    public static function lines($plan, $slots, $pack_dollars, $pack_cents = null, $plan_cents = null): array
     {
         $out = array();
         if ((string) $plan !== self::PLAN_FREE) {
             $t = PlanTiers::get($plan);
-            if ($t) { $out[] = array($t['name'] . ' plan', self::plan_cents($plan)); }
+            if ($t) { $out[] = array($t['name'] . ' plan', $plan_cents !== null ? (int) $plan_cents : self::plan_cents($plan)); }
         }
         if ((int) $slots > 0) { $out[] = array((int) $slots . ' extra AI influencer' . ((int) $slots === 1 ? '' : 's'), (int) $slots * self::slot_cents()); }
         if ((int) $pack_dollars > 0) { $out[] = array(number_format(PlanTiers::pack_credits($pack_dollars)) . ' AI credits (monthly)', $pack_cents !== null ? (int) $pack_cents : (int) $pack_dollars * 100); }
@@ -316,7 +331,8 @@ class BillingService {
 
         switch ((string) $row['kind']) {
             case 'subscribe':
-                $f += array('plan_key' => $fx['plan'], 'status' => 'active', 'cancel_at_period_end' => 0, 'pending_plan_key' => null,
+                $f += array('plan_key' => $fx['plan'], 'plan_price_cents' => !empty($fx['plan_price']) ? (int) $fx['plan_price'] : self::plan_cents($fx['plan']),   // the price locked for as long as they stay on this plan
+                    'status' => 'active', 'cancel_at_period_end' => 0, 'pending_plan_key' => null,
                     'current_period_start' => $fx['period_start'], 'current_period_end' => $fx['period_end'], 'next_charge_at' => $fx['period_end'],
                     'influencer_slots' => 0, 'influencer_slots_next' => null, 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null,
                     'billing_anchor_day' => !empty($fx['anchor_day']) ? (int) $fx['anchor_day'] : (int) gmdate('j', strtotime((string) $fx['period_end'] . ' UTC')))
@@ -326,7 +342,7 @@ class BillingService {
                 $ai->set_bucket($uid, 'plan', (int) round((int) ($t['limits']['ai_credits'] ?? 0) * $frac), $t['name'] . ' plan: included AI credits');
                 break;
             case 'upgrade':
-                $f += array('plan_key' => $fx['plan'], 'pending_plan_key' => null, 'cancel_at_period_end' => 0);
+                $f += array('plan_key' => $fx['plan'], 'plan_price_cents' => !empty($fx['plan_price']) ? (int) $fx['plan_price'] : self::plan_cents($fx['plan']), 'pending_plan_key' => null, 'cancel_at_period_end' => 0);
                 if (!empty($fx['promo'])) { $f += self::promo_fields(self::promo_after_charge($fx['promo'])); }   // a new code replaces the old one
                 if (!self::takes_slots($fx['plan'])) { $f += array('influencer_slots' => 0, 'influencer_slots_next' => null); }
                 $old = PlanTiers::get($fx['from']); $new = PlanTiers::get($fx['plan']);
@@ -433,12 +449,12 @@ class BillingService {
         $plan = (string) $acct['plan_key'];
         if ((int) $acct['cancel_at_period_end']) {
             $plan = self::PLAN_FREE;
-            $f += array('plan_key' => $plan, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null) + self::promo_fields(null);
+            $f += array('plan_key' => $plan, 'plan_price_cents' => null, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null) + self::promo_fields(null);
             (new AiCreditsModel())->set_bucket($uid, 'plan', 0, '');
             self::email($uid, 'Your plan has ended', 'Your paid plan ended as you asked, so your account is now on Free and your creator tools are paused. Everything you made is saved and comes back when you pick a plan again.', array(), '', 'See Plans', '/account/billing');
         } elseif ((string) ($acct['pending_plan_key'] ?? '') !== '') {
             $plan = (string) $acct['pending_plan_key'];
-            $f += array('plan_key' => $plan, 'pending_plan_key' => null);
+            $f += array('plan_key' => $plan, 'plan_price_cents' => self::plan_cents($plan), 'pending_plan_key' => null);   // a scheduled change locks the new plan's price as it starts
             if (!self::takes_slots($plan)) { $f += array('influencer_slots' => 0, 'influencer_slots_next' => null); }
         }
         if (!array_key_exists('influencer_slots', $f) && $acct['influencer_slots_next'] !== null) { $f += array('influencer_slots' => (int) $acct['influencer_slots_next'], 'influencer_slots_next' => null); }
@@ -449,7 +465,8 @@ class BillingService {
         }
         if (!empty($f)) { $accts->save($uid, $f); $acct = self::account($uid); self::mirror($uid); }
 
-        $lines = self::lines($plan, (int) $acct['influencer_slots'], (int) $acct['pack_dollars'], $acct['pack_price_cents'] !== null ? (int) $acct['pack_price_cents'] : null);
+        $plan_cents = self::account_plan_cents($acct, $plan);
+        $lines = self::lines($plan, (int) $acct['influencer_slots'], (int) $acct['pack_dollars'], $acct['pack_price_cents'] !== null ? (int) $acct['pack_price_cents'] : null, $plan_cents);
         if (empty($lines)) {   // nothing recurring left: plain Free
             $accts->save($uid, array('status' => 'free', 'next_charge_at' => null, 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null));
             self::mirror($uid);
@@ -465,7 +482,7 @@ class BillingService {
         $end     = self::add_period($start, 1, $anchor);
         $fx      = array('plan' => $plan, 'slots' => (int) $acct['influencer_slots'], 'pack' => (int) $acct['pack_dollars']);
         if ($plan !== self::PLAN_FREE && !empty($acct['promo_code'])) {
-            $off = self::promo_off(self::plan_cents($plan), $acct);
+            $off = self::promo_off($plan_cents, $acct);
             if ($off > 0) {
                 $lines[] = array('Promo ' . $acct['promo_code'], -$off);
                 $fx['promo'] = array('promo_code' => $acct['promo_code'], 'promo_percent' => $acct['promo_percent'], 'promo_amount_cents' => $acct['promo_amount_cents'],
@@ -504,7 +521,7 @@ class BillingService {
     {
         $uid  = (int) $user_id;
         $acct = self::account($uid);
-        $f = array('plan_key' => self::PLAN_FREE, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null,
+        $f = array('plan_key' => self::PLAN_FREE, 'plan_price_cents' => null, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null,
             'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null) + self::promo_fields(null);
         $keep_pack = !$drop_pack && (int) $acct['pack_dollars'] > 0;
         if ($keep_pack) { $f += array('status' => 'active'); }
@@ -607,11 +624,11 @@ class BillingService {
                 'next_at' => self::add_period($now), 'recurring' => self::plan_cents($plan));
         }
         if ($from === $plan) { return array('ok' => false, 'message' => 'That is already your plan.'); }
-        if (self::plan_cents($plan) > self::plan_cents($from)) {
+        if (self::plan_cents($plan) > self::account_plan_cents($acct, $from)) {
             $frac = self::remaining_fraction($acct);
-            // Credit for the rest of the current plan at what was actually paid for it (a promo period isn't refunded at list price).
+            // Credit for the rest of the current plan at what was actually paid for it (their locked price; a promo period isn't refunded at list price).
             $lines = array(array($to['name'] . ' plan (rest of this period)', (int) round(self::plan_cents($plan) * $frac)),
-                           array('Unused ' . PlanTiers::get($from)['name'] . ' time', -(int) round(self::plan_cents($from) * $frac * self::paid_share($acct))));
+                           array('Unused ' . PlanTiers::get($from)['name'] . ' time', -(int) round(self::account_plan_cents($acct, $from) * $frac * self::paid_share($acct))));
             if ((int) $acct['influencer_slots'] > 0 && !self::takes_slots($plan)) {
                 $lines[] = array('Unused extra AI influencers', -(int) round((int) $acct['influencer_slots'] * self::slot_cents() * $frac));
             }
@@ -639,7 +656,7 @@ class BillingService {
         }
         if ($q['mode'] === 'upgrade') {
             // Included AI credits are prorated exactly like the price: paying for 1/30 of a period buys 1/30 of the extra credits.
-            $fx = array('plan' => $plan, 'from' => (string) $acct['plan_key'], 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
+            $fx = array('plan' => $plan, 'plan_price' => (int) $q['recurring'], 'from' => (string) $acct['plan_key'], 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
                         'credit_frac' => self::remaining_fraction($acct), 'agreement' => $agreement);
             return self::charge($uid, 'upgrade', $q['lines'], $fx, gmdate('Y-m-d H:i:s'), (string) $acct['current_period_end'], 'upgrade-' . $uid . '-' . bin2hex(random_bytes(6)));
         }
@@ -654,7 +671,7 @@ class BillingService {
             // the billing day: the running period's (joining a pack's date), else today, or the founding trial's end (renewals run monthly from it)
             $anchor = $keep ? ((int) ($acct['billing_anchor_day'] ?? 0) ?: (int) gmdate('j', strtotime($end . ' UTC')))
                             : (strpos((string) $q['lines'][0][0], '(rest of this period)') === false && $founding ? (int) gmdate('j', strtotime($end . ' UTC')) : (int) gmdate('j'));
-            $r = self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'anchor_day' => $anchor, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
+            $r = self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'plan_price' => (int) $q['recurring'], 'period_start' => $start, 'period_end' => $end, 'anchor_day' => $anchor, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
                     'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0, 'agreement' => $agreement),   // joining a running period mid-way: prorated credits, like the price
                 gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
         } catch (\Throwable $e) {
