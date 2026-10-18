@@ -140,9 +140,10 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
         <h2 class="evm-recs__h" id="evmRecsH">Recordings</h2>
         <ul class="evm-recs__list">
             <?php foreach ($this->recordings as $rec):
-                $st = (string) $rec['status']; $secs = (int) $rec['duration_sec']; $ready = $st === 'ready' && (int) $rec['asset_id'] > 0;
+                $st = (string) $rec['status']; $secs = (int) $rec['duration_sec']; $gone = $st === 'ready' && (int) ($rec['asset_gone'] ?? 0) === 1; $ready = $st === 'ready' && (int) $rec['asset_id'] > 0 && !$gone;
                 $len = $secs > 0 ? ($secs >= 3600 ? floor($secs / 3600) . ':' . sprintf('%02d', floor($secs % 3600 / 60)) : floor($secs / 60)) . ':' . sprintf('%02d', $secs % 60) : '';
                 $label = array('recording' => 'Recording now', 'stopping' => 'Finishing', 'processing' => 'Processing', 'ready' => 'Ready to watch', 'failed' => 'Didn’t save')[$st] ?? $st;
+                if ($gone) { $st = 'failed'; $label = 'Removed from your Library'; }
                 $when = $local($rec['started_at'], 'M j, g:i A');
                 $is_replay = $ready && (int) ($ev['replay_recording_id'] ?? 0) === (int) $rec['id'] && (int) ($ev['replay_price_credits'] ?? 0) > 0;
                 if ($is_replay) {
@@ -170,6 +171,11 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                         <li><button type="button" class="dropdown-item" data-rec-sell="<?php echo (int) $rec['id']; ?>" data-price="" data-free="1">Sell as Replay…</button></li>
                         <?php endif; ?>
                         <li><hr class="dropdown-divider"></li>
+                        <li><button type="button" class="dropdown-item evm-menu__danger" data-rec-delete="<?php echo (int) $rec['id']; ?>">Delete…</button></li>
+                    </ul></div>
+                <?php elseif ($st === 'failed'): /* didn't save, or its video was removed from the Library: it can only be cleared */ ?>
+                <div class="dropdown"><button type="button" class="evm-more" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Recording actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end">
                         <li><button type="button" class="dropdown-item evm-menu__danger" data-rec-delete="<?php echo (int) $rec['id']; ?>">Delete…</button></li>
                     </ul></div>
                 <?php endif; ?>

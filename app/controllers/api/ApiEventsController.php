@@ -201,8 +201,11 @@ class ApiEventsController extends BaseApiController {
     /** Delete one of this event's call recordings (the video is removed; it no longer counts toward storage). {event_id, recording_id} */
     public function event_recording_deleteAction(){
         [$owner, $ev] = $this->owned_event();
-        [$rec, $asset] = $this->event_recording_row($owner, $ev);
-        (new MediaAssetsModel())->soft_delete($owner, (int) $asset['id']);
+        // Not event_recording_row(): a recording that didn't save, or whose video was already removed from the Library, must still be clearable.
+        $rec = (new LiveRecordingsModel())->get((int) ($this->post['recording_id'] ?? 0));
+        if (!$rec || (int) $rec['event_id'] !== (int) $ev['id'] || !in_array((string) $rec['status'], array('ready', 'failed'), true)) { $this->jsonError('That recording isn’t available.'); }
+        $asset = (int) $rec['asset_id'] > 0 ? (new MediaAssetsModel())->get_one($owner, (int) $rec['asset_id']) : null;
+        if ($asset) { (new MediaAssetsModel())->soft_delete($owner, (int) $asset['id']); }
         (new LiveRecordingsModel())->set((int) $rec['id'], array('status' => 'deleted'));
         if ((int) ($ev['replay_recording_id'] ?? 0) === (int) $rec['id']) { (new EventsModel())->set_replay($owner, (int) $ev['id'], 0, 0, true); }   // no longer on sale
         $this->jsonSuccess(['message' => 'Recording deleted']);

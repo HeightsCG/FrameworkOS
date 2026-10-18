@@ -8,7 +8,8 @@ $name = trim((string) $u['first_name'] . ' ' . (string) $u['last_name']);
 $disabled = ((string) $u['user_status'] === 'Disabled');
 $deleted = !empty($u['deleted']);
 $is_creator = in_array(strtolower((string) ($u['role_name'] ?? '')), array('creator'), true);
-$tier = Plan::tier_name($u);   // Free for a creator with no paid plan
+$tier = Plan::tier_name($u);
+if ($tier === '' && $is_creator) { $tier = PlanTiers::get(PlanTiers::FREE_KEY)['name']; }   // tier_name() is '' for anyone who cannot sell, so a Creator with no paid plan read as "None / Fan account"
 $kind_label = array('ppv' => 'Pay-per-view', 'bundle' => 'Bundle', 'message' => 'Paid message');
 $sup_status = array('open' => 'Waiting on us', 'answered' => 'Replied', 'closed' => 'Closed');
 $onoff = function ($b) { return $b ? 'On' : '<span class="adm-t__muted">Off</span>'; };
@@ -66,7 +67,7 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
         <div><dt>Purchases</dt><dd><?php echo count($this->purchases); ?></dd><dd class="adm-strip__sub"><?php echo $money($spent); ?> spent</dd></div>
         <div><dt>Memberships</dt><dd><?php echo $active_mem; ?></dd><dd class="adm-strip__sub"><?php echo count($this->memberships); ?> total</dd></div>
         <div><dt>Support</dt><dd><?php echo $open_req; ?></dd><dd class="adm-strip__sub">open · <?php echo count($this->tickets); ?> total</dd></div>
-        <div><dt>Plan</dt><dd class="adm-strip__text"><?php echo $e($tier !== '' ? $tier : 'None'); ?></dd><dd class="adm-strip__sub"><?php echo $tier !== '' ? $e(ucfirst((string) $u['subscription_status'])) : 'Fan account'; ?></dd></div>
+        <div><dt>Plan</dt><dd class="adm-strip__text"><?php echo $e($tier !== '' ? $tier : 'None'); ?></dd><dd class="adm-strip__sub"><?php echo !Plan::has_paid_plan($u) ? ($is_creator ? 'Creator account, cannot sell' : 'Fan account') : $e(ucfirst((string) $u['subscription_status'])); ?></dd></div>
     </dl>
 </section>
 

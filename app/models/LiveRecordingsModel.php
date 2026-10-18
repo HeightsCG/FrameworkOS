@@ -24,7 +24,10 @@ class LiveRecordingsModel extends Model {
     }
 
     public function for_event($event_id): array {
-        return (array) parent::select("SELECT * FROM live_recordings WHERE event_id = :e AND status <> 'deleted' ORDER BY id DESC LIMIT 50", array('e' => (int) $event_id));
+        // asset_gone: marked ready, but its video was deleted from the Library (or never had a file) — it can't be played, only removed
+        return (array) parent::select("SELECT r.*, (r.status = 'ready' AND m.id IS NULL) AS asset_gone FROM live_recordings r
+            LEFT JOIN media_assets m ON m.id = r.asset_id AND m.deleted_at IS NULL AND m.original_key <> ''
+            WHERE r.event_id = :e AND r.status <> 'deleted' ORDER BY r.id DESC LIMIT 50", array('e' => (int) $event_id));
     }
 
     public function set($id, array $f): void {

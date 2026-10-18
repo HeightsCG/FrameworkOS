@@ -42,7 +42,7 @@ class Controller {
         // Normalize exactly like the router (Bootstrap strips everything but [A-Za-z0-9_]) so "/api/ppv_unlock-" can't slip past.
         $action = strtolower(preg_replace('/[^A-Za-z0-9_]/', '', (string) ($url[1] ?? '')));
         if (!in_array($action, UserSession::IMPERSONATION_BLOCKED, true)) { return; }
-        header('Content-Type: application/json');
+        // Same plain response as jsonError(): a JSON content type makes jQuery hand page scripts an object, their JSON.parse fails and the message is lost
         echo json_encode(array('success' => false, 'message' => 'Not available while you\'re signed in as this user.'));
         exit;
     }
