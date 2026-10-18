@@ -64,6 +64,13 @@ try {
     check('trial: value = Creator price from PlanTiers', $e && (float) $e['payload']['data']['properties']['value'] === (float) PlanTiers::price('creator') && PlanTiers::price('creator') > 0);
     check('trial: fixed event id + dedupe key', $e && $e['payload']['data']['event_id'] === 'cls_trial_' . $ad && $e['dedupe'] === 'tiktok_trial:' . $ad);
 
+    // a demo (test) account never reaches TikTok
+    $sent = array();
+    TikTokEventJob::test_seam(array('configured' => true, 'web' => true, 'sink' => $sink, 'transport' => $transport, 'demo' => array($ad)));
+    TikTokEventJob::from_event('plan_paid', $ad, array('value_cents' => 0, 'meta' => 'subscribe creator', 'charge_id' => $c0));
+    check('demo account: no TikTok event', count($sent) === 0);
+    TikTokEventJob::test_seam(array('configured' => true, 'web' => true, 'sink' => $sink, 'transport' => $transport));
+
     // a paid plan start keeps Purchase with its amount
     $sent = array();
     $cp = $charge($plain, 'subscribe', 4900); $made_charges[] = $cp;

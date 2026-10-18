@@ -94,6 +94,14 @@ class TikTokEventJob {
         }
     }
 
+    /** Marked as a demo / test account on its admin page. */
+    private static function is_demo(int $user_id): bool {
+        if ($user_id <= 0) { return false; }
+        if (isset(self::$seam['demo'])) { return in_array($user_id, (array) self::$seam['demo'], true); }
+        $rows = (new UsersModel())->get_user_by_id($user_id);
+        return is_array($rows) && count($rows) === 1 && (int) ($rows[0]['is_demo'] ?? 0) === 1;
+    }
+
     /** The account came from a TikTok ad (/start stored its click id or utm_source=tiktok). */
     private static function ad_attributed(int $user_id): bool {
         if ($user_id <= 0) { return false; }
@@ -104,6 +112,7 @@ class TikTokEventJob {
 
     /** Capture the request's person (IP, agent, TikTok cookies, page) now; the queue sends it. $dedupe: a queue key so the event is sent once. */
     private static function queue(string $ev, string $name, int $user_id, array $props, string $event_id = '', string $dedupe = ''): void {
+        if (self::is_demo($user_id)) { return; }   // a test account (admin "Mark as Demo") never reaches TikTok
         $path    = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
         $webhook = (bool) preg_match('#^/webhook#', $path) || self::is_cli();   // Stripe's request or cron: its IP, agent and cookies are not the person's
         $user = array();
