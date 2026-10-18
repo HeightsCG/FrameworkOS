@@ -392,6 +392,11 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($id <= 0) {
             $this->jsonError('Plan is required');
         }
+        $open = (new CreatorSubscriptionsModel())->count_open_for_plan(Permissions::creator_id(), $id);
+        if ($open > 0) {
+            // members are still billed for this plan: deleting it would hide the membership (and its Cancel button) from them
+            $this->jsonError($open . ($open === 1 ? ' member is' : ' members are') . ' on this plan. Turn it off to stop new signups; you can delete it once nobody is on it.');
+        }
         (new CreatorPlansModel())->delete_plan(Permissions::creator_id(), $id);
         $this->jsonSuccess(['message' => 'Plan removed']);
     }

@@ -255,7 +255,6 @@ class CreditsModel extends Model {
     public function pay($buyer_id, $charge, $spend_type, $spend_desc, $creator_id, $net, $earn_type, $earn_desc){
         $buyer_id = (int) $buyer_id; $creator_id = (int) $creator_id; $charge = (int) $charge; $net = max(0, (int) $net);
         if ($charge <= 0 || $buyer_id === $creator_id) { return false; }
-        if (class_exists('UserSession') && UserSession::impersonating()) { return false; }   // an admin signed in as someone never spends their wallet
         Analytics::event('purchase', array('user_id' => $buyer_id, 'creator_id' => $creator_id, 'value_cents' => (int) round($charge * 100 / Price::CREDITS_PER_DOLLAR), 'meta' => (string) $spend_type));   // every wallet sale: unlock, bundle, message, service, ticket
         if (class_exists('CustomDomains') && CustomDomains::session_scoped() && $creator_id !== CustomDomains::owner_id()) { return false; }   // on a creator's domain the wallet only pays that creator
         $this->db->beginTransaction();

@@ -27,6 +27,25 @@ class AccountBilling {
     }
 
     /**
+     * The creator stops being a creator but keeps their account: end every paid membership fans hold with them (Stripe
+     * first, then our row) and tell each fan, then end their own plan. Memberships they hold as a fan are left alone.
+     */
+    public static function on_leave_creator($user_id): void
+    {
+        $uid  = (int) $user_id;
+        $subs = new CreatorSubscriptionsModel();
+        $acct = self::connect_account($uid);
+        foreach ($subs->active_paid_for_creator($uid) as $row) {
+            if ((string) $row['stripe_subscription_id'] !== '' && $acct !== '') {
+                StripeService::cancel_subscription_now($acct, (string) $row['stripe_subscription_id']);
+            }
+            $subs->close((int) $row['id']);
+            Notify::send((int) $row['subscriber_id'], 'subscriptions', 'Membership ended', 'This creator closed their creator page, so your membership has ended and you will not be charged again.', '/account/settings?section=subscriptions', 'fa-heart-crack');
+        }
+        BillingService::end_plan_now($uid);
+    }
+
+    /**
      * Put the creator's current platform fee on every paid membership their fans hold. Stripe keeps the fee a
      * subscription was created with, so without this a plan change (Free 20%, Creator 10%, Studio 3%) would never
      * reach existing members. Re-reads the fee at the end in case the plan changed again while this ran.

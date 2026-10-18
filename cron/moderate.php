@@ -31,8 +31,27 @@ if (empty($due)) { CronRuns::finish('moderate', true, 'nothing due'); exit(0); }
 
 foreach ($due as $a) {
     $id  = (int) $a['id'];
-    // Videos are judged on their poster frame (the original is a video file, not an image).
-    $key = (($a['type'] ?? '') === 'video') ? ($a['poster_key'] ?: $a['thumb_key']) : ($a['display_key'] ?: ($a['original_key'] ?: $a['thumb_key']));
+    // Videos: frames taken across the stored file itself (MediaService::moderate_video), never the poster alone,
+    // which can come from the uploader's browser. Images: their display rendition.
+    if (($a['type'] ?? '') === 'video') {
+        try {
+            $res = MediaService::moderate_video($a);
+        } catch (\Throwable $e) {
+            $res = array('ok' => false, 'error' => $e->getMessage());
+        }
+        if (empty($res['ok'])) {
+            error_log('[moderate] video ' . $id . ' failed: ' . ($res['error'] ?? 'unknown'));
+            $media->set_moderation($id, 'error');   // stays hidden; retried in 30 minutes
+            continue;
+        }
+        if ($res['status'] === 'blocked') {
+            error_log('[MODERATION][BLOCKED] video ' . $id . ' creator ' . $a['creator_id'] . ' — suspected sexual/minors, quarantined.');
+        }
+        $media->set_moderation($id, $res['status'], $res['score'], $res['labels'], !empty($res['adult']));
+        fwrite(STDOUT, date('c') . " video {$id}: {$res['status']} ({$res['frames']} frames, sexual " . $res['score'] . ")\n");
+        continue;
+    }
+    $key = $a['display_key'] ?: ($a['original_key'] ?: $a['thumb_key']);
     if ($key === '' || $key === null) {
         $media->set_moderation($id, 'error');
         continue;
@@ -65,5 +84,5 @@ foreach ($due as $a) {
         . (!empty($res['minors']) ? ' [SEXUAL/MINORS — BLOCKED]' : '') . "\n");
 }
 
-CronRuns::finish('moderate', true, count($due) . ' image(s)');
+CronRuns::finish('moderate', true, count($due) . ' item(s)');
 exit(0);

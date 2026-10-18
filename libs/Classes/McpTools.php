@@ -688,7 +688,11 @@ class McpTools {
             // Plans / promo / bundles (read + toggle + delete)
             case 'list_plans':       return array('plans' => (array) (new CreatorPlansModel())->get_for_user($cid));
             case 'set_plan_active':  return $ok((new CreatorPlansModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
-            case 'delete_plan':      return $ok((new CreatorPlansModel())->delete_plan($cid, $iid));
+            case 'delete_plan': {
+                $open = (new CreatorSubscriptionsModel())->count_open_for_plan($cid, $iid);
+                if ($open > 0) { throw new InvalidArgumentException($open . ' member(s) are on this plan. Turn it off with set_plan_active instead; delete it once nobody is on it.'); }
+                return $ok((new CreatorPlansModel())->delete_plan($cid, $iid));
+            }
             case 'list_promo_codes': return array('promo_codes' => (array) (new CreatorPromoCodesModel())->get_for_user($cid));
             case 'set_promo_active': return $ok((new CreatorPromoCodesModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
             case 'delete_promo_code':return $ok((new CreatorPromoCodesModel())->delete_code($cid, $iid));
@@ -707,10 +711,29 @@ class McpTools {
                 return array('id' => (int) (new EventsModel())->create($cid, self::event_fields($a)));
             }
             case 'update_event': {
+                // Same rules as the web: canceling refunds every ticket and tells attendees; a sold event can't be hidden.
                 $em = new EventsModel();
-                return $ok($em->update_event($cid, $iid, self::event_fields($a, (array) $em->get_one($cid, $iid))));
+                $cur = self::need($em->get_one($cid, $iid), 'Event not found');
+                if ((string) $cur['status'] === 'canceled') { throw new InvalidArgumentException('This event was canceled, so it can no longer be edited.'); }
+                $status = array_key_exists('status', $a) ? (string) $a['status'] : '';
+                unset($a['status']);
+                if ($status === 'draft' && (string) $cur['status'] === 'published' && $em->has_paid_going($iid)) {
+                    throw new InvalidArgumentException('This event has paid attendees. Cancel it instead so they are refunded.');
+                }
+                $fields = self::event_fields($a, (array) $cur);
+                if (in_array($status, array('draft', 'published'), true)) { $fields['status'] = $status; }
+                $res = $em->update_event($cid, $iid, $fields);
+                if ($status === 'canceled') {
+                    $r = EventRefunds::cancel_all((array) $em->get_one($cid, $iid));
+                    return array('ok' => true, 'canceled' => true, 'refunded' => (int) $r['refunded_n'], 'notified' => (int) $r['notified']);
+                }
+                return $ok($res);
             }
-            case 'delete_event': return $ok((new EventsModel())->delete_event($cid, $iid));
+            case 'delete_event': {
+                $ev = self::need((new EventsModel())->get_one($cid, $iid), 'Event not found');
+                if ((string) $ev['status'] !== 'canceled') { throw new InvalidArgumentException('Cancel the event before deleting it (update_event with status "canceled" refunds and tells attendees).'); }
+                return $ok((new EventsModel())->delete_event($cid, $iid));
+            }
 
             // Services
             case 'list_services':  return array('services' => (array) (new ServicesModel())->list_for_creator($cid));

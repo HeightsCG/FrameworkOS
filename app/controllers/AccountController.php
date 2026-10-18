@@ -334,7 +334,6 @@ class AccountController extends Controller {
 
     /** /account/google_start: remember state + PKCE verifier, then off to Google's account chooser. */
     public function google_startAction(){
-        if (UserSession::impersonating()) { self::bounce(); }
         $me = (int) Session::get('user_id');
         if (!GoogleAuth::configured()) { Header('Location: ' . ($me > 0 ? '/account/settings?section=security&google_link_error=unavailable' : '/?auth=login&google_error=unavailable')); exit; }
         list($url, $state, $verifier) = GoogleAuth::authorize_url();

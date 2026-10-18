@@ -359,6 +359,51 @@ class MediaService {
         return $moderation;
     }
 
+    const MODERATION_FRAMES = 5;
+
+    /**
+     * Moderate a stored video on frames taken across its length (5%, 25%, 50%, 75%, 95%) from the S3 original, never
+     * on a frame the uploader supplied. The worst frame decides: any suspected minors = 'blocked', any adult = 'flagged',
+     * else 'approved'. Fails closed: when no frame can be read or a frame can't be classified the result is not ok, so
+     * the caller leaves the asset hidden and retries later.
+     * Returns ['ok' => bool, 'status', 'score', 'labels' => [], 'adult' => bool, 'frames' => int, 'error'].
+     */
+    public static function moderate_video(array $asset): array
+    {
+        $out = array('ok' => false, 'status' => 'error', 'score' => null, 'labels' => array(), 'adult' => false, 'frames' => 0, 'error' => '');
+        $ffmpeg = self::bin('ffmpeg');
+        if ($ffmpeg === '') { $out['error'] = 'ffmpeg not installed'; return $out; }
+        if ((string) ($asset['original_key'] ?? '') === '') { $out['error'] = 'no stored video'; return $out; }
+        $url = S3Service::presigned_get_url((string) $asset['original_key'], 1800);
+        $duration = (float) ($asset['duration_sec'] ?? 0);
+        if ($duration <= 0) { $duration = (float) self::probe_video($url)['duration']; }
+        $times = $duration > 1
+            ? array_values(array_unique(array_map(function ($f) use ($duration) { return round($duration * $f, 1); }, array(0.05, 0.25, 0.5, 0.75, 0.95))))
+            : array(0);
+        $worst = 0; $score = 0.0; $labels = array();   // 0 approved, 1 flagged, 2 blocked
+        foreach (array_slice($times, 0, self::MODERATION_FRAMES) as $t) {
+            $base = tempnam(sys_get_temp_dir(), 'modf'); @unlink($base); $jpg = $base . '.jpg';
+            self::run_with_timeout(escapeshellarg($ffmpeg) . ' -y -rw_timeout 20000000 -ss ' . escapeshellarg((string) $t) . ' -i ' . escapeshellarg($url)
+                . ' -frames:v 1 -vf ' . escapeshellarg("scale='min(768,iw)':-2") . ' -q:v 4 ' . escapeshellarg($jpg), 90);
+            if (!is_file($jpg) || filesize($jpg) === 0) { @unlink($jpg); continue; }   // past the end of a short clip: the others still count
+            $res = ModerationService::classify_image('data:image/jpeg;base64,' . base64_encode((string) file_get_contents($jpg)));
+            @unlink($jpg);
+            if (empty($res['ok'])) { $out['error'] = 'frame at ' . $t . 's: ' . ($res['error'] ?? 'classifier failed'); return $out; }
+            $out['frames']++;
+            $score  = max($score, (float) $res['score']);
+            $labels = array_values(array_unique(array_merge($labels, (array) ($res['labels'] ?? array()))));
+            if (!empty($res['minors'])) { $worst = 2; break; }
+            if (!empty($res['adult'])) { $worst = max($worst, 1); }
+        }
+        if ($out['frames'] === 0) { $out['error'] = 'no frame could be read from the video'; return $out; }
+        $out['ok']     = true;
+        $out['status'] = $worst === 2 ? 'blocked' : ($worst === 1 ? 'flagged' : 'approved');
+        $out['score']  = $score;
+        $out['labels'] = $labels;
+        $out['adult']  = $worst >= 1;
+        return $out;
+    }
+
     public static function process_video($creator_id, $asset_id, $src, array $user, $client_poster_path = ''): array
     {
         $poster_path = ((string) $src !== '') ? self::extract_poster_frame($src) : '';
@@ -424,8 +469,11 @@ class MediaService {
         if (!$ok) {
             return array('error' => 'Storage failed while processing the video preview');
         }
-        // Videos are moderated on their poster frame, with the same verdicts as images.
+        // A quick first look at the poster can block a video at once, but never decides it otherwise: the poster can come
+        // from the uploader's browser and is a single moment. Anything short of blocked stays 'pending' (hidden from
+        // viewers) until cron/moderate.php has checked frames taken from the stored video itself (moderate_video).
         $moderation = self::moderate_key($creator_id, $asset_id, $poster_key);
+        if ($moderation['status'] !== 'blocked') { $moderation['status'] = 'pending'; }
         return array(
             'poster_key'        => $poster_key,
             'thumb_key'         => $thumb_key,

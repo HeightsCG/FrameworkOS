@@ -7,27 +7,14 @@
  *
  * Impersonation: the admin's own session is saved server-side inside the new session ('impersonator') and restored
  * exactly on the way back. While it's active, Controller skips presence (the user never looks online because of the
- * admin), skips the forced-reset redirect, and blocks credential / money / identity actions (IMPERSONATION_BLOCKED).
+ * admin) and skips the forced-reset redirect. Nothing else is blocked: the admin can do everything the user can.
  */
 class UserSession {
 
     const SECRET_KEYS = array('p_word', 'mfa_totp_secret', 'mfa_totp_last_step', 'reset_token', 'reset_token_expires', 'email_verify_token');
 
-    /** API actions an admin can't take while signed in as someone else: their credentials, money and identity. */
-    const IMPERSONATION_BLOCKED = array(
-        'change_password', 'change_username', 'delete_my_account',
-        'mfa_totp_begin', 'mfa_totp_confirm', 'mfa_totp_disable', 'mfa_email_send_enroll', 'mfa_email_confirm', 'mfa_email_disable', 'mfa_regenerate_backup_codes',
-        'mcp_token_generate', 'mcp_token_revoke', 'google_disconnect',
-        'buy_credits', 'confirm_credit_purchase', 'confirm_ai_credit_purchase', 'save_autoreplenishment',
-        'billing_card_setup', 'billing_card_save', 'billing_change_plan', 'billing_confirm', 'billing_cancel', 'billing_resume', 'billing_set_pack', 'billing_set_slots',
-        'subscribe_plan', 'cancel_creator_subscription', 'ppv_unlock', 'bundle_unlock', 'message_unlock', 'event_register', 'service_purchase',
-        'request_payout', 'start_payout_onboarding', 'payout_login_link', 'disconnect_payout_account',
-        'team_invite', 'team_remove', 'team_set_role', 'team_set_status', 'data_export_request', 'data_export_download',
-        'buy_ai_credits', 'leave_creator', 'reactivate_creator_subscription', 'event_cancel', 'event_refund_attendee', 'event_cancel_all',
-        'service_refund_buyer', 'block_user', 'live_join', 'live_remove', 'live_mute_all',
-        'event_replay_buy', 'live_tip', 'join_free_plan', 'unblock_user',
-        'message_send', 'broadcast_send', 'event_message_send', 'inbox_reply_send',
-    );
+    /** API actions an admin can't take while signed in as someone else. Empty by Daniel's rule (2026-10-18): signed in as a user, an admin can do everything that user can. */
+    const IMPERSONATION_BLOCKED = array();
 
     public static function start(array $user): void {
         foreach ($user as $key => $value) {

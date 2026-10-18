@@ -32,7 +32,7 @@
 <body class="app-shell<?php echo UserSession::impersonating() ? ' is-impersonating' : ''; ?>">
 <?php if (UserSession::impersonating()): $imp_h = htmlspecialchars((string) Session::get('u_name'), ENT_QUOTES, 'UTF-8'); ?>
     <div class="imp-bar" role="status">
-        <span class="imp-bar__text"><i class="fa-solid fa-user-secret" aria-hidden="true"></i> You&rsquo;re signed in as <b>@<?php echo $imp_h; ?></b>. Password, payment and payout changes are turned off.</span>
+        <span class="imp-bar__text"><i class="fa-solid fa-user-secret" aria-hidden="true"></i> You&rsquo;re signed in as <b>@<?php echo $imp_h; ?></b>.</span>
         <button type="button" class="imp-bar__btn" id="impReturn">Return to Admin</button>
     </div>
     <script>

@@ -113,7 +113,6 @@ class ApiAffiliatesController extends BaseApiController {
     private function signed_in(): int {
         $uid = (int) Session::get('user_id');
         if ($uid <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
-        if (UserSession::impersonating()) { $this->jsonError('Not available while you\'re signed in as this user.'); }   // money and applications stay the account owner's
         return $uid;
     }
 

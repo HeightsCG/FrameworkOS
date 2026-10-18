@@ -47,29 +47,68 @@ class JobsModel extends Model {
         return true;
     }
 
-    public function finish(int $id, string $state, ?string $error): void {
-        parent::update('jobs',
+    /**
+     * End a run. With $worker_id the update applies only while that worker still owns the job, so a run that was
+     * released and picked up by another worker can't mark the job done (or failed) under the new owner.
+     */
+    public function finish(int $id, string $state, ?string $error, string $worker_id = ''): bool {
+        $where = 'id = :id'; $p = ['id' => $id];
+        if ($worker_id !== '') { $where .= ' AND state = :s AND locked_by = :w'; $p['s'] = 'running'; $p['w'] = $worker_id; }
+        return (int) parent::update('jobs',
             ['state' => $state, 'last_error' => $error, 'dedupe_key' => null, 'locked_at' => null, 'locked_by' => null,
              'updated_at' => gmdate('Y-m-d H:i:s')],
-            'id = :id', ['id' => $id]);
+            $where, $p) === 1;
     }
 
-    public function requeue(int $id, string $run_after, string $error): void {
-        parent::update('jobs',
+    public function requeue(int $id, string $run_after, string $error, string $worker_id = ''): bool {
+        $where = 'id = :id'; $p = ['id' => $id];
+        if ($worker_id !== '') { $where .= ' AND state = :s AND locked_by = :w'; $p['s'] = 'running'; $p['w'] = $worker_id; }
+        return (int) parent::update('jobs',
             ['state' => 'queued', 'run_after' => $run_after, 'last_error' => $error, 'locked_at' => null, 'locked_by' => null,
              'updated_at' => gmdate('Y-m-d H:i:s')],
-            'id = :id', ['id' => $id]);
+            $where, $p) === 1;
     }
 
-    public function release_stale(string $older_than): int {
-        // A job that keeps killing its worker (fatal error, OOM) must not be re-claimed forever:
-        // once it has used its attempts, a stale run is final.
-        parent::update('jobs',
-            ['state' => 'failed', 'last_error' => 'Worker died mid-run (attempts exhausted)', 'dedupe_key' => null,
-             'locked_at' => null, 'locked_by' => null, 'updated_at' => gmdate('Y-m-d H:i:s')],
-            'state = :s AND locked_at < :t AND attempts >= max_attempts', ['s' => 'running', 't' => $older_than]);
-        return (int) parent::update('jobs',
-            ['state' => 'queued', 'locked_at' => null, 'locked_by' => null, 'updated_at' => gmdate('Y-m-d H:i:s')],
-            'state = :s AND locked_at < :t', ['s' => 'running', 't' => $older_than]);
+    /**
+     * Give back runs whose worker died. A run counts as stale once its lock is older than $older_than, unless the
+     * worker that holds it is still alive on this host (long broadcasts, exports and renders legitimately run past
+     * the cutoff; re-queueing them would run the same job twice). $hard_ceiling releases even a live owner, as a
+     * backstop against a hung process or a reused pid.
+     */
+    public function release_stale(string $older_than, string $hard_ceiling = ''): int {
+        $rows = (array) parent::select(
+            "SELECT id, locked_by, locked_at, attempts, max_attempts FROM jobs WHERE state = 'running' AND locked_at < :t",
+            ['t' => $older_than]);
+        $released = 0;
+        foreach ($rows as $r) {
+            $owner = (string) $r['locked_by'];
+            if ($hard_ceiling === '' || (string) $r['locked_at'] >= $hard_ceiling) {
+                if (self::worker_alive($owner)) { continue; }
+            }
+            // A job that keeps killing its worker (fatal error, OOM) must not be re-claimed forever:
+            // once it has used its attempts, a stale run is final.
+            $final = (int) $r['attempts'] >= (int) $r['max_attempts'];
+            $data  = $final
+                ? ['state' => 'failed', 'last_error' => 'Worker died mid-run (attempts exhausted)', 'dedupe_key' => null]
+                : ['state' => 'queued'];
+            $data += ['locked_at' => null, 'locked_by' => null, 'updated_at' => gmdate('Y-m-d H:i:s')];
+            $n = (int) parent::update('jobs', $data, 'id = :id AND state = :s AND locked_by = :w',
+                ['id' => (int) $r['id'], 's' => 'running', 'w' => $owner]);
+            if ($n === 1 && !$final) { $released++; }
+        }
+        return $released;
+    }
+
+    /** Is the worker named "<host>:<pid>" (the queue worker's id) still running? Unknown hosts count as dead. */
+    public static function worker_alive(string $worker_id): bool {
+        $at = strrpos($worker_id, ':');
+        if ($at === false) { return false; }
+        $host = substr($worker_id, 0, $at); $pid = (int) substr($worker_id, $at + 1);
+        if ($pid <= 0 || $host !== substr((string) gethostname(), 0, strlen($host))) { return false; }
+        if (function_exists('posix_kill')) {
+            if (@posix_kill($pid, 0)) { return true; }
+            return function_exists('posix_get_last_error') && posix_get_last_error() === 1;   // EPERM: alive, owned by another user
+        }
+        return is_dir('/proc/' . $pid);
     }
 }

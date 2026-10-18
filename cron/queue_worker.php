@@ -2,8 +2,8 @@
 /**
  * Queue worker — runs background jobs dispatched by the web app through DatabaseJobQueue.
  * Claims jobs until the queue has been idle for --idle-exit seconds (default 50) or --max-jobs
- * (default 100) have run, then exits so launchd (StartInterval 60) starts a fresh one; launchd
- * never overlaps two instances of the same label. `--once` runs at most one job (for testing).
+ * (default 100) have run, then exits so launchd (StartInterval 60) or cron starts a fresh one. Cron does
+ * overlap workers, so a run past the stale cutoff is only given back when its worker process is gone. `--once` runs at most one job (for testing).
  *
  *   /opt/homebrew/opt/php@8.2/bin/php /var/www/contentos.cvk/framework/cron/queue_worker.php >> /tmp/cls-queue.log 2>&1
  *
@@ -78,10 +78,10 @@ while (true) {
         if (!isset($handlers[$job['type']])) { throw new RuntimeException('no handler for job type ' . $job['type']); }
         $class  = $handlers[$job['type']];
         $result = $class::handle($payload);
-        $queue->complete((int) $job['id']);
+        $queue->complete((int) $job['id'], $worker_id);
         fwrite(STDOUT, date('c') . " job {$job['id']} {$job['type']}: " . $result . ' (' . round(microtime(true) - $t0, 1) . "s)\n");
     } catch (\Throwable $e) {
-        $queue->fail((int) $job['id'], $e->getMessage());
+        $queue->fail((int) $job['id'], $e->getMessage(), $worker_id);
         fwrite(STDOUT, date('c') . " job {$job['id']} {$job['type']}: ERROR " . $e->getMessage() . "\n");
     }
     $done++;

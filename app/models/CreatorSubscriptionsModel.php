@@ -31,9 +31,9 @@ class CreatorSubscriptionsModel extends Model {
      */
     public function max_active_tier_price($subscriber_id, $creator_id){
         $rows = parent::select(
-            "SELECT MAX(cp.price_cents) AS mx
+            "SELECT MAX(COALESCE(cp.price_cents, cs.price_cents)) AS mx
              FROM creator_subscriptions cs
-             JOIN creator_plans cp ON cp.id = cs.plan_id
+             LEFT JOIN creator_plans cp ON cp.id = cs.plan_id
              WHERE cs.subscriber_id = :s AND cs.creator_id = :c AND cs.status = 'active'",
             array('s' => (int) $subscriber_id, 'c' => (int) $creator_id)
         );
@@ -309,16 +309,25 @@ class CreatorSubscriptionsModel extends Model {
     /** The fan's memberships, with creator + plan detail, for "My subscriptions". */
     public function get_for_subscriber($subscriber_id){
         return parent::select(
-            "SELECT cs.*, p.name AS plan_name, u.u_name AS creator_handle,
+            "SELECT cs.*, COALESCE(p.name, 'Membership') AS plan_name, u.u_name AS creator_handle,
                     COALESCE(cp.display_name, CONCAT(u.first_name, ' ', u.last_name)) AS creator_name
              FROM creator_subscriptions cs
-             JOIN creator_plans p ON p.id = cs.plan_id
+             LEFT JOIN creator_plans p ON p.id = cs.plan_id
              JOIN user_accounts u ON u.user_id = cs.creator_id AND u.deleted = 0
              LEFT JOIN creator_profiles cp ON cp.user_id = cs.creator_id
              WHERE cs.subscriber_id = :s
              ORDER BY cs.status = 'active' DESC, cs.created_at DESC",
             array('s' => (int) $subscriber_id)
         );
+    }
+
+    /** Memberships still tied to a plan (anything not canceled): the plan can't be deleted while these exist. */
+    public function count_open_for_plan($creator_id, $plan_id){
+        $rows = parent::select(
+            "SELECT COUNT(*) AS c FROM creator_subscriptions WHERE creator_id = :c AND plan_id = :p AND status <> 'canceled'",
+            array('c' => (int) $creator_id, 'p' => (int) $plan_id)
+        );
+        return is_array($rows) && count($rows) ? (int) $rows[0]['c'] : 0;
     }
 
     public function count_members($creator_id){

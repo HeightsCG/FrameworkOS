@@ -431,7 +431,7 @@ class EventsModel extends Model {
         return (array) parent::select(
             "SELECT r.id, r.event_id, e.creator_id, e.title, r.net_credits FROM event_registrations r JOIN events e ON e.id = r.event_id
              WHERE r.status <> 'refunded' AND r.net_credits > 0 AND r.earning_released_at IS NULL
-               AND COALESCE(e.end_at, e.start_at) <= UTC_TIMESTAMP()
+               AND e.status <> 'canceled' AND COALESCE(e.end_at, e.start_at) <= UTC_TIMESTAMP()
              ORDER BY r.id LIMIT " . max(1, (int) $limit));
     }
 

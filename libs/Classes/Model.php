@@ -3,8 +3,21 @@ class Model {
 
     public $db;
 
+    /** One connection per web request, shared by every model (a page used to open one per model and could exhaust max_connections under load). */
+    private static $shared = null;
+
     public function __construct(){
-        $this->db = new Database();
+        $this->db = self::connection();
+    }
+
+    /**
+     * Web: the request's shared connection. CLI (cron, queue worker): a fresh one per model as before, since a
+     * long-running worker can sit idle past MySQL's wait_timeout and a shared connection would then be gone.
+     */
+    public static function connection(): Database {
+        if (PHP_SAPI === 'cli') { return new Database(); }
+        if (self::$shared === null) { self::$shared = new Database(); }
+        return self::$shared;
     }
     
     public function sql($sql, $array = array(), $fetchMode = PDO::FETCH_ASSOC)

@@ -103,7 +103,7 @@ class MediaAssetsModel extends Model {
     public function due_for_moderation($limit = 20){
         $limit = (int) $limit;
         return parent::select(
-            "SELECT id, creator_id, type, display_key, original_key, thumb_key, poster_key
+            "SELECT id, creator_id, type, display_key, original_key, thumb_key, poster_key, duration_sec
              FROM media_assets
              WHERE type IN ('image', 'video') AND status = 'ready' AND deleted_at IS NULL
                AND (moderation_status = 'pending'
