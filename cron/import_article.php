@@ -58,10 +58,17 @@ $f = array(
     'intent' => SeoDrafter::intent_for($keyword, $cluster),
 );
 
+// Links this server cannot serve (an article that exists only on prod, a page outside the cluster's allow-list, a domain not on the
+// citation list) become their plain text, as in a drafted article; dev and prod have different articles, so they are listed, not fatal.
+$before = Markdown::links($body);
+$body = SeoDrafter::strip_links($body, $cluster);
+$dropped = array_values(array_diff($before, Markdown::links($body)));
+$f['body_md'] = $body;
+
 $m = new SeoArticlesModel();
 $existing = $m->get_by_slug($f['slug'], false);
 if ($existing && $existing['status'] === 'published') { fwrite(STDERR, "/blog/{$f['slug']} is already published; unpublish it in Admin to re-import\n"); exit(1); }
-$errors = SeoDrafter::validate($f, $existing ? (int) $existing['id'] : 0, true);
+$errors = SeoDrafter::validate($f, $existing ? (int) $existing['id'] : 0);   // the link-count rule is the drafter's; an imported piece keeps the links it came with
 
 $row = array(
     'slug' => $f['slug'], 'title' => $f['title'], 'meta_description' => $f['meta_description'], 'excerpt' => $f['excerpt'],
@@ -72,6 +79,7 @@ $row = array(
 if ($existing) { $id = (int) $existing['id']; $m->update_fields($id, $row); }
 else { $row['status'] = 'review'; $id = $m->create($row); }
 echo "article $id /blog/{$f['slug']} (" . Markdown::word_count($body) . " words, " . count($faq) . " FAQ)\n";
+foreach ($dropped as $l) { echo "  - link kept as plain text (not available here): $l\n"; }
 foreach ($errors as $e) { echo '  - ' . (SeoDrafter::is_soft($e) ? '[advisory] ' : '') . $e . "\n"; }
 $hard = SeoDrafter::split_errors($errors)[0] ?? $errors;
 if (empty($errors)) { echo "  validator: clean\n"; }
