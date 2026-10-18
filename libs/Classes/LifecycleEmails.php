@@ -1,13 +1,15 @@
 <?php
 /**
- * Account lifecycle email (transactional only; the marketing nurture sequence for Free creators is NurtureEmails, on
+ * Account lifecycle email (transactional, except the abandoned-checkout nudge; the marketing nurture sequence for Free creators is NurtureEmails, on
  * Postmark's broadcast stream with the postal address + unsubscribe footer).
  *
  *   - verification reminders for accounts that never confirmed (cron/lifecycle.php): up to 3, each with a fresh link
  *   - "Your 14-day free trial has started" when a founding trial starts ($0 subscribe, BillingService::receipt)
  *   - "Your trial ends {date}" 3 days before the first charge (cron/billing.php)
- *   - "Your plan didn't start" about an hour after a plan checkout that never finished (cron/lifecycle.php)
- *   - Postmark hard bounces / spam complaints (/webhook/postmark): the address is marked and never emailed again
+ *   - "Your plan didn't start" about an hour after a plan checkout that never finished (cron/lifecycle.php). This one is
+ *     marketing: broadcast stream, postal address + unsubscribe footer, and the Tips and Offers switch stops it.
+ *   - Postmark hard bounces / transactional spam complaints (/webhook/postmark): the address is marked and never emailed
+ *     again. A spam complaint about a marketing (broadcast) email only turns Tips and Offers off.
  *
  * Every email is claimed before it is sent (lifecycle_emails, or user_accounts.verify_reminders_sent for reminders),
  * so each goes out once however many runs overlap. Dates are shown in the account's own timezone.
@@ -251,14 +253,20 @@ class LifecycleEmails {
                 if (BillingService::is_paid($acct) || $m->subscribed_since($uid, $a['last_ts'])) { continue; }
                 $u = self::user($uid);
                 if (!$u || (int) ($u['deleted'] ?? 0) === 1 || (int) ($u['email_verified'] ?? 0) !== 1) { continue; }
-                $ok_to_send = self::deliverable($u);
+                // marketing (a nudge, not a transaction): the Tips and Offers switch decides, like NurtureEmails
+                $ok_to_send = self::deliverable($u) && (new NotificationPrefsModel())->email_on($uid, NurtureEmails::CATEGORY);
                 $id = $m->claim($uid, 'checkout_abandoned', 'w' . (int) floor(time() / (self::ABANDON_EVERY_DAYS * 86400)), $ok_to_send ? 'sent' : 'skipped');
                 if ($id < 1 || !$ok_to_send) { continue; }
                 $plan = PlanTiers::get($a['plan']) && $a['plan'] !== 'free' ? $a['plan'] : Founding::PLAN;
                 $mail = self::abandoned_email($u, $plan, Founding::eligible($uid));
-                $ok = (new NotificationsModel())->send_lifecycle_email((string) $u['user_email'], self::name($u), $mail['subject'], $mail['subject'], $mail['paras'], array(),
-                    'Pick Up Where You Left Off', $mail['link'], $mail['footer']);
-                if ($ok) { $sent++; } else { $m->release($id); }
+                // sent on the broadcast stream with the postal address and unsubscribe link (Postmark suppresses whoever unsubscribes)
+                $html = NotificationsModel::build_lifecycle_email($mail['subject'], $mail['paras'], array(), 'Pick Up Where You Left Off', $mail['link'], $mail['footer'], NurtureEmails::footer_html());
+                $ok = (new Notifications())->send_email(array(array('email' => (string) $u['user_email'], 'name' => self::name($u))), 0, $mail['subject'], $html, Notifications::STREAM_BROADCAST);
+                if ($ok) { $sent++; }
+                elseif ((int) Notifications::$last_error_code === 406) {   // unsubscribed or suppressed on the broadcast stream: stop for good
+                    (new NotificationPrefsModel())->save_prefs($uid, array(NurtureEmails::CATEGORY => array('in_platform' => 0, 'email' => 0)));
+                    $m->set_status($id, 'suppressed');
+                } else { $m->release($id); }
             } catch (\Throwable $e) { error_log('[lifecycle] abandoned checkout ' . (int) $uid . ': ' . $e->getMessage()); }
         }
         return $sent;
@@ -273,7 +281,7 @@ class LifecycleEmails {
             'subject' => 'Your ' . $name . ' plan didn\'t start',
             'paras'   => $paras,
             'link'    => self::PLAN_TAB . '&plan=' . rawurlencode($plan) . ($founding ? '&founding=1' : ''),
-            'footer'  => 'You\'re receiving this because you started choosing a plan on ' . Main::site_name() . '. We only send this once.',
+            'footer'  => 'You\'re receiving this because you started choosing a plan on ' . Main::site_name() . '.',
         );
     }
 
@@ -303,6 +311,14 @@ class LifecycleEmails {
         }
         $type   = (string) ($e['Type'] ?? '');
         $email  = trim((string) ($e['Email'] ?? ''));
+        // A spam complaint about a marketing email only stops marketing: Tips and Offers goes off, and password resets,
+        // receipts and trial notices still arrive. A complaint on the transactional stream, or a hard bounce, stops everything.
+        if (($record === 'SpamComplaint' || $type === 'SpamComplaint') && (string) ($e['MessageStream'] ?? '') === Notifications::STREAM_BROADCAST) {
+            if ($email === '') { return array(200, 'ignored'); }
+            $n = NurtureEmails::subscription_change(array('Recipient' => $email, 'MessageStream' => Notifications::STREAM_BROADCAST, 'SuppressSending' => true));
+            error_log('[postmark webhook] SpamComplaint on ' . Notifications::STREAM_BROADCAST . ' for ' . $email . ': Tips and Offers off (' . (int) $n . ' account' . ((int) $n === 1 ? '' : 's') . ')');
+            return array(200, 'ok');
+        }
         $hard   = ($record === 'Bounce' && in_array($type, array('HardBounce', 'BadEmailAddress'), true)) || $record === 'SpamComplaint' || $type === 'SpamComplaint';
         if (!$hard || $email === '') { return array(200, 'ignored'); }
         $reason = ($record === 'SpamComplaint' ? 'SpamComplaint' : $type) . (!empty($e['Description']) ? ': ' . (string) $e['Description'] : '');

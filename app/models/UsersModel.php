@@ -671,6 +671,8 @@ class UsersModel extends Model {
      * before $since (UTC), and no lifecycle_emails claim of $kind + $ref yet. Oldest first, at most $limit.
      */
     public function nurture_candidates($kind, $ref, $min_age_h, $max_age_h, $since, $limit = 300){
+        // deadline emails (ref "<end date>:<stage>"): an account gets each stage once ever, so moving the end date never re-sends it
+        $stage_only = (string) $kind === 'nurture_deadline' && strpos((string) $ref, ':') !== false;
         return (array) parent::select(
             "SELECT u.*
                FROM user_accounts u
@@ -684,10 +686,10 @@ class UsersModel extends Model {
                 AND u.created_at >  UTC_TIMESTAMP() - INTERVAL " . (int) $max_age_h . " HOUR
                 AND u.created_at >= :since
                 AND NOT EXISTS (SELECT 1 FROM user_notification_prefs p WHERE p.user_id = u.user_id AND p.category = 'tips_offers' AND p.email = 0)
-                AND NOT EXISTS (SELECT 1 FROM lifecycle_emails le WHERE le.user_id = u.user_id AND le.kind = :k AND le.ref = :r)
+                AND NOT EXISTS (SELECT 1 FROM lifecycle_emails le WHERE le.user_id = u.user_id AND le.kind = :k AND " . ($stage_only ? "le.ref LIKE :r" : "le.ref = :r") . ")
               ORDER BY u.created_at ASC
               LIMIT " . max(1, (int) $limit),
-            array('since' => (string) $since, 'k' => (string) $kind, 'r' => (string) $ref));
+            array('since' => (string) $since, 'k' => (string) $kind, 'r' => $stage_only ? '%' . substr((string) $ref, strrpos((string) $ref, ':')) : (string) $ref));
     }
 
     /** Ids of the live accounts using this email address. */

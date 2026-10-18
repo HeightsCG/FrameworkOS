@@ -33,6 +33,13 @@ class LifecycleEmailsModel extends Model {
         return $r ? $r[0] : null;
     }
 
+    /** Has the account a claim of this kind whose ref ends with $suffix (e.g. ':3d' for any deadline date). */
+    public function has_ref_suffix($user_id, $kind, $suffix): bool {
+        $r = parent::select("SELECT 1 FROM lifecycle_emails WHERE user_id = :u AND kind = :k AND ref LIKE :s LIMIT 1",
+            array('u' => (int) $user_id, 'k' => (string) $kind, 's' => '%' . (string) $suffix));
+        return (bool) $r;
+    }
+
     public function for_user($user_id): array {
         return (array) parent::select("SELECT * FROM lifecycle_emails WHERE user_id = :u ORDER BY id", array('u' => (int) $user_id));
     }

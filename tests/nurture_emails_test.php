@@ -170,7 +170,10 @@ try {
     NurtureEmails::$now = $eastern((new DateTimeImmutable($new_end, new DateTimeZone(CreatorPromo::TZ)))->modify('-3 days')->format('Y-m-d'), 10);
     NurtureEmails::run();
     $m = $sent_to('quinn');
-    check('extended deadline sends again for the new date', count($m) === 3 && strpos($m[2]['Subject'], CreatorPromo::ends_label()) !== false && CreatorPromo::ends_label() !== $label);
+    check('extended deadline never re-sends a stage already sent', count($m) === 2 && CreatorPromo::ends_label() !== $label);
+    NurtureEmails::$now = $eastern($new_end, 10);
+    NurtureEmails::run();
+    check('extended deadline: no second last-day email either', count($sent_to('quinn')) === 2);
     NurtureEmails::$now = $eastern((new DateTimeImmutable($new_end, new DateTimeZone(CreatorPromo::TZ)))->modify('+1 day')->format('Y-m-d'), 10);
     check('after the offer ends: no stage', NurtureEmails::deadline_stage() === null);
     $set_end($today->modify('-1 day')->format('Y-m-d'));

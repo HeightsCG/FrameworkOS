@@ -1,14 +1,14 @@
 <?php
 /**
  * Free-creator nurture email (marketing): verified creators on Free who haven't started a plan get up to three
- * getting-started emails and, while the Founding Creator price runs, two deadline emails per end date.
+ * getting-started emails and, while the Founding Creator price runs, two deadline emails (once per account, ever).
  *
  *   - day 1  "Your page isn't public yet"         (24h after sign-up, sign-ups in the last 7 days)
  *   - day 3  "Make your first AI photo"            (72h after sign-up, sign-ups in the last 7 days)
  *   - day 7  "What you get with Creator"           (7 days after sign-up, sign-ups from FROM on)
  *   - deadline "The $49 Founding Creator price ends {date}": 3 days before CreatorPromo's end date and on the last day,
- *     from 9 AM Eastern, to Free creators who signed up in the last 60 days. ref = end date + stage, so an extended
- *     deadline sends again for the new date (two per date at most).
+ *     from 9 AM Eastern, to Free creators who signed up in the last 60 days. ref = end date + stage. Each account gets each
+ *     stage once ever: extending the offer never re-sends a deadline someone already got (no repeated fake deadlines).
  *
  * Marketing rules: sent on the Postmark broadcast stream (Postmark adds List-Unsubscribe and suppresses whoever
  * unsubscribes), every email carries Notifications::POSTAL_ADDRESS and the {{{ pm:unsubscribe }}} link, and the
@@ -115,6 +115,7 @@ class NurtureEmails {
         if (!$u || !self::eligible($u)) { return false; }   // a plan started, switched off, bounced ...: nothing claimed
         if ($kind === self::DEADLINE_KIND && !self::deadline_stage()) { return false; }
         $m  = new LifecycleEmailsModel();
+        if ($kind === self::DEADLINE_KIND && $m->has_ref_suffix($uid, $kind, substr($ref, (int) strrpos($ref, ':')))) { return false; }   // this stage already went out for an earlier end date
         $id = $m->claim($uid, $kind, $ref, 'sent');
         if ($id < 1) { return false; }
         $mail = self::build($kind, $u, Founding::eligible($uid), $stage);

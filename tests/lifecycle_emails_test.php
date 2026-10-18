@@ -157,9 +157,18 @@ try {
     check('abandoned: card not charged + plan tab link with founding', strpos($m[0]['HtmlBody'], 'card wasn&#039;t charged') !== false && strpos($m[0]['HtmlBody'], '/account/billing?tab=plan&amp;plan=creator&amp;founding=1') !== false);
     check('no email while the checkout is 20 minutes old', count($sent_to('lifecycle.g' . $tag . '@cls-mailtest.com')) === 0);
     check('no email to an account on a paid plan', count($sent_to($ee)) === 2);
+    check('abandoned: marketing stream with postal address + unsubscribe', ($m[0]['MessageStream'] ?? '') === Notifications::STREAM_BROADCAST
+        && strpos($m[0]['HtmlBody'], htmlspecialchars(Notifications::POSTAL_ADDRESS, ENT_QUOTES, 'UTF-8')) !== false && strpos($m[0]['HtmlBody'], '{{{ pm:unsubscribe }}}') !== false);
     $ev($f, 70, 'subscribe creator founding');
     LifecycleEmails::run_abandoned_checkouts();
     check('abandoned checkout at most once per 7 days', count($sent_to($ef)) === 1);
+    $eo = 'lifecycle.o' . $tag . '@cls-mailtest.com';
+    $o = $mk('ola', $eo, array('email_verified' => 1));
+    (new NotificationPrefsModel())->save_prefs($o, array(NurtureEmails::CATEGORY => array('in_platform' => 0, 'email' => 0)));
+    LifecycleEmails::$only_users = array($o);
+    $ev($o, 120, 'subscribe creator');
+    LifecycleEmails::run_abandoned_checkouts();
+    check('abandoned: Tips and Offers off means no email', count($sent_to($eo)) === 0);
 
     // ---- Postmark webhook ----
     $eh = 'lifecycle.h' . $tag . '@cls-mailtest.com';
@@ -179,6 +188,12 @@ try {
     $spam = json_encode(array('RecordType' => 'SpamComplaint', 'Type' => 'SpamComplaint', 'Email' => 'lifecycle.s' . $tag . '@cls-mailtest.com'));
     LifecycleEmails::postmark_webhook($spam, 'test-secret-123');
     check('spam complaint marks the account', LifecycleEmails::bounced($row($s)));
+    $ek = 'lifecycle.k' . $tag . '@cls-mailtest.com';
+    $k = $mk('kim', $ek, array('email_verified' => 1));
+    $mspam = json_encode(array('RecordType' => 'SpamComplaint', 'Type' => 'SpamComplaint', 'Email' => $ek, 'MessageStream' => Notifications::STREAM_BROADCAST));
+    check('marketing spam complaint accepted', LifecycleEmails::postmark_webhook($mspam, 'test-secret-123')[0] === 200);
+    check('marketing spam complaint: account emails still delivered', !LifecycleEmails::bounced($row($k)) && LifecycleEmails::deliverable($row($k)));
+    check('marketing spam complaint: Tips and Offers off', !(new NotificationPrefsModel())->email_on($k, NurtureEmails::CATEGORY));
     $db->run('UPDATE user_accounts SET user_email = :e WHERE user_id = :u', array(':e' => 'lifecycle.h2' . $tag . '@cls-mailtest.com', ':u' => $h));
     check('a changed address is no longer bounced', !LifecycleEmails::bounced($row($h)));
     check('bad JSON: 400', LifecycleEmails::postmark_webhook('nope', 'test-secret-123')[0] === 400);
