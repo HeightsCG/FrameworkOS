@@ -1810,14 +1810,14 @@ $(function () {
         window.scrollTo(0, 0);
     }
 
-    var deepLink = (params.get('section') || '').replace(/[^a-z_]/gi, '');
+    var deepLink = (params.get('section') || window.location.hash.slice(1) || '').replace(/[^a-z_]/gi, '');   // ?section=x, or #x from older links
     if (deepLink && $('#settings_nav .settings__nav-item[data-section="' + deepLink + '"]').length) {
         activateSection(deepLink);
     }
 
     // Consume one-time query params (deep-link section, Stripe/social returns) on
     // this load, then strip them so a refresh doesn't re-fire toasts or re-force a tab.
-    if (window.location.search) {
+    if (window.location.search || window.location.hash) {
         history.replaceState({}, '', window.location.pathname);
     }
 

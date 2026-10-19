@@ -132,7 +132,7 @@ class AgeVerification {
         if (!self::post_is_adult($post_id) || self::is_verified($creator_id)) { return false; }
         (new PostsModel())->hold_for_plan($creator_id, $post_id, self::HELD_REASON);
         Notify::send($creator_id, 'creator_activity', $was_live ? 'Your post was held' : 'Your scheduled post was held',
-            'It is marked adult, and adult posts publish once your age is verified. It is in your drafts: verify once in Settings, then publish it.', '/account/settings#privacy', 'fa-id-card');
+            'It is marked adult, and adult posts publish once your age is verified. It is in your drafts: verify once in Settings, then publish it.', '/account/settings?section=privacy', 'fa-id-card');
         return true;
     }
 
