@@ -39,7 +39,7 @@ try {
     $settings->set(CreatorPromo::SETTING, gmdate('Y-m-d', time() - 2 * 86400));
     CreatorPromo::reset();
     check('after the end date the offer is over', !CreatorPromo::running() && !CreatorPromo::active());
-    check('new signups get the regular Creator price', PlanTiers::price('creator') === CreatorPromo::REGULAR && CreatorPromo::list_price() === CreatorPromo::REGULAR);
+    check('new signups get the regular Creator price', PlanTiers::price('creator') === CreatorPromo::regular() && CreatorPromo::list_price() === CreatorPromo::regular());
 
     $locked = $mk('creator', 4900);
     $nc = BillingService::next_charge(BillingService::account($locked));
@@ -47,12 +47,12 @@ try {
     check('its billing page shows $49 for its plan', BillingService::account_plan_cents(BillingService::account($locked), 'creator') === 4900);
 
     $unlocked = $mk('creator', null);
-    check('an account with no lock pays the list price', $plan_line(BillingService::next_charge(BillingService::account($unlocked))) === CreatorPromo::REGULAR * 100);
+    check('an account with no lock pays the list price', $plan_line(BillingService::next_charge(BillingService::account($unlocked))) === CreatorPromo::regular() * 100);
 
     $free = (int) $users->create_user('lockf' . mt_rand(100000, 999999), '!no-sign-in', 'Lock', 'Free', '', 0, 0); $made[] = $free;
     BillingService::account($free);
     $q = BillingService::quote_plan($free, 'creator');
-    check('a new Creator quote is the regular price', !empty($q['ok']) && (int) $q['recurring'] === CreatorPromo::REGULAR * 100 && (int) $q['today'] === CreatorPromo::REGULAR * 100, json_encode($q));
+    check('a new Creator quote is the regular price', !empty($q['ok']) && (int) $q['recurring'] === CreatorPromo::regular() * 100 && (int) $q['today'] === CreatorPromo::regular() * 100, json_encode($q));
 
     // Upgrading from a $49 Creator credits the unused time at $49 (what they paid), not at the new list price.
     $q2 = BillingService::quote_plan($locked, 'studio');
@@ -64,7 +64,7 @@ try {
     $studio = $mk('studio', 19900);
     $accts->save($studio, array('pending_plan_key' => 'creator'));
     $nc2 = BillingService::next_charge(BillingService::account($studio));
-    check('a scheduled change to Creator previews the price at that moment', $plan_line($nc2) === CreatorPromo::REGULAR * 100, json_encode($nc2));
+    check('a scheduled change to Creator previews the price at that moment', $plan_line($nc2) === CreatorPromo::regular() * 100, json_encode($nc2));
 
     // Moving to Free clears the lock: coming back later is a new start at the price of the day.
     BillingService::to_free($locked, true, 'test');
@@ -73,7 +73,7 @@ try {
     // Extending the offer is the one setting: a later date turns it back on (new process state: reset + fresh check).
     $settings->set(CreatorPromo::SETTING, gmdate('Y-m-d', time() + 30 * 86400));
     CreatorPromo::reset();
-    check('a later end date reopens the offer', CreatorPromo::running() && CreatorPromo::list_price() === CreatorPromo::PRICE);
+    check('a later end date reopens the offer', CreatorPromo::running() && CreatorPromo::list_price() === CreatorPromo::price());
     check('the label follows the saved date', CreatorPromo::ends_label() === (new DateTime(gmdate('Y-m-d', time() + 30 * 86400)))->format('F j, Y'));
 } finally {
     if ($saved === '') {

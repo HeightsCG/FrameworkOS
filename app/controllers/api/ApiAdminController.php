@@ -108,29 +108,37 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['is_demo' => (int) $demo, 'message' => $demo === '1' ? 'Marked as demo account' : 'Demo flag removed']);
     }
 
-    /** Which plans may cross-promote (/promote): comma-separated PlanTiers keys, every one checked. */
     /**
-     * The Founding Creator offer's end date (CreatorPromo; app_settings creator_promo_ends): new signups get $49 a month
-     * until 11:59 PM Eastern that day, then the regular price. Accounts already on Creator keep the price they started at.
+     * The Founding Creator offer (CreatorPromo): the price new signups pay a month until 11:59 PM Eastern on the end date,
+     * and the regular price after it (app_settings creator_promo_price / creator_promo_regular / creator_promo_ends).
+     * Accounts already on Creator keep the price they started at (billing_accounts.plan_price_cents).
      */
-    public function admin_set_creator_promo_endAction(){
+    public function admin_set_creator_promoAction(){
         $this->admin_guard();
-        $d = trim((string) ($this->post['ends'] ?? ''));
+        $d       = trim((string) ($this->post['ends'] ?? ''));
+        $price   = trim((string) ($this->post['price'] ?? ''));
+        $regular = trim((string) ($this->post['regular'] ?? ''));
+        if (!ctype_digit($price) || (int) $price < 1 || (int) $price > 9999) { $this->jsonError('Enter the offer price in whole dollars.'); }
+        if (!ctype_digit($regular) || (int) $regular < 1 || (int) $regular > 9999) { $this->jsonError('Enter the regular price in whole dollars.'); }
+        if ((int) $price > (int) $regular) { $this->jsonError('The offer price cannot be higher than the regular price.'); }
         $ok = preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && ($dt = DateTime::createFromFormat('!Y-m-d', $d, new DateTimeZone(CreatorPromo::TZ))) && $dt->format('Y-m-d') === $d;
         if (!$ok) { $this->jsonError('Pick a valid end date.'); }
-        (new AdminSettingsModel())->set(CreatorPromo::SETTING, $d);
+        $set = new AdminSettingsModel();
+        $set->set(CreatorPromo::SETTING_PRICE, (string) (int) $price);
+        $set->set(CreatorPromo::SETTING_REGULAR, (string) (int) $regular);
+        $set->set(CreatorPromo::SETTING, $d);
         CreatorPromo::reset();
-        $this->jsonSuccess(['ends' => $d, 'label' => CreatorPromo::ends_label(), 'running' => CreatorPromo::running(),
-            'message' => CreatorPromo::running()
-                ? 'Saved. New signups pay $' . CreatorPromo::PRICE . ' until ' . CreatorPromo::ends_label() . ', 11:59 PM Eastern.'
-                : 'Saved. The offer has ended: new signups pay $' . CreatorPromo::REGULAR . '. Accounts already on $' . CreatorPromo::PRICE . ' keep it.']);
+        $this->jsonSuccess(['ends' => $d, 'price' => CreatorPromo::price(), 'regular' => CreatorPromo::regular(), 'running' => CreatorPromo::running(),
+            'note' => CreatorPromo::admin_note(), 'message' => 'Founding Creator price saved']);
     }
 
+    /** Which plans may cross-promote (/promote): PlanTiers keys, every one checked; none = cross-promotion off. */
     public function admin_set_cross_promo_plansAction(){
         $this->admin_guard();
         $keys = array();
-        foreach (explode(',', strtolower((string) ($this->post['plans'] ?? ''))) as $k) {
-            $k = trim($k);
+        $raw = $this->post['plans'] ?? '';
+        foreach ((is_array($raw) ? $raw : explode(',', strtolower((string) $raw))) as $k) {
+            $k = strtolower(trim((string) $k));
             if ($k === '') { continue; }
             if (!isset(PlanTiers::TIERS[$k])) { $this->jsonError('Unknown plan "' . $k . '". Use: ' . implode(', ', array_keys(PlanTiers::TIERS)) . '.'); }
             if (!in_array($k, $keys, true)) { $keys[] = $k; }

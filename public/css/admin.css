@@ -291,6 +291,24 @@ a.adm-seg__b{ text-decoration:none; }
 .adm-kwadd input, .adm-kwadd select{ height:34px; padding:0 10px; border:1px solid #D9D9DC; border-radius:8px; font:inherit; font-size:14px; background:var(--surface); }
 .adm-kwadd input:focus, .adm-kwadd select:focus{ outline:none; border-color:var(--acc); box-shadow:var(--ring); }
 .adm-kwadd input[name=keyword]{ width:220px; } .adm-kwadd input[type=number]{ width:90px; }
+.adm-promo{ display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; }
+.adm-promo .adm-field{ margin:0; }
+.adm-money{ display:flex; align-items:center; height:36px; border:1px solid #D9D9DC; border-radius:8px; background:var(--surface); padding:0 10px; gap:4px; }
+.adm-money:focus-within{ border-color:var(--acc); box-shadow:var(--ring); }
+.adm-money input{ width:64px; border:0; padding:0; font:inherit; font-size:14px; background:transparent; font-variant-numeric:tabular-nums; -moz-appearance:textfield; }
+.adm-money input::-webkit-outer-spin-button, .adm-money input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.adm-money input:focus{ outline:none; }
+.adm-money__sign{ font-size:14px; color:var(--t2); }
+.adm-money__unit{ font-size:13px; color:var(--muted); white-space:nowrap; }
+.adm-promo__date{ height:36px; padding:0 10px; border:1px solid #D9D9DC; border-radius:8px; font:inherit; font-size:14px; background:var(--surface); }
+.adm-promo__date:focus{ outline:none; border-color:var(--acc); box-shadow:var(--ring); }
+.adm-promo__save{ height:36px; }
+.adm-plans{ display:flex; gap:8px; flex-wrap:wrap; }
+.adm-plans__opt{ display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 14px; border:1px solid #D9D9DC; border-radius:8px; background:var(--surface); font-size:14px; font-weight:500; cursor:pointer; user-select:none; }
+.adm-plans__opt:hover{ border-color:#BDBDC2; }
+.adm-plans__opt:has(input:checked){ border-color:var(--acc-btn); box-shadow:0 0 0 1px var(--acc-btn); }
+.adm-plans__opt:has(input:focus-visible){ box-shadow:var(--ring); }
+.adm-plans__opt input{ margin:0; accent-color:var(--acc-btn); width:16px; height:16px; }
 #admPromoPlans{ margin-bottom:0; }
 .adm-kprio{ width:64px; height:28px; padding:0 6px; border:1px solid #D9D9DC; border-radius:6px; font:inherit; font-size:13px; }
 .adm-scene{ display:grid; grid-template-columns:168px minmax(0, 1fr); gap:24px; align-items:start; }
@@ -448,4 +466,12 @@ a.adm-seg__b{ text-decoration:none; }
     .adm-t--ads thead{ display:table-header-group; } .adm-t--ads tbody{ display:table-row-group; } .adm-t--ads tr{ display:table-row; }
     .adm-t--ads tr[hidden]{ display:none; }
     .adm-t--ads td, .adm-t--ads th{ white-space:nowrap; }
+}
+@media (max-width: 640px){
+    .adm-promo{ gap:12px; }
+    .adm-promo .adm-field{ flex:1 1 calc(50% - 6px); }
+    .adm-money input, .adm-promo__date{ font-size:16px; }
+    .adm-money input{ flex:1; width:auto; min-width:0; }
+    .adm-promo__date{ width:100%; }
+    .adm-promo__save{ flex:1 1 100%; justify-content:center; }
 }

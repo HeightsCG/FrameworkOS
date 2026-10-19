@@ -153,7 +153,7 @@ try {
     NurtureEmails::run();
     $m = $sent_to('quinn');
     $label = CreatorPromo::ends_label();
-    check('deadline email names the admin end date', count($m) === 1 && ($m[0]['Subject'] ?? '') === 'The $' . CreatorPromo::PRICE . ' Founding Creator price ends ' . $label);
+    check('deadline email names the admin end date', count($m) === 1 && ($m[0]['Subject'] ?? '') === 'The $' . CreatorPromo::price() . ' Founding Creator price ends ' . $label);
     check('deadline: broadcast + footer', ($m[0]['MessageStream'] ?? '') === 'broadcast' && strpos($m[0]['TextBody'], '{{{ pm:unsubscribe }}}') !== false);
     NurtureEmails::run();
     check('deadline 3d exactly once', count($sent_to('quinn')) === 1);

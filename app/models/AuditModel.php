@@ -37,6 +37,7 @@ class AuditModel extends Model {
         'admin_scene_set_active'      => 'Turned a scene template on or off',
         'admin_scene_thumb'           => 'Changed a scene thumbnail',
         'admin_set_cross_promo_plans' => 'Changed the cross-promotion plans',
+        'admin_set_creator_promo' => 'Changed the Founding Creator price',
         'admin_set_demo'              => 'Changed the demo flag',
         'support_reply'              => 'Replied to a support request',
         'support_close'              => 'Closed or reopened a support request',

@@ -183,7 +183,7 @@ class NurtureEmails {
                 $founding ? $trial . ' Your page goes public as soon as it starts.' : 'Your page goes public as soon as the plan starts, and everything you\'ve built on Free stays as it is.',
             );
             $facts[] = array('Price', '$' . $price . ' / month');
-            if ($plan === CreatorPromo::PLAN && CreatorPromo::running()) { $facts[] = array('$' . CreatorPromo::PRICE . ' price ends', CreatorPromo::ends_label()); }
+            if ($plan === CreatorPromo::PLAN && CreatorPromo::running()) { $facts[] = array('$' . CreatorPromo::price() . ' price ends', CreatorPromo::ends_label()); }
             $facts[] = array('Platform fee', (int) ($l['fee_percent'] ?? 0) . '% of sales');
             if ((int) ($l['ai_credits'] ?? 0) > 0)  { $facts[] = array('AI credits', number_format((int) $l['ai_credits']) . ' / month'); }
             if ((int) ($l['influencers'] ?? 0) > 0) { $facts[] = array('AI influencers', (string) (int) $l['influencers']); }
@@ -191,14 +191,14 @@ class NurtureEmails {
             $facts[] = array('Selling', 'Memberships, paid posts, bundles');
         } else {
             $when = CreatorPromo::ends_label();
-            $subject = 'The $' . CreatorPromo::PRICE . ' Founding Creator price ends ' . $when;
+            $subject = 'The $' . CreatorPromo::price() . ' Founding Creator price ends ' . $when;
             $first = $stage === 'last'
-                ? 'Today is the last day to start Creator at $' . CreatorPromo::PRICE . ' a month. The offer ends tonight at 11:59 PM Eastern.'
-                : 'Start Creator by ' . $when . ' (11:59 PM Eastern) and you pay $' . CreatorPromo::PRICE . ' a month for as long as you stay subscribed.';
+                ? 'Today is the last day to start Creator at $' . CreatorPromo::price() . ' a month. The offer ends tonight at 11:59 PM Eastern.'
+                : 'Start Creator by ' . $when . ' (11:59 PM Eastern) and you pay $' . CreatorPromo::price() . ' a month for as long as you stay subscribed.';
             $paras = array(
                 $first,
-                'From ' . CreatorPromo::regular_from_long() . ', Creator is $' . CreatorPromo::REGULAR . ' a month for new subscribers. '
-                    . ($founding ? 'The ' . $days . '-day free trial still applies: $0 today, then $' . CreatorPromo::PRICE . ' a month when it ends.' : 'Your price stays at $' . CreatorPromo::PRICE . ' if you start before then.'),
+                'From ' . CreatorPromo::regular_from_long() . ', Creator is $' . CreatorPromo::regular() . ' a month for new subscribers. '
+                    . ($founding ? 'The ' . $days . '-day free trial still applies: $0 today, then $' . CreatorPromo::price() . ' a month when it ends.' : 'Your price stays at $' . CreatorPromo::price() . ' if you start before then.'),
             );
             $plan = 'creator';
             $link = $founding ? UpgradePrompt::checkout_url('creator', true) : UpgradePrompt::plan_url('creator');
