@@ -411,11 +411,10 @@ class AccountController extends Controller {
             catch (\Throwable $e) { error_log('[google] record_signup_params user_id=' . $uid . ': ' . $e->getMessage()); }
             Affiliates::attribute_signup($uid);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
             UsersModel::clear_signup_cookie();
-            $tt_event = '';
-            try { $tt_event = $users->start_tt_registration($uid); }
+            try { $users->start_tt_registration($uid); }   // the account's one TikTok signup event id (TikTokRegistration)
             catch (\Throwable $e) { error_log('[google] tt registration user_id=' . $uid . ': ' . $e->getMessage()); }
-            Analytics::event('signup', array('user_id' => $uid, 'meta' => 'google', 'event_id' => $tt_event));
-            Session::set('tt_reg_pending', $uid);   // the next page this browser renders fires the pixel's CompleteRegistration, once (google_analytics.php)
+            Analytics::event('signup', array('user_id' => $uid, 'meta' => 'google'));
+            TikTokRegistration::settle_on_next_page($uid);   // the next page this browser renders: CompleteRegistration for a creator, else FanSignup, once (google_analytics.php)
             $new = true;
             $rows = $users->get_user_by_id($uid);
             $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;

@@ -312,6 +312,7 @@ class ApiProfileController extends BaseApiController {
         $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
         Session::set('role_id', $creator_role_id);
         Session::set('creator_since', date('Y-m-d H:i:s'));
+        TikTokRegistration::settle_on_next_page($user_id);   // the account now meets the creator rule: its CompleteRegistration fires on the next page (an account from before 2026-10-16, or one already sent, gets nothing)
         // New creators start on Free, which includes no AI credits (grant_monthly is a no-op for it).
         $fresh = $this->userModel->get_user_by_id($user_id);
         if (is_array($fresh) && count($fresh) === 1) { Plan::grant_monthly($fresh[0]); }

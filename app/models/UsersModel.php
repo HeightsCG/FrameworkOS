@@ -525,8 +525,25 @@ class UsersModel extends Model {
     }
 
     /**
-     * TikTok CompleteRegistration (2026-10-16): a new account gets its event id here (email signup, Google signup, team
-     * invite). The same id goes to the browser pixel and to the server Events API copy, so TikTok counts the signup once.
+     * THE creator rule: the account holds the Creator role. The admin Funnel's Creators column (AdminModel::growth_parts,
+     * free_builders) and TikTok's CompleteRegistration (claim_tt_registration) both use this, so they never disagree.
+     */
+    public static function creator_sql(string $alias = 'u'): string {
+        $a = preg_replace('/[^A-Za-z0-9_]/', '', $alias);
+        return "$a.role_id = (SELECT cr.id FROM user_roles cr WHERE cr.role_name = 'Creator')";
+    }
+
+    /** Does this account meet the creator rule (creator_sql) right now? */
+    public function is_creator($user_id): bool {
+        $r = parent::select('SELECT 1 FROM user_accounts u WHERE u.user_id = :uid AND ' . self::creator_sql('u'), array('uid' => (int) $user_id));
+        return is_array($r) && count($r) === 1;
+    }
+
+    /**
+     * TikTok CompleteRegistration (2026-10-16; creators only since 2026-10-19). Every new account gets an event id here at
+     * creation (email signup, Google signup, team invite). The id marks the account as new and stays on the server until the
+     * account meets the creator rule: claim_tt_registration then hands it to the browser pixel and the Events API copy
+     * (TikTokRegistration::settle), so TikTok counts the creator once. Accounts from before 2026-10-16 have no id.
      */
     public function start_tt_registration($user_id): string {
         $id = 'cls_reg_' . bin2hex(random_bytes(12));
@@ -535,19 +552,32 @@ class UsersModel extends Model {
     }
 
     /**
-     * The one time the browser is handed the event: marks it sent and returns what the pixel needs (event id, SHA-256 of
-     * the lowercase trimmed email, SHA-256 of the account id), or null when there is nothing to send: an account from
+     * The one time a creator's CompleteRegistration is handed out: marks it sent and returns what the pixel needs (event id,
+     * SHA-256 of the lowercase trimmed email, SHA-256 of the account id), or null: not a creator (yet), an account from
      * before this change, or one already handed out (a refresh, a later sign-in, a second tab).
      */
     public function claim_tt_registration($user_id): ?array {
         $uid = (int) $user_id;
         if ($uid <= 0) { return null; }
-        $n = parent::update('user_accounts', array('tt_reg_sent_at' => gmdate('Y-m-d H:i:s')), 'user_id = :uid AND tt_reg_event_id IS NOT NULL AND tt_reg_sent_at IS NULL', array('uid' => $uid));
+        $n = parent::update('user_accounts', array('tt_reg_sent_at' => gmdate('Y-m-d H:i:s')),
+            'user_id = :uid AND tt_reg_event_id IS NOT NULL AND tt_reg_sent_at IS NULL AND ' . self::creator_sql('user_accounts'), array('uid' => $uid));
         if ((int) $n !== 1) { return null; }
         $rows = parent::select('SELECT tt_reg_event_id, user_email FROM user_accounts WHERE user_id = :uid', array('uid' => $uid));
         if (!is_array($rows) || count($rows) !== 1) { return null; }
         $email = strtolower(trim((string) $rows[0]['user_email']));
         return array('event_id' => (string) $rows[0]['tt_reg_event_id'], 'email' => $email !== '' ? hash('sha256', $email) : '', 'external_id' => hash('sha256', (string) $uid));
+    }
+
+    /**
+     * The one time a new non-creator account's FanSignup (server only) is sent: true when this call marked it. Never for a
+     * creator, an account from before this change, or one already sent.
+     */
+    public function claim_tt_fan_signup($user_id): bool {
+        $uid = (int) $user_id;
+        if ($uid <= 0) { return false; }
+        $n = parent::update('user_accounts', array('tt_fan_sent_at' => gmdate('Y-m-d H:i:s')),
+            'user_id = :uid AND tt_reg_event_id IS NOT NULL AND tt_reg_sent_at IS NULL AND tt_fan_sent_at IS NULL AND NOT (' . self::creator_sql('user_accounts') . ')', array('uid' => $uid));
+        return (int) $n === 1;
     }
 
     /** The signup came with the founding trial offer (?founding=1 / cls_founding): verify_email hands the flag to whichever browser opens the link. */

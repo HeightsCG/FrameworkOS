@@ -3,7 +3,8 @@
  * TikTok Events API (server side, beside the browser pixel in libs/Layout/google_analytics.php). The conversions TikTok
  * ads optimise on are sent from the server, where ad blockers cannot drop them:
  *
- *   signup           -> CompleteRegistration
+ *   creator_registration -> CompleteRegistration (creators only, once, same event id as the pixel: TikTokRegistration)
+ *   fan_signup           -> FanSignup, a custom event (a non-creator signup, once, server only: TikTokRegistration)
  *   credits_bought   -> Purchase   (value = dollars paid)
  *   plan_paid        -> StartTrial (a $0 plan start, the founding trial: value = the plan's monthly price from PlanTiers)
  *                       Purchase   (a paid plan start or upgrade; and once, the first paid renewal after a trial of an
@@ -59,11 +60,15 @@ class TikTokEventJob {
         try {
             if (!self::configured()) { return; }
             $cli = self::is_cli(); $allow_cli = false; $dedupe = '';
-            if ($name === 'follow' && Analytics::excluded('', $user_id)) { return; }   // the other events arrive already filtered by Analytics::event
+            if (in_array($name, array('follow', 'creator_registration', 'fan_signup'), true) && Analytics::excluded('', $user_id)) { return; }   // the other events arrive already filtered by Analytics::event
             $value = round(((int) ($opts['value_cents'] ?? 0)) / 100, 2);
             $meta  = (string) ($opts['meta'] ?? '');
             switch ($name) {
-                case 'signup':          $ev = 'CompleteRegistration'; $props = array('content_name' => 'creator_signup', 'value' => 0, 'currency' => 'USD'); break;   // the same properties as the browser pixel (CLSTikTokRegistration)
+                case 'creator_registration':   // the same properties and event id as the browser pixel (CLSTikTokRegistration)
+                    $ev = 'CompleteRegistration'; $props = array('content_name' => 'creator_signup', 'value' => 0, 'currency' => 'USD');
+                    $dedupe = 'tiktok_reg:' . $user_id; break;
+                case 'fan_signup':
+                    $ev = 'FanSignup'; $props = array('content_name' => 'fan_signup'); $dedupe = 'tiktok_fan:' . $user_id; break;
                 case 'credits_bought':  $ev = 'Purchase';  $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Credits'); break;
                 case 'plan_paid':
                     $kind = (string) strtok($meta, ' '); $plan = trim((string) strtok(' '));

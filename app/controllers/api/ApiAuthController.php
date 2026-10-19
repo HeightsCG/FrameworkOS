@@ -94,11 +94,11 @@ class ApiAuthController extends BaseApiController {
         catch (\Throwable $e) { error_log('[register] record_signup_params user_id=' . $user_id . ': ' . $e->getMessage()); }   // never block the verification email
         Affiliates::attribute_signup($user_id);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
         UsersModel::clear_signup_cookie();
-        // TikTok CompleteRegistration: one event id for the server copy (Analytics -> TikTokEventJob) and the browser pixel (tt_registration below)
-        $tt_event = '';
-        try { $tt_event = $this->userModel->start_tt_registration($user_id); }
+        try { $this->userModel->start_tt_registration($user_id); }   // the account's one TikTok signup event id (TikTokRegistration)
         catch (\Throwable $e) { error_log('[register] tt registration user_id=' . $user_id . ': ' . $e->getMessage()); }
-        Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email', 'event_id' => $tt_event));
+        Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email'));
+        // TikTok: a creator's CompleteRegistration (pixel payload in tt_registration, server copy queued) or a fan's FanSignup, once
+        $tt_registration = TikTokRegistration::settle($user_id);
 
         // Email verification is required before the account can sign in.
         $fresh = $this->userModel->get_user_by_id($user_id);   // the row carries signup_founding (trial-focused email)
@@ -109,11 +109,11 @@ class ApiAuthController extends BaseApiController {
             try {
                 Notify::many($this->userModel->admin_ids(), 'system', 'Verification email failed', 'The sign-up email to ' . $email . ' (user #' . $user_id . ') could not be sent.', '/admin/user/' . $user_id, 'fa-envelope');
             } catch (\Throwable $e) { error_log('[register] admin notice: ' . $e->getMessage()); }
-            $this->jsonSuccess(['message' => 'Account created, but we couldn\'t send the verification email. Use Resend Verification to try again.', 'email_failed' => true, 'tt_registration' => $this->userModel->claim_tt_registration($user_id)]);
+            $this->jsonSuccess(['message' => 'Account created, but we couldn\'t send the verification email. Use Resend Verification to try again.', 'email_failed' => true, 'tt_registration' => $tt_registration]);
         }
 
-        // the account exists: the page fires the pixel's CompleteRegistration from this, once (window.CLSTikTokRegistration)
-        $this->jsonSuccess(['message' => self::SIGNUP_SENT, 'tt_registration' => $this->userModel->claim_tt_registration($user_id)]);
+        // the account exists: for a creator the page fires the pixel's CompleteRegistration from this, once (window.CLSTikTokRegistration)
+        $this->jsonSuccess(['message' => self::SIGNUP_SENT, 'tt_registration' => $tt_registration]);
     }
 
     /**
@@ -270,8 +270,7 @@ class ApiAuthController extends BaseApiController {
 
         $this->notify((int) $user['user_id'], 'security', 'Password changed', 'Your password was just changed. If this was not you, reset it now and contact support.', '/account/settings?section=security', 'fa-key', false, true);
         // a team invite accepted (the invitee's first password, in their own browser): that is their signup. A normal reset has nothing pending.
-        $tt = $this->userModel->claim_tt_registration((int) $user['user_id']);
-        if ($tt) { TikTokEventJob::from_event('signup', (int) $user['user_id'], array('event_id' => $tt['event_id'])); }
+        $tt = TikTokRegistration::settle((int) $user['user_id']);
         $this->jsonSuccess(['message' => 'Your password has been updated', 'tt_registration' => $tt]);
     }
 

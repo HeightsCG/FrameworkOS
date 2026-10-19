@@ -438,6 +438,7 @@ class AdminModel extends Model {
      * Growth tab: signups over the last $days UTC days (today included), demo accounts left out.
      * "checkout" = opened a plan checkout (Analytics 'checkout_started', recorded since 2026-10-18).
      * "paid" = billing account active or past due on a selling plan (PagesController::selling_tiers()); a started trial counts.
+     * "became_creator" (the Creators column) = UsersModel::creator_sql, the same rule TikTok CompleteRegistration fires on.
      */
     private function growth_parts($days){
         $days   = max(1, min(366, (int) $days));
@@ -447,7 +448,7 @@ class AdminModel extends Model {
         $where  = "u.is_demo = 0 AND u.deleted = 0 AND u.created_at >= UTC_DATE() - INTERVAL " . ($days - 1) . " DAY";
         $sums   = "COUNT(*) AS signups,
                    COALESCE(SUM(u.email_verified = 1), 0) AS verified,
-                   COALESCE(SUM(u.role_id = " . (int) $this->creator_role_id() . "), 0) AS became_creator,
+                   COALESCE(SUM(" . UsersModel::creator_sql('u') . "), 0) AS became_creator,
                    COALESCE(SUM(EXISTS (SELECT 1 FROM analytics_events ae WHERE ae.kind = 'event' AND ae.name = 'checkout_started' AND ae.user_id = u.user_id)), 0) AS checkout,
                    COALESCE(SUM($paid), 0) AS paid,
                    COALESCE(SUM(u.referred_by_creator_id IS NOT NULL), 0) AS referred";
@@ -505,7 +506,7 @@ class AdminModel extends Model {
              FROM (SELECT c0.day, $built AS built, $upgraded AS upgraded
                    FROM (SELECT u.user_id, u.created_at, u.creator_since, DATE(u.created_at) AS day, $paid_at AS paid_at
                          FROM user_accounts u LEFT JOIN billing_accounts b ON b.user_id = u.user_id
-                         WHERE {$g['where']} AND u.role_id = " . (int) $this->creator_role_id() . ") c0) c
+                         WHERE {$g['where']} AND " . UsersModel::creator_sql('u') . ") c0) c
              GROUP BY day ORDER BY day DESC");
     }
 
