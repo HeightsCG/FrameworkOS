@@ -614,6 +614,11 @@ class UsersModel extends Model {
         );
     }
 
+    /** A Google sign-up started from the /start page's Google button (/account/google_start?from=start). */
+    public static function google_signup_from_start($get): bool {
+        return is_array($get) && (string) ($get['from'] ?? '') === 'start';
+    }
+
     /** The signup params kept in the cls_signup cookie (set by IndexController / landing.js). */
     public static function signup_cookie(): array {
         return self::signup_params(json_decode((string) ($_COOKIE['cls_signup'] ?? ''), true));

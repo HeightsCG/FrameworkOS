@@ -341,6 +341,7 @@ class AccountController extends Controller {
         $flow = array('state' => $state, 'verifier' => $verifier, 'started' => time());
         if ($me > 0) { $flow['link'] = $me; }   // signed in: connecting Google to this account (Settings > Security), not signing in
         $flow['signup'] = array_merge(UsersModel::signup_cookie(), array_filter(UsersModel::signup_params($_GET), 'strlen'));   // ?plan= / ?role= / ?ref= on this link, each one else the cls_signup cookie
+        if (UsersModel::google_signup_from_start($_GET)) { $flow['start'] = 1; }   // the /start Google button: a new account is a Creator at signup, like the /start email form
         $next = CustomDomains::safe_path((string) ($_GET['next'] ?? ''));   // ?next= from the sign-in dialog (Controller::bounce): where to land after Google, same site only
         if ($next !== '/') { $flow['next'] = $next; }
         Session::set('google_oauth', $flow);
@@ -407,7 +408,9 @@ class AccountController extends Controller {
                 if ((string) ($_COOKIE['cls_founding'] ?? '') === '1') { $users->set_signup_founding($uid); }
             } catch (\Throwable $e) { error_log('[google] attribution user_id=' . $uid . ': ' . $e->getMessage()); }   // attribution never blocks signing in
             TrackingLinks::attribute(0, 'signup', $uid);   // came in through a creator's tracking link (cls_tl)
-            try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), false); }   // Google: stays a User with signup_role creator; /setup sends them to Become a Creator, the agreement comes at checkout
+            // Google: stays a User with signup_role creator (/setup sends them to Become a Creator), except from the /start button
+            // ($flow['start']), which makes a role=creator signup a Creator now, like the /start email form. The agreement comes at checkout.
+            try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), !empty($flow['start'])); }
             catch (\Throwable $e) { error_log('[google] record_signup_params user_id=' . $uid . ': ' . $e->getMessage()); }
             Affiliates::attribute_signup($uid);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
             UsersModel::clear_signup_cookie();

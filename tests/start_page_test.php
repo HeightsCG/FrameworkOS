@@ -27,7 +27,7 @@ $ok(stripos($html, 'stripe') === false || stripos($text, 'stripe') === false, 'n
 $ok(stripos($text, 'glauber') === false && stripos($text, 'daniel') === false, 'no founder name');
 $ok(strpos($html, 'name="robots" content="noindex') !== false, 'noindex');
 $ok(strpos($html, 'class="ld-nav') === false && strpos($html, 'pub-foot') === false, 'no site nav or footer');
-preg_match_all('~<a [^>]*href="([^"#][^"]*)"~', $html, $links); $out = array_values(array_unique(array_diff($links[1], array('/account/google_start', '/?auth=login', 'https://mail.google.com/mail/u/0/#search/from%3Acreatorlinkstudio.com'))));   // + Open Gmail on the check-your-email panel
+preg_match_all('~<a [^>]*href="([^"#][^"]*)"~', $html, $links); $out = array_values(array_unique(array_diff($links[1], array('/account/google_start?from=start&amp;plan=creator&amp;role=creator', '/?auth=login', 'https://mail.google.com/mail/u/0/#search/from%3Acreatorlinkstudio.com'))));   // + Open Gmail on the check-your-email panel
 sort($out); $ok($out === array('/privacy', '/terms'), 'the only page links are Terms and Privacy (plus Sign In, Google and Open Gmail in the sheet): ' . implode(' ', $out));
 preg_match_all('#<img [^>]*>#', $html, $imgs); $all_sized = true; $all_exist = true;
 foreach ($imgs[0] as $img) {

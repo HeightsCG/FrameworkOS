@@ -109,10 +109,11 @@ $(document).ready(function() {
        /?auth=login or /?auth=register): open the matching dialog on load. */
     var auth_param = new URLSearchParams(location.search).get('auth');
     if (auth_param === 'login' || auth_param === 'register' || auth_param === 'mfa') {   // mfa: back from Google, code still needed (auth_head.php shows that panel)
-        var auth_trigger = document.querySelector('[data-auth="' + (auth_param === 'mfa' ? 'login' : auth_param) + '"]');
-        if (auth_trigger) { auth_trigger.click(); }
+        // open the dialog itself, never by clicking a link on the page: the first register link may be a creator CTA, and
+        // its ?role=creator would tag a plain /?auth=register signup as a creator (2026-10-19)
+        if (auth_param === 'register') { remember_signup(location.search); }   // only this URL's own ?plan= / ?role= / ?ref=
+        open_auth(auth_param === 'mfa' ? 'login' : auth_param);
     }
-    if (auth_param === 'register') { remember_signup(location.search); }   // after the click: this page's own params win
 
     $(document).on('keydown', function(e) {
         if (!auth_overlay || auth_overlay.hidden) { return; }
