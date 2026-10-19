@@ -67,7 +67,7 @@ $drift = function ($text) use ($retired, $prices, $fee_fixes, $site, $plans) {
     $issues = array();
     foreach ($retired as $r) { if (preg_match('/\b' . preg_quote($r, '/') . ' plan\b|\bthe ' . preg_quote($r, '/') . '\b/i', $text)) { $issues[] = 'names the retired ' . $r . ' plan'; } }
     foreach ($fee_fixes as $re => $to) { if (preg_match($re, $text)) { $issues[] = 'fee range'; break; } }
-    if (preg_match('/\b' . preg_quote($site, '/') . '[^.]{0,80}\b20%/i', $text) || preg_match('/\b20%[^.]{0,60}\b' . preg_quote($site, '/') . '/i', $text)) { $issues[] = '20% next to the brand'; }
+    if (SeoDrafter::brand_twenty_percent($text, $site)) { $issues[] = '20% next to the brand'; }   // a 20% given to a named competitor ("versus the 20% OnlyFans takes") is fine
     // A monthly price counts only when one of our plan names sits beside it: "$10 a month" as a fan's tier price is fine.
     $names = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, array_merge($plans, $retired)));
     if ($names !== '' && preg_match_all('/(?:\b(?:' . $names . ')\b[^.$]{0,60}\$(\d{2,4})\s*(?:a|per|\/)\s*month|\$(\d{2,4})\s*(?:a|per|\/)\s*month[^.$]{0,40}\b(?:' . $names . ')\b)/', $text, $m)) {

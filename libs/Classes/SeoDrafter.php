@@ -884,6 +884,47 @@ class SeoDrafter {
     }
 
     /**
+     * Does the text put a 20% fee on our brand? Our plans never charge 20% (Free cannot sell), but comparisons rightly give
+     * other platforms theirs ("... versus the 20% that OnlyFans takes"). A 20% in the same sentence as the brand (80
+     * characters before it or 60 after, no full stop between) counts only when no competitor is named nearer to it than
+     * the brand is. Competitors: PagesController::COMPETITORS names and the AlternativesPages records. (seo_fact_check.php)
+     */
+    public static function brand_twenty_percent($text, $site): bool {
+        $text = (string) $text; $site = (string) $site;
+        if ($site === '' || stripos($text, '20%') === false || stripos($text, $site) === false) { return false; }
+        static $names = null;
+        if ($names === null) {
+            $names = array();
+            foreach (PagesController::COMPETITORS as $c) { if ((string) ($c['name'] ?? '') !== '') { $names[] = (string) $c['name']; } }
+            if (class_exists('AlternativesPages') && defined('AlternativesPages::RECORDS')) { $names = array_merge($names, array_map('strval', array_keys(AlternativesPages::RECORDS))); }
+            $names = array_values(array_unique($names));
+        }
+        $comp = $names ? '/\b(?:' . implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, $names)) . ')\b/i' : '';
+        foreach (preg_split('/[.\n]+/', $text) as $seg) {
+            if (stripos($seg, '20%') === false || stripos($seg, $site) === false) { continue; }
+            preg_match_all('/\b' . preg_quote($site, '/') . '/i', $seg, $bm, PREG_OFFSET_CAPTURE);
+            $cm = array(array());
+            if ($comp !== '') { preg_match_all($comp, $seg, $cm, PREG_OFFSET_CAPTURE); }
+            preg_match_all('/\b20%/', $seg, $pm, PREG_OFFSET_CAPTURE);
+            foreach ($pm[0] as $p) {
+                $at = (int) $p[1]; $brand = null; $near = null;
+                foreach ($bm[0] as $b) {
+                    $end = (int) $b[1] + strlen($b[0]);
+                    $d = $b[1] < $at ? $at - $end : (int) $b[1] - ($at + 3);
+                    if (($b[1] < $at && $d <= 80) || ($b[1] > $at && $d <= 60)) { $brand = $brand === null ? $d : min($brand, $d); }
+                }
+                if ($brand === null) { continue; }
+                foreach ($cm[0] as $c) {
+                    $d = $c[1] < $at ? $at - ((int) $c[1] + strlen($c[0])) : (int) $c[1] - ($at + 3);
+                    $near = $near === null ? $d : min($near, $d);
+                }
+                if ($near === null || $brand <= $near) { return true; }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Repairs fee wording around plan names, whole tokens only: rejoins a plan name an older --fix-fee run split
      * ("10% on Creato r" -> "Creator"), and separates a word glued onto a plan name ("3% on Studiodepending" ->
      * "3% on Studio, depending"). "Creators" and an intact "10% on Creator," are never touched.
