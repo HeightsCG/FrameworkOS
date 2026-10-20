@@ -23,7 +23,7 @@ $faq = array(
     array('Do I need design skills?', 'No. You describe her in plain words, like her age, hair and style, pick the face you like, and that face is locked in for every photo and video you make after.'),
     array('Which platforms?', 'LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue. Connect your accounts once, then post to any of them from one place, right away or on a schedule.'),
     $trial
-        ? array('What happens after ' . $days . ' days?', 'The trial is the Creator plan, free for the first ' . $days . ' days. You add a card when you start it and nothing is charged during the trial. If you keep it, the plan renews monthly from then on. Cancel before the trial ends and you pay nothing.')
+        ? array('What happens after ' . $days . ' days?', 'The trial is the Creator plan, free for the first ' . $days . ' days, and you start it with no card. Add a card to keep it and the plan renews monthly from then on. With no card when the trial ends, your account moves to Free and keeps everything you made.')
         : array('How do I start?', 'Create your account, then pick the Creator plan in Billing. AI characters, photos and videos come with it.'),
     array('Can I cancel anytime?', 'Yes, from Billing in your account. Your plan stays on until the end of the period you are in, then it stops. Nothing else is charged.'),
 );

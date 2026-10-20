@@ -2,6 +2,7 @@
 <?php /* /admin/messages — the Creator Link Studio team inbox. The list and the thread load from the API (admin-messages.js); ?c=<id> opens one. */ ?>
 <header class="adm-head">
     <div><h1 class="adm-head__title">Messages</h1><p class="adm-head__sub">Conversations between users and <?php echo $e(PlatformAccount::NAME); ?></p></div>
+    <?php if ($this->team_ok): ?><button type="button" class="adm-btn adm-btn--primary" data-message-new><i class="fa-solid fa-plus" aria-hidden="true"></i> New Message</button><?php endif; ?>
 </header>
 <?php if (!$this->team_ok): ?>
 <section class="adm-box"><?php echo adm_empty('The Creator Link Studio team account is missing. Run sql/2026-10-18_platform_account.sql.', 'fa-envelope'); ?></section>
@@ -29,5 +30,6 @@
 </section>
 <?php endif; ?>
 <?php include __DIR__ . '/_shell_end.php'; ?>
+<?php include __DIR__ . '/_message_modal.php'; ?>
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>
 <script src="/js/admin-messages.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-messages.js'); ?>"></script>

@@ -11,22 +11,83 @@
         });
     }
 
-    /* ---- Message dialog ---- */
+    /* ---- Message dialog: to a known user ([data-message-user]) or a new message ([data-message-new], with the To search) ---- */
     var modal_el = document.getElementById('admMsgModal');
     if (modal_el) {
         var modal = window.bootstrap ? new bootstrap.Modal(modal_el) : null;
-        var body_el = document.getElementById('admMsgBody'), send_el = document.getElementById('admMsgSend'), to_user = 0;
-        document.addEventListener('click', function (e) {
-            var b = e.target.closest('[data-message-user]'); if (!b) { return; }
-            to_user = b.getAttribute('data-message-user');
-            document.getElementById('admMsgTo').textContent = b.getAttribute('data-name') || 'this user';
-            document.getElementById('admMsgTitle').textContent = 'Message ' + (b.getAttribute('data-name') || '');
-            body_el.value = ''; body_el.classList.remove('is-invalid');
+        var body_el = document.getElementById('admMsgBody'), send_el = document.getElementById('admMsgSend'), to_user = 0, picking = false;
+        var pick_el = document.getElementById('admMsgPick'), find_el = document.getElementById('admMsgFind'), res_el = document.getElementById('admMsgResults');
+        var chosen_el = document.getElementById('admMsgChosen'), from_el = document.getElementById('admMsgFrom');
+        var found = [], hi = -1, seq = 0, timer = null;
+        function set_to(id, name) {
+            to_user = id;
+            document.getElementById('admMsgTo').textContent = name || 'this user';
+            document.getElementById('admMsgTitle').textContent = picking ? 'New Message' : 'Message ' + (name || '');
+        }
+        function show_results(open) { res_el.hidden = !open; find_el.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+        function render_results(state) {
+            if (state === 'loading') { res_el.innerHTML = '<div class="adm-msgm__note">Searching…</div>'; show_results(true); return; }
+            if (!found.length) { res_el.innerHTML = '<div class="adm-msgm__note">No users match</div>'; show_results(true); return; }
+            res_el.innerHTML = found.map(function (u, i) {
+                return '<div class="adm-msgm__opt' + (i === hi ? ' is-hi' : '') + '" role="option" id="admMsgOpt' + i + '" aria-selected="' + (i === hi ? 'true' : 'false') + '" data-i="' + i + '">'
+                    + avatar(u.name, u.avatar, 28) + '<span class="adm-msgm__optt"><b>' + esc(u.name) + '</b><span>@' + esc(u.handle) + (u.email ? ' · ' + esc(u.email) : '') + '</span></span>'
+                    + '<span class="adm-msgm__role">' + esc(u.role) + '</span></div>';
+            }).join('');
+            find_el.setAttribute('aria-activedescendant', hi >= 0 ? 'admMsgOpt' + hi : '');
+            show_results(true);
+        }
+        function choose(i) {
+            var u = found[i]; if (!u) { return; }
+            set_to(u.id, u.name);
+            document.getElementById('admMsgChosenWho').innerHTML = avatar(u.name, u.avatar, 28) + '<span class="adm-msgm__optt"><b>' + esc(u.name) + '</b><span>@' + esc(u.handle) + '</span></span>';
+            pick_el.hidden = true; chosen_el.hidden = false; from_el.hidden = false; show_results(false);
+            find_el.classList.remove('is-invalid');
+            body_el.focus();
+        }
+        function reset_pick() {
+            to_user = 0; found = []; hi = -1; find_el.value = ''; res_el.innerHTML = ''; show_results(false);
+            pick_el.hidden = false; chosen_el.hidden = true; from_el.hidden = true;
+            document.getElementById('admMsgTitle').textContent = 'New Message';
+        }
+        function open_modal(new_msg, id, name) {
+            picking = new_msg;
+            body_el.value = ''; body_el.classList.remove('is-invalid'); find_el.classList.remove('is-invalid');
+            if (new_msg) { reset_pick(); } else { pick_el.hidden = true; chosen_el.hidden = true; from_el.hidden = false; set_to(id, name); }
             if (modal) { modal.show(); }
+        }
+        document.addEventListener('click', function (e) {
+            var nb = e.target.closest('[data-message-new]');
+            if (nb) { open_modal(true); return; }
+            var b = e.target.closest('[data-message-user]'); if (!b) { return; }
+            open_modal(false, b.getAttribute('data-message-user'), b.getAttribute('data-name'));
         });
-        modal_el.addEventListener('shown.bs.modal', function () { body_el.focus(); });
+        modal_el.addEventListener('shown.bs.modal', function () { (picking && !to_user ? find_el : body_el).focus(); });
         body_el.addEventListener('input', function () { body_el.classList.remove('is-invalid'); });
+        find_el.addEventListener('input', function () {
+            var q = find_el.value.trim(); find_el.classList.remove('is-invalid');
+            clearTimeout(timer);
+            if (q.length < 2) { found = []; hi = -1; show_results(false); return; }
+            render_results('loading');
+            timer = setTimeout(function () {
+                var mine = ++seq;
+                call('admin_user_lookup', { q: q }, function (o) {
+                    if (mine !== seq) { return; }   // a newer search is on its way
+                    if (!o) { show_results(false); return; }
+                    found = o.users || []; hi = found.length ? 0 : -1; render_results();
+                });
+            }, 200);
+        });
+        find_el.addEventListener('keydown', function (e) {
+            if (res_el.hidden || !found.length) { return; }
+            if (e.key === 'ArrowDown') { e.preventDefault(); hi = (hi + 1) % found.length; render_results(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); hi = (hi - 1 + found.length) % found.length; render_results(); }
+            else if (e.key === 'Enter') { e.preventDefault(); choose(hi); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); show_results(false); }
+        });
+        res_el.addEventListener('mousedown', function (e) { var o = e.target.closest('[data-i]'); if (o) { e.preventDefault(); choose(parseInt(o.getAttribute('data-i'), 10)); } });
+        document.getElementById('admMsgChange').addEventListener('click', function () { reset_pick(); find_el.focus(); });
         send_el.addEventListener('click', function () {
+            if (!to_user) { find_el.classList.add('is-invalid'); find_el.focus(); return; }
             var text = body_el.value.trim();
             if (text === '') { body_el.classList.add('is-invalid'); body_el.focus(); return; }
             send_el.disabled = true;
@@ -34,6 +95,7 @@
                 send_el.disabled = false;
                 if (!o) { return; }
                 if (modal) { modal.hide(); }
+                if (window.admInboxShow) { window.admInboxShow(o.conversation_id); toastr.success('Message sent'); return; }   // on the Messages page: open the conversation
                 toastr.success('Message sent. <a href="/admin/messages?c=' + o.conversation_id + '">Open conversation</a>', '', { escapeHtml: false });
             });
         });
@@ -75,7 +137,7 @@
         sync_badges();
         items_el.setAttribute('aria-busy', 'false');
         if (!convs.length) {
-            items_el.innerHTML = '<div class="adm-empty"><i class="fa-regular fa-comments" aria-hidden="true"></i><p>No messages yet</p><p class="adm-inbox__hint">Message a user from their account page or the Users list.</p></div>';
+            items_el.innerHTML = '<div class="adm-empty"><i class="fa-regular fa-comments" aria-hidden="true"></i><p>No messages yet</p><p class="adm-inbox__hint">Press New Message to write to a user.</p></div>';
             return;
         }
         items_el.innerHTML = convs.map(function (c) {
@@ -150,6 +212,7 @@
         });
     });
 
+    window.admInboxShow = function (id) { load_list(function () { open(parseInt(id, 10) || 0); }); };   // the New Message dialog sent one: show its conversation
     load_list(function () {
         if (current && convs.some(function (c) { return c.id === current; })) { open(current); }
         else { current = 0; render_list(); }

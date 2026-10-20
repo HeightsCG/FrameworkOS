@@ -20,6 +20,7 @@ class Founding {
     const FEE_FROM = 'studio';   // the tier whose fee is locked in (only while FEE_LOCK is on)
     const FEE_LOCK = false;      // false: a new claim gets the free first TRIAL_DAYS and nothing else; an override already written is still honoured (fee_override)
     const TRIAL_DAYS = 14;       // the free first period (Daniel 2026-10-14; was one billing month)
+    const NO_CARD_CREDITS = 100; // a trial started with no card gets this many AI credits; adding a card unlocks the rest of the plan's (Daniel 2026-10-20)
     const TESTIMONIAL_DAYS = 14;
     const FULL_MESSAGE = 'All founding spots are taken.';
 

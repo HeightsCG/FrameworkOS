@@ -22,7 +22,7 @@ echo Sections::open('white', 'How Do You Claim a Spot?');
 echo '<ol class="fx-steps fx-steps--3">'
     . '<li><h3>1. Create Your Account</h3><p>Press Claim Your Spot and the sign-up form opens right here. The account is free, and you confirm your email to open it.</p></li>'
     . '<li><h3>2. Pick ' . Sections::e($names) . '</h3><p>The Billing page opens with the founding offer already applied. Choose the plan you want.</p></li>'
-    . '<li class="is-last"><h3>3. Add a Card</h3><p>Nothing is charged today. Your first ' . (int) Founding::TRIAL_DAYS . ' days are free, then the plan is ' . Sections::e($after) . '. Cancel any time before then and you pay nothing.</p></li>'
+    . '<li class="is-last"><h3>3. Start Your Trial</h3><p>No card needed. Your first ' . (int) Founding::TRIAL_DAYS . ' days are free, then the plan is ' . Sections::e($after) . ' once you add a card. No card by then and your account moves to Free, with everything you made kept.</p></li>'
     . '</ol>';
 echo Sections::close();
 
@@ -44,7 +44,8 @@ echo Sections::close();
 echo Sections::open('alt', 'The Terms');
 echo Sections::checks(array(
     'For accounts starting the ' . $names . ' plan from Free. One spot per account, ' . number_format(Founding::SPOTS) . ' founding spots, open until they are filled.',
-    'Your first ' . Founding::TRIAL_DAYS . ' days are free. Then ' . $after . ', charged to your card on day ' . (Founding::TRIAL_DAYS + 1) . ' and on that date each month until you cancel.',
+    'Your first ' . Founding::TRIAL_DAYS . ' days are free and need no card. The trial comes with ' . Founding::NO_CARD_CREDITS . ' AI credits, and adding a card unlocks the plan\'s full monthly AI credits.',
+    'Add a card to keep the plan: ' . $after . ', charged on day ' . (Founding::TRIAL_DAYS + 1) . ' and on that date each month until you cancel. With no card at the end of the trial, your account moves to Free.',
     'Cancel any time from Billing and keep the plan to the end of the paid period.',
     'Founding placement lasts while your paid plan is active or in its past-due grace period. Moving to Free or a lapse ends the founding terms for good.',
     'Payouts go to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold. Earnings from an event are released after the event has taken place.',

@@ -183,10 +183,11 @@ class LifecycleEmails {
                 $id = $m->claim($uid, 'trial_ending', 'claim:' . (int) $c['claim_id'], $ok_to_send ? 'sent' : 'skipped');
                 if ($id < 1 || !$ok_to_send) { continue; }
                 $mail = self::trial_ending_email($u, $acct, $next);
-                try { (new UserNotificationsModel())->push($uid, 'subscriptions', $mail['subject'], $mail['paras'][0], self::PLAN_TAB, 'fa-credit-card'); }
+                $link = $mail['link'] ?? self::PLAN_TAB;
+                try { (new UserNotificationsModel())->push($uid, 'subscriptions', $mail['subject'], $mail['paras'][0], $link, 'fa-credit-card'); }
                 catch (\Throwable $e) { error_log('[lifecycle] trial ending notice ' . $uid . ': ' . $e->getMessage()); }
                 $ok = (new NotificationsModel())->send_lifecycle_email((string) $u['user_email'], self::name($u), $mail['subject'], $mail['subject'], $mail['paras'], $mail['facts'],
-                    'Manage Plan', self::PLAN_TAB, $mail['footer']);
+                    $mail['button'] ?? 'Manage Plan', $link, $mail['footer']);
                 if ($ok) { $sent++; } else { $m->release($id); }   // Postmark refused it: the next run tries again
             } catch (\Throwable $e) { error_log('[lifecycle] trial ending ' . $uid . ': ' . $e->getMessage()); }
         }
@@ -208,6 +209,19 @@ class LifecycleEmails {
         if ((int) ($l['storage_gb'] ?? 0) > 0)  { $inc[] = (int) $l['storage_gb'] . ' GB of storage'; }
         $list  = count($inc) > 1 ? implode(', ', array_slice($inc, 0, -1)) . ' and ' . end($inc) : implode('', $inc);
         $card  = (string) ($acct['card_last4'] ?? '') !== '' ? ucfirst((string) ($acct['card_brand'] ?: 'Card')) . ' ending ' . $acct['card_last4'] : 'Your saved card';
+        if (BillingService::in_no_card_trial($acct)) {   // started with no card: keeping the plan needs one, else Free on that date
+            $held = (int) ($acct['trial_credits_held'] ?? 0);
+            return array(
+                'subject' => 'Your trial ends ' . $when,
+                'paras'   => array(
+                    'Your free trial of the ' . $plan . ' plan ends on ' . $when . '. Add a card before then to keep ' . $plan . ' for ' . $amt . ' a month' . ($held > 0 ? ', and get the other ' . number_format($held) . ' AI credits of your trial right away' : '') . '.',
+                    'With ' . $plan . ' you keep selling to your fans, plus ' . $list . '. Without a card, your account moves to Free on ' . $when . '. Everything you made is kept, and it all comes back when you pick a plan.',
+                ),
+                'facts'   => array(array('Plan', $plan), array('Trial ends', $when), array('After the trial', $amt . ' / month'), array('Card', 'None yet')),
+                'footer'  => 'You\'re receiving this because your free trial on ' . Main::site_name() . ' is ending. Nothing is charged without a card.',
+                'button'  => 'Add Card', 'link' => '/account/billing?add_card=1',
+            );
+        }
         return array(
             'subject' => 'Your trial ends ' . $when,
             'paras'   => array(

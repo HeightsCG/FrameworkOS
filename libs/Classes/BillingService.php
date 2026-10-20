@@ -245,8 +245,9 @@ class BillingService {
         (new BillingAccountsModel())->save($user_id, array('last_charge_id' => $cid, 'last_charge_status' => 'pending'));
         CheckoutAttempts::charging($user_id, (string) $kind, $cid, $amount, (string) ($effects[$kind === 'pack' || $kind === 'slots' ? $kind : 'plan'] ?? ''));   // Admin > Billing > Checkout attempts
 
-        if ($amount <= 0) {   // nothing to collect (e.g. an upgrade fully covered by unused time)
+        if ($amount <= 0) {   // nothing to collect (e.g. an upgrade fully covered by unused time, or a trial start)
             self::apply($cid);
+            CheckoutAttempts::settled($cid, 'succeeded');
             return array('status' => 'succeeded', 'charge_id' => $cid, 'client_secret' => '', 'message' => 'Done');
         }
         $user = self::user($user_id);
@@ -345,7 +346,13 @@ class BillingService {
                     + self::promo_fields(!empty($fx['promo']) ? self::promo_after_charge($fx['promo']) : null);
                 $t = PlanTiers::get($fx['plan']);
                 $frac = isset($fx['credit_frac']) ? max(0.0, min(1.0, (float) $fx['credit_frac'])) : 1.0;
-                $ai->set_bucket($uid, 'plan', (int) round((int) ($t['limits']['ai_credits'] ?? 0) * $frac), $t['name'] . ' plan: included AI credits');
+                $full = (int) round((int) ($t['limits']['ai_credits'] ?? 0) * $frac);
+                $grant = $full; $f['trial_credits_held'] = null;
+                if (!empty($fx['no_card']) && (string) ($acct['stripe_payment_method_id'] ?? '') === '') {   // no-card trial: part now, the rest when a card is added (save_card)
+                    $grant = min($full, Founding::NO_CARD_CREDITS);
+                    $f['trial_credits_held'] = $full - $grant;
+                }
+                $ai->set_bucket($uid, 'plan', $grant, $t['name'] . ' plan: included AI credits' . ($grant < $full ? ' (trial, no card yet)' : ''));
                 break;
             case 'upgrade':
                 $f += array('plan_key' => $fx['plan'], 'plan_price_cents' => !empty($fx['plan_price']) ? (int) $fx['plan_price'] : self::plan_cents($fx['plan']), 'pending_plan_key' => null, 'cancel_at_period_end' => 0);
@@ -479,6 +486,13 @@ class BillingService {
             return array('status' => 'free', 'message' => 'Moved to Free');
         }
 
+        // A trial started with no card and still without one: it ends here, on Free, with everything kept (no charge, no retries).
+        if (self::in_no_card_trial($acct) && $plan !== self::PLAN_FREE) {
+            $tn = PlanTiers::get($plan);
+            self::to_free($uid, true, 'trial_ended_no_card');
+            self::email($uid, 'Your free trial has ended', 'Your free trial of the ' . ($tn ? $tn['name'] : 'paid') . ' plan has ended, so your account is now on Free. Everything you made is saved. Add a card and pick a plan to start selling and making AI content again.', array(), '', 'Choose a Plan', '/account/billing?tab=plan');
+            return array('status' => 'free', 'message' => 'Trial ended with no card: moved to Free');
+        }
         $charges = new BillingChargesModel();
         if ($charges->renewal_paid($uid, $start)) { return array('status' => 'skipped', 'message' => 'Already paid'); }
         $last    = $charges->last_renewal($uid, $start);
@@ -528,7 +542,7 @@ class BillingService {
         $uid  = (int) $user_id;
         $acct = self::account($uid);
         $f = array('plan_key' => self::PLAN_FREE, 'plan_price_cents' => null, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null,
-            'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null) + self::promo_fields(null);
+            'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null, 'trial_credits_held' => null) + self::promo_fields(null);
         $keep_pack = !$drop_pack && (int) $acct['pack_dollars'] > 0;
         if ($keep_pack) { $f += array('status' => 'active'); }
         else { $f += array('status' => 'free', 'next_charge_at' => null, 'pack_dollars' => null, 'pack_price_cents' => null, 'pack_started_at' => null, 'pack_dollars_next' => null); }
@@ -567,13 +581,18 @@ class BillingService {
         $customer = (string) ($user['stripe_customer_id'] ?? '');
         $card = $customer !== '' ? StripeService::card_from_setup_intent($customer, $setup_intent_id) : array();
         if (empty($card)) { return array('ok' => false, 'message' => 'We couldn\'t save that card. Please try again.'); }
-        (new BillingAccountsModel())->save((int) $user_id, array('stripe_payment_method_id' => $card['id'], 'card_brand' => $card['brand'], 'card_last4' => $card['last4'], 'card_exp' => $card['exp']));
+        $before = self::account($user_id);
+        (new BillingAccountsModel())->save((int) $user_id, array('stripe_payment_method_id' => $card['id'], 'card_brand' => $card['brand'], 'card_last4' => $card['last4'], 'card_exp' => $card['exp'], 'trial_credits_held' => null));
+        if (($before['trial_credits_held'] ?? null) !== null && (int) $before['trial_credits_held'] > 0 && self::is_paid($before)) {   // a no-card trial: the held AI credits unlock now
+            (new AiCreditsModel())->add_plan_credits((int) $user_id, (int) $before['trial_credits_held'], 'Card added: the rest of your trial AI credits');
+            $unlocked = (int) $before['trial_credits_held'];
+        }
         $acct = self::account($user_id);
         if ((string) $acct['status'] === 'past_due') {
             $r = self::renew((int) $user_id);
             return array('ok' => true, 'retry' => $r, 'message' => ($r['status'] ?? '') === 'succeeded' ? 'Card saved and your payment went through.' : 'Card saved. ' . ($r['message'] ?? ''));
         }
-        return array('ok' => true, 'message' => 'Card saved');
+        return array('ok' => true, 'message' => !empty($unlocked) ? 'Card saved. ' . number_format($unlocked) . ' more AI credits unlocked.' : 'Card saved');
     }
 
     /** What moving to $plan would charge today and from when: for the disclosure before confirming. */
@@ -605,11 +624,24 @@ class BillingService {
     private static function card_needed(array $acct, array $q): bool
     {
         if ($q['mode'] === 'downgrade') { return false; }
+        if (self::no_card_trial_quote($q)) { return false; }   // the founding trial starts without a card (Founding::NO_CARD_CREDITS until one is added)
         if ((int) $q['today'] > 0) { return true; }
         $p = $q['promo'] ?? null;
         $free_forever = is_array($p) && $p['promo_periods_left'] === null && self::promo_off((int) $q['recurring'], $p) >= (int) $q['recurring'];
         $pack = $acct['pack_dollars_next'] !== null ? (int) $acct['pack_dollars_next'] : (int) $acct['pack_dollars'];
         return !$free_forever || $pack > 0 || (int) $acct['influencer_slots'] > 0;
+    }
+
+    /** A founding trial start with nothing due today: no card needed. */
+    public static function no_card_trial_quote(array $q): bool
+    {
+        return (string) ($q['mode'] ?? '') === 'subscribe' && (int) ($q['today'] ?? 1) === 0 && (string) ($q['promo']['promo_code'] ?? '') === Founding::CODE;
+    }
+
+    /** The account is in a trial started with no card, still without one (some AI credits held back, Free at the trial's end). */
+    public static function in_no_card_trial(array $acct): bool
+    {
+        return ($acct['trial_credits_held'] ?? null) !== null && (string) ($acct['stripe_payment_method_id'] ?? '') === '' && self::is_paid($acct);
     }
 
     private static function quote_plan_base($user_id, $plan): array
@@ -678,7 +710,8 @@ class BillingService {
             $anchor = $keep ? ((int) ($acct['billing_anchor_day'] ?? 0) ?: (int) gmdate('j', strtotime($end . ' UTC')))
                             : (strpos((string) $q['lines'][0][0], '(rest of this period)') === false && $founding ? (int) gmdate('j', strtotime($end . ' UTC')) : (int) gmdate('j'));
             $r = self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'plan_price' => (int) $q['recurring'], 'period_start' => $start, 'period_end' => $end, 'anchor_day' => $anchor, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
-                    'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0, 'agreement' => $agreement),   // joining a running period mid-way: prorated credits, like the price
+                    'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0, 'agreement' => $agreement,   // joining a running period mid-way: prorated credits, like the price
+                    'no_card' => $founding && (string) ($acct['stripe_payment_method_id'] ?? '') === '' ? 1 : 0),   // a trial with no card: Founding::NO_CARD_CREDITS until a card is added
                 gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
         } catch (\Throwable $e) {
             if ($founding) { Founding::release($uid); }   // an exception never keeps the spot

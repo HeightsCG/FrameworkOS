@@ -132,6 +132,8 @@ $(function () {
         $('#disc_agree').prop('hidden', !(pending && pending.endpoint === 'billing_change_plan' && (q.mode === 'subscribe' || q.mode === 'upgrade')));   // Creator Agreement: plan checkouts only
         $('#disc_terms').text(q.mode === 'downgrade'
             ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
+            : q.trial_no_card
+            ? 'No card needed. Your free trial runs until ' + q.next_at + ' with ' + q.trial_credits + ' AI credits. Add a card anytime to unlock all ' + Number(q.plan_credits).toLocaleString() + ' and keep the plan after the trial at ' + q.recurring + '. With no card by then, your account moves to Free and keeps everything you made.'
             : (q.today_zero && q.card_needed === false)
             ? 'Nothing is charged today, and your promo keeps this plan free every month. Cancel anytime from Billing. Plan charges are final and non-refundable.'
             : q.today_zero
@@ -355,7 +357,8 @@ $(function () {
 
     /* ---- one-time AI credits (existing flow) ---- */
     var credit_elements = null;
-    if (qs.get('buy') === 'credits' && has_plan) { $('#credits_modal').modal('show'); }   // "Buy credits" links from the generate screens; Free lands on the plan tab instead
+    if (qs.get('buy') === 'credits' && has_plan) { $('#credits_modal').modal('show'); }
+    if (qs.get('add_card') === '1') { $('.btabs__tab[data-tab=payments]').trigger('click'); $('#update_card').trigger('click'); }   // "Add Card" links (no-card trial emails and notice)   // "Buy credits" links from the generate screens; Free lands on the plan tab instead
     $('#credit_packs').on('click', '.pack', function () {
         var dollars = $(this).data('dollars');
         $('#credit_packs .pack').removeClass('is-on'); $(this).addClass('is-on');
@@ -416,6 +419,12 @@ $(function () {
         <i class="fa-solid fa-shield-halved"></i>
         <div><p><b>Your bank needs you to confirm a payment of <?php echo $e($money((int) $this->awaiting['amount_cents'])); ?>.</b> Your plan stays on while you do.</p></div>
         <button type="button" class="btn btn-primary" id="pay_pending" data-charge="<?php echo (int) $this->awaiting['id']; ?>">Confirm Payment</button>
+    </div>
+    <?php elseif (BillingService::in_no_card_trial($acct)): $nct_end = !empty($acct['next_charge_at']) ? $day(strtotime($acct['next_charge_at'] . ' UTC')) : ''; ?>
+    <div class="billing__notice billing__notice--action">
+        <i class="fa-solid fa-credit-card"></i>
+        <div><p><b>Your free trial ends <?php echo $e($nct_end); ?>.</b> Add a card to keep <?php echo $e($tier_def ? $tier_def['name'] : 'your plan'); ?> after that and unlock <?php echo number_format((int) $acct['trial_credits_held']); ?> more AI credits now. Without a card, your account moves to Free on <?php echo $e($nct_end); ?> and keeps everything you made.</p></div>
+        <button type="button" class="btn btn-primary" onclick="$('.btabs__tab[data-tab=payments]').trigger('click'); $('#update_card').trigger('click')">Add Card</button>
     </div>
     <?php elseif ($past_due): ?>
     <div class="billing__notice billing__notice--action">

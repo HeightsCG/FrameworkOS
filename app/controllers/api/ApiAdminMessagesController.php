@@ -8,7 +8,22 @@ class ApiAdminMessagesController extends BaseApiController {
 
     use AuditTrail;
     /** Reads are not staff actions worth a log line. */
-    protected $audit_skip = array('admin_message_inbox', 'admin_message_thread', 'admin_announce_count');
+    protected $audit_skip = array('admin_message_inbox', 'admin_message_thread', 'admin_announce_count', 'admin_user_lookup');
+
+    /** The New Message dialog's To field: up to 8 accounts matching {q} by name, handle or email. */
+    public function admin_user_lookupAction(){
+        $team = $this->team_guard();
+        $q = trim(html_entity_decode((string) ($this->post['q'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if (mb_strlen($q) < 2) { $this->jsonSuccess(['users' => []]); }
+        $out = array();
+        foreach ((new AdminModel())->users(mb_substr($q, 0, 80), '', 8) as $u) {
+            if ((int) $u['user_id'] === $team) { continue; }
+            $name = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? ''));
+            $out[] = array('id' => (int) $u['user_id'], 'name' => $name !== '' ? $name : '@' . $u['u_name'], 'handle' => (string) $u['u_name'],
+                           'email' => (string) $u['user_email'], 'avatar' => (string) ($u['avatar_url'] ?? ''), 'role' => (string) ($u['role_name'] ?: 'User'));
+        }
+        $this->jsonSuccess(['users' => $out]);
+    }
 
     /** Message one user: {user_id, body} starts or continues their team conversation; {conversation_id, body} replies in one. */
     public function admin_message_sendAction(){

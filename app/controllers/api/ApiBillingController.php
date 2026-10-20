@@ -49,13 +49,15 @@ class ApiBillingController extends BaseApiController {
             $q = BillingService::quote_plan($uid, (string) $this->post['plan'], $this->plan_code());
             if (empty($q['ok'])) { $this->jsonError((string) $q['message']); }
             Analytics::event('checkout_started', array('user_id' => $uid, 'creator_id' => $uid, 'value_cents' => (int) $q['recurring'], 'meta' => $q['mode'] . ' ' . (string) $this->post['plan'] . (Founding::presented() ? ' founding' : '')));   // a plan checkout opened (LifecycleEmails follows up if it never finishes)
-            if ($q['mode'] !== 'downgrade') { CheckoutAttempts::opened($uid, 'plan', (string) $this->post['plan'], $q['mode'], (int) $q['today'], (int) $q['recurring'], stripos((string) ($q['promo_label'] ?? ''), Founding::CODE) !== false); }   // Admin > Billing > Checkout attempts
+            if ($q['mode'] !== 'downgrade') { CheckoutAttempts::opened($uid, 'plan', (string) $this->post['plan'], $q['mode'], (int) $q['today'], (int) $q['recurring'], (string) ($q['promo']['promo_code'] ?? '') === Founding::CODE); }   // Admin > Billing > Checkout attempts
             $t = PlanTiers::get((string) $this->post['plan']);
             $this->jsonSuccess(['mode' => $q['mode'], 'today' => BillingService::money($q['today']), 'lines' => $fmt($q['lines']),
                 'recurring' => BillingService::money($q['recurring']) . ' / month for ' . $t['name'], 'next_at' => date('M j, Y', strtotime($q['next_at'] . ' UTC')),
                 'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card'],
                 'promo_ok' => in_array($q['mode'], array('subscribe', 'upgrade'), true), 'promo_label' => (string) ($q['promo_label'] ?? ''),
                 'today_zero' => (int) $q['today'] === 0, 'card_needed' => !empty($q['card_needed']),
+                'trial_no_card' => BillingService::no_card_trial_quote($q) && (string) ($acct['stripe_payment_method_id'] ?? '') === '', 'trial_credits' => Founding::NO_CARD_CREDITS,
+                'plan_credits' => (int) ($t['limits']['ai_credits'] ?? 0),
                 'founding' => stripos((string) ($q['promo_label'] ?? ''), Founding::CODE) !== false]);   // the founding trial is what this quote prices
         }
         if (isset($this->post['pack'])) {
