@@ -3,6 +3,11 @@
    left out. Every period (7 / 30 / 90 days) is rendered here; the period switch just shows one set. */
 $g_pct = function ($n, $of) { return $of > 0 ? round($n * 100 / $of) . '%' : '0%'; };
 $g_cell = function ($n, $of) use ($g_pct) { return '<td class="adm-r adm-t__num' . ((int) $n === 0 ? ' adm-t__muted' : '') . '">' . $g_pct((int) $n, (int) $of) . ' <span class="adm-t__faint">' . (int) $n . '</span></td>'; };
+// the Opened Checkout cell of a day row opens that signup day's checkout attempts (Admin > Billing)
+$g_link = function ($n, $of, $day) use ($g_cell, $g_pct) {
+    if ((int) $n === 0) { return $g_cell($n, $of); }
+    return '<td class="adm-r adm-t__num"><a class="adm-t__numlink" href="/admin/billing?signup_day=' . rawurlencode((string) $day) . '#checkout" title="See these checkout attempts">' . $g_pct((int) $n, (int) $of) . ' <span class="adm-t__faint">' . (int) $n . '</span></a></td>';
+};
 $g_sum = function ($rows) { $t = array('signups' => 0, 'verified' => 0, 'became_creator' => 0, 'checkout' => 0, 'paid' => 0, 'referred' => 0); foreach ($rows as $r) { foreach ($t as $k => $v) { $t[$k] += (int) $r[$k]; } } return $t; };
 ?>
 <section class="adm-panel" data-panel="growth">
@@ -31,7 +36,7 @@ $g_sum = function ($rows) { $t = array('signups' => 0, 'verified' => 0, 'became_
             <thead><tr><th>Day</th><th class="adm-r">Signups</th><th class="adm-r">Verified</th><th class="adm-r">Creators</th><th class="adm-r">Opened Checkout</th><th class="adm-r">Paid</th><th class="adm-r">Referred</th></tr></thead>
             <tbody>
                 <?php foreach ($gs['days'] as $r): ?>
-                <tr><td class="adm-t__nowrap"><?php echo $e(gmdate('D, M j', strtotime($r['day'] . ' 00:00:00 UTC'))); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo (int) $r['signups']; ?></td><?php echo $g_cell($r['verified'], $r['signups']) . $g_cell($r['became_creator'], $r['signups']) . $g_cell($r['checkout'], $r['signups']) . $g_cell($r['paid'], $r['signups']) . $g_cell($r['referred'], $r['signups']); ?></tr>
+                <tr><td class="adm-t__nowrap"><?php echo $e(gmdate('D, M j', strtotime($r['day'] . ' 00:00:00 UTC'))); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo (int) $r['signups']; ?></td><?php echo $g_cell($r['verified'], $r['signups']) . $g_cell($r['became_creator'], $r['signups']) . $g_link($r['checkout'], $r['signups'], $r['day']) . $g_cell($r['paid'], $r['signups']) . $g_cell($r['referred'], $r['signups']); ?></tr>
                 <?php endforeach; ?>
                 <tr class="adm-t__total"><td>Total</td><td class="adm-r adm-t__num"><?php echo $gt['signups']; ?></td><?php echo $g_cell($gt['verified'], $gt['signups']) . $g_cell($gt['became_creator'], $gt['signups']) . $g_cell($gt['checkout'], $gt['signups']) . $g_cell($gt['paid'], $gt['signups']) . $g_cell($gt['referred'], $gt['signups']); ?></tr>
             </tbody>

@@ -32,6 +32,20 @@ $tn = array('all' => count((array) $this->activity)); foreach ((array) $this->ac
     <div><h1 class="adm-head__title">Today</h1><p class="adm-head__sub"><?php echo $e((new DateTime('now', new DateTimeZone($tz)))->format('l, F j, Y')); ?></p></div>
 </header>
 
+<?php /* today's failed and abandoned checkouts (UTC day), first: CheckoutAttempts via AdminController::indexAction */
+$co_rows = (array) $this->checkout_problems; ?>
+<section class="adm-box">
+    <header class="adm-box__h"><h2 class="adm-box__t">Failed and abandoned checkouts today<?php if ($co_rows): ?> <b class="adm-count adm-count--bad"><?php echo count($co_rows); ?></b><?php endif; ?></h2><a class="adm-box__link" href="/admin/billing#checkout">View all</a></header>
+    <?php if (empty($co_rows)): ?>
+        <p class="adm-quiet adm-quiet--pad">None today.</p>
+    <?php else: ?>
+    <table class="adm-t">
+        <thead><tr><th>User</th><th>Plan</th><th class="adm-r">Amount</th><th>Opened</th><th>Status</th><th>Reason</th></tr></thead>
+        <tbody><?php include __DIR__ . '/_checkout_rows.php'; ?></tbody>
+    </table>
+    <?php endif; ?>
+</section>
+
 <div class="adm-kpis adm-kpis--5">
     <?php echo adm_kpi('MRR', $usd($f['plan_mrr']), adm_delta($sum($last30, 'plans'), $sum($prev30, 'plans')), $col($last30, 'plans'), (int) $f['plan_count'] . ' paying plan' . ((int) $f['plan_count'] === 1 ? '' : 's')); ?>
     <?php echo adm_kpi('Revenue this month', $usd($month['revenue']), adm_delta($month['revenue'], $prev_m['revenue']), $col($last30, 'revenue'), 'vs last month'); ?>

@@ -84,6 +84,11 @@ a.adm-seg__b{ text-decoration:none; }
 .adm-panel{ display:block; }
 .adm-usec{ scroll-margin-top:80px; }
 .adm-quiet{ margin:0; padding:14px 0 0; font-size:14px; color:var(--muted); }
+.adm-quiet--pad{ padding:4px 0 2px; }
+.adm-t__why{ min-width:220px; white-space:normal; }
+.adm .adm-t__numlink{ color:var(--acc-ink); text-decoration:underline; text-decoration-color:rgba(205,76,0,.35); text-underline-offset:3px; }
+.adm .adm-t__numlink:hover{ color:var(--acc-ink); text-decoration-color:currentColor; }
+.adm-t__numlink:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; border-radius:4px; }
 .adm-zero{ margin:2px 0 0; font-size:13px; color:var(--muted2); }
 /* A panel with two lists (Verification): each part has its own heading row, a rule between them, filters at the right */
 .adm-part + .adm-part:not([hidden]){ margin-top:24px; padding-top:24px; border-top:1px solid var(--l2); }

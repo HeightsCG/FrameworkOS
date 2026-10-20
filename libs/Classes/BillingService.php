@@ -243,6 +243,7 @@ class BillingService {
             return array('status' => 'failed', 'charge_id' => 0, 'client_secret' => '', 'message' => 'This charge is already being processed.');
         }
         (new BillingAccountsModel())->save($user_id, array('last_charge_id' => $cid, 'last_charge_status' => 'pending'));
+        CheckoutAttempts::charging($user_id, (string) $kind, $cid, $amount, (string) ($effects[$kind === 'pack' || $kind === 'slots' ? $kind : 'plan'] ?? ''));   // Admin > Billing > Checkout attempts
 
         if ($amount <= 0) {   // nothing to collect (e.g. an upgrade fully covered by unused time)
             self::apply($cid);
@@ -254,6 +255,7 @@ class BillingService {
         $pm = (string) ($acct['stripe_payment_method_id'] ?? '');
         if ($customer === '' || $pm === '') {
             $charges->set($cid, array('status' => 'failed', 'failure_reason' => 'No card on file'));
+            CheckoutAttempts::settled($cid, 'failed', 'No card on file', 'no_card');
             self::after_failure($cid);
             return array('status' => 'failed', 'charge_id' => $cid, 'client_secret' => '', 'message' => 'Add a card first.');
         }
@@ -272,6 +274,7 @@ class BillingService {
         if (!$row) { return array('status' => 'failed', 'charge_id' => 0, 'client_secret' => '', 'message' => 'Charge not found'); }
         if ($r['status'] === 'succeeded') {
             self::apply((int) $row['id']);
+            CheckoutAttempts::settled((int) $row['id'], 'succeeded', '', '', (string) ($r['payment_intent_id'] ?? ''));
             return array('status' => 'succeeded', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => 'Payment received');
         }
         if ((int) $row['applied'] === 1) {   // already succeeded through another path
@@ -280,16 +283,19 @@ class BillingService {
         if ($r['status'] === 'processing' || $r['status'] === 'unknown') {
             // Not failed: the money may have moved. Park it until resolve() (next attempt, billing run or webhook) knows.
             $charges->set((int) $row['id'], array('status' => 'processing', 'failure_reason' => $r['status'] === 'unknown' ? 'Waiting for the bank to confirm' : null));
+            CheckoutAttempts::settled((int) $row['id'], 'processing', '', '', (string) ($r['payment_intent_id'] ?? ''));
             return array('status' => 'processing', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => 'Your payment is processing.');
         }
         if ($r['status'] === 'requires_action') {
             $was = (string) $row['status'];
             $charges->set((int) $row['id'], array('status' => 'requires_action', 'failure_reason' => 'Authentication required'));
+            CheckoutAttempts::settled((int) $row['id'], 'requires_action', '', '', (string) ($r['payment_intent_id'] ?? ''));
             if ($was !== 'requires_action') { self::after_failure((int) $row['id'], true); }
             return array('status' => 'requires_action', 'charge_id' => (int) $row['id'], 'client_secret' => (string) $r['client_secret'], 'message' => 'Your bank needs you to confirm this payment.');
         }
         $was = (string) $row['status'];
         $charges->set((int) $row['id'], array('status' => 'failed', 'failure_reason' => mb_substr((string) ($r['reason'] ?: 'The card was declined.'), 0, 255)));
+        CheckoutAttempts::settled((int) $row['id'], 'failed', (string) ($r['reason'] ?? ''), (string) ($r['code'] ?? ''), (string) ($r['payment_intent_id'] ?? ''));
         if ($was !== 'failed') { self::after_failure((int) $row['id']); }
         return array('status' => 'failed', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => (string) ($r['reason'] ?: 'The card was declined.'));
     }

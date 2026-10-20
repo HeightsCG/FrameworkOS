@@ -17,7 +17,7 @@ class ApiRoutes {
             'become_creator', 'leave_creator', 'delete_my_account', 'data_export_request', 'data_export_status', 'data_export_download', 'follow_creator', 'unfollow_creator', 'upload_my_avatar', 'remove_my_avatar',
         ],
         'ApiBillingController' => [
-            'billing_quote', 'billing_card_setup', 'billing_card_save', 'billing_change_plan', 'billing_cancel', 'billing_resume',
+            'billing_quote', 'billing_card_setup', 'billing_card_save', 'billing_card_failed', 'billing_change_plan', 'billing_cancel', 'billing_resume',
             'billing_set_slots', 'billing_set_pack', 'billing_confirm', 'billing_pending', 'buy_ai_credits', 'confirm_ai_credit_purchase',
             'buy_credits', 'confirm_credit_purchase', 'save_autoreplenishment', 'start_payout_onboarding', 'payout_login_link', 'request_payout',
             'disconnect_payout_account',

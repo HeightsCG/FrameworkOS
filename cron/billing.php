@@ -39,6 +39,9 @@ foreach (array_merge($accts->due($now, 200), $accts->retries_due($now, 200)) as 
         fwrite(STDOUT, date('c') . ' user ' . (int) $a['user_id'] . ': error ' . $e->getMessage() . "\n");
     }
 }
+// checkouts opened an hour ago with no card (or a card and no payment): abandoned (Admin > Billing > Checkout attempts)
+$gone = CheckoutAttempts::expire();
+if ($gone > 0) { fwrite(STDOUT, date('c') . ' checkout attempts abandoned: ' . $gone . "\n"); }
 // founding creators: release stale held spots, then the testimonial request, once per claim, Founding::TESTIMONIAL_DAYS after the plan started
 try {
     $freed = Founding::release_stale(60);   // checkouts that died with a spot held

@@ -106,6 +106,22 @@ class WebhookController extends Controller {
         $obj  = $event->data->object;
         $subs = new CreatorSubscriptionsModel();
 
+        // A card saved (or declined) in a plan / add-on checkout: Admin > Billing > Checkout attempts. The page reports it too; counted once.
+        if (empty($event->account) && in_array($event->type, array('setup_intent.succeeded', 'setup_intent.setup_failed'), true)
+            && (string) ($obj->metadata['type'] ?? '') === 'platform_card' && (int) ($obj->metadata['user_id'] ?? 0) > 0) {
+            $uid = (int) $obj->metadata['user_id'];
+            if ($event->type === 'setup_intent.succeeded') {
+                CheckoutAttempts::card_entered($uid, (string) $obj->id);
+            } else {
+                $err = $obj->last_setup_error ?? null;
+                $code = $err ? ((string) ($err->decline_code ?? '') !== '' ? (string) $err->decline_code : (string) ($err->code ?? '')) : '';
+                CheckoutAttempts::card_failed($uid, $code, $err ? (string) ($err->message ?? '') : '', (string) $obj->id);
+            }
+            http_response_code(200);
+            echo 'ok';
+            exit;
+        }
+
         // A creator's platform plan is billed by the app (BillingService): reconcile its PaymentIntents.
         // settle() is idempotent with the job and the page, so nothing is charged or granted twice.
         if (empty($event->account) && in_array($event->type, array('payment_intent.succeeded', 'payment_intent.payment_failed', 'payment_intent.requires_action'), true)
@@ -120,8 +136,9 @@ class WebhookController extends Controller {
             }
             if ($row) {
                 $st = $event->type === 'payment_intent.succeeded' ? 'succeeded' : ($event->type === 'payment_intent.requires_action' ? 'requires_action' : 'failed');
+                $lpe = $obj->last_payment_error ?? null;
                 BillingService::settle((int) $row['id'], array('status' => $st, 'payment_intent_id' => (string) $obj->id, 'client_secret' => '',
-                    'reason' => (string) ($obj->last_payment_error->message ?? '')));
+                    'reason' => (string) ($lpe->message ?? ''), 'code' => $lpe ? ((string) ($lpe->decline_code ?? '') !== '' ? (string) $lpe->decline_code : (string) ($lpe->code ?? '')) : ''));
             }
             http_response_code(200);
             echo 'ok';

@@ -49,6 +49,7 @@ class ApiBillingController extends BaseApiController {
             $q = BillingService::quote_plan($uid, (string) $this->post['plan'], $this->plan_code());
             if (empty($q['ok'])) { $this->jsonError((string) $q['message']); }
             Analytics::event('checkout_started', array('user_id' => $uid, 'creator_id' => $uid, 'value_cents' => (int) $q['recurring'], 'meta' => $q['mode'] . ' ' . (string) $this->post['plan'] . (Founding::presented() ? ' founding' : '')));   // a plan checkout opened (LifecycleEmails follows up if it never finishes)
+            if ($q['mode'] !== 'downgrade') { CheckoutAttempts::opened($uid, 'plan', (string) $this->post['plan'], $q['mode'], (int) $q['today'], (int) $q['recurring'], stripos((string) ($q['promo_label'] ?? ''), Founding::CODE) !== false); }   // Admin > Billing > Checkout attempts
             $t = PlanTiers::get((string) $this->post['plan']);
             $this->jsonSuccess(['mode' => $q['mode'], 'today' => BillingService::money($q['today']), 'lines' => $fmt($q['lines']),
                 'recurring' => BillingService::money($q['recurring']) . ' / month for ' . $t['name'], 'next_at' => date('M j, Y', strtotime($q['next_at'] . ' UTC')),
@@ -62,6 +63,7 @@ class ApiBillingController extends BaseApiController {
             $d = (int) $this->post['pack'];
             if (!in_array($d, PlanTiers::AI_PACKS, true)) { $this->jsonError('Choose a valid credit pack.'); }
             $next  = (string) $acct['next_charge_at'];
+            if ((int) $acct['pack_dollars'] <= 0) { CheckoutAttempts::opened($uid, 'pack', (string) $d, 'pack', $d * 100, $d * 100); }   // with a pack running, a change is scheduled, not paid
             $this->jsonSuccess(['mode' => 'pack', 'today' => BillingService::money($d * 100), 'lines' => $fmt(array(array(number_format(PlanTiers::pack_credits($d)) . ' AI credits (monthly)', $d * 100))),
                 'recurring' => BillingService::money($d * 100) . ' / month for ' . number_format(PlanTiers::pack_credits($d)) . ' AI credits', 'next_at' => date('M j, Y', strtotime($next . ' UTC')),
                 'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
@@ -70,6 +72,7 @@ class ApiBillingController extends BaseApiController {
             $add = (int) $this->post['slots'] - (int) $acct['influencer_slots'];
             if ($add <= 0) { $this->jsonError('Nothing to charge.'); }
             $cents = (int) round($add * BillingService::slot_cents() * BillingService::remaining_fraction($acct));
+            CheckoutAttempts::opened($uid, 'slots', (string) (int) $this->post['slots'], 'slots', $cents, $add * BillingService::slot_cents());
             $this->jsonSuccess(['mode' => 'slots', 'today' => BillingService::money($cents), 'lines' => $fmt(array(array($add . ' extra AI influencer' . ($add === 1 ? '' : 's') . ' (rest of this period)', $cents))),
                 'recurring' => BillingService::money(BillingService::slot_cents()) . ' / month per extra AI influencer', 'next_at' => date('M j, Y', strtotime($acct['next_charge_at'] . ' UTC')),
                 'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
@@ -81,7 +84,7 @@ class ApiBillingController extends BaseApiController {
     public function billing_card_setupAction(){
         $user = $this->require_creator('owner', false);
         $customer = StripeService::ensure_customer($user);
-        $si = $customer !== '' ? StripeService::create_setup_intent($customer) : array();
+        $si = $customer !== '' ? StripeService::create_setup_intent($customer, array('type' => 'platform_card', 'user_id' => (string) $user['user_id'])) : array();   // the webhook ties a declined card to the checkout
         if (empty($si)) { $this->jsonError('Could not start adding a card. Please try again.'); }
         $this->jsonSuccess(['client_secret' => $si['client_secret']]);
     }
@@ -91,6 +94,7 @@ class ApiBillingController extends BaseApiController {
         $user = $this->require_creator('owner', false);
         $r = BillingService::save_card((int) $user['user_id'], (string) ($this->post['setup_intent_id'] ?? ''));
         if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
+        CheckoutAttempts::card_entered((int) $user['user_id'], (string) ($this->post['setup_intent_id'] ?? ''));
         $retry = (array) ($r['retry'] ?? array());
         if (($retry['status'] ?? '') === 'requires_action') {
             $acct = BillingService::account((int) $user['user_id']);
@@ -98,6 +102,19 @@ class ApiBillingController extends BaseApiController {
                 'client_secret' => (string) $retry['client_secret'], 'payment_method' => (string) ($acct['stripe_payment_method_id'] ?? '')]);
         }
         $this->jsonSuccess(['message' => (string) $r['message']]);
+    }
+
+    /**
+     * The card form in a checkout was declined: record it on the checkout attempt. The reason is read from the
+     * SetupIntent in Stripe, never taken from the page.
+     */
+    public function billing_card_failedAction(){
+        $user = $this->require_creator('owner', false);
+        $si   = preg_replace('/[^A-Za-z0-9_]/', '', (string) ($this->post['setup_intent_id'] ?? ''));
+        $customer = (string) ($user['stripe_customer_id'] ?? '');
+        $err  = ($si !== '' && $customer !== '') ? StripeService::setup_intent_error($customer, $si) : array();
+        if ($err) { CheckoutAttempts::card_failed((int) $user['user_id'], $err['code'], $err['message'], $si); }
+        $this->jsonSuccess(['recorded' => $err ? 1 : 0]);
     }
 
     /** Choose a paid plan (from Free), upgrade now (prorated), or schedule a downgrade. */

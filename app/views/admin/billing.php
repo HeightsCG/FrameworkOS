@@ -40,5 +40,25 @@ foreach ((array) $this->billing as $b) { $cnt[(string) $b['status']] = ($cnt[(st
     <p class="adm-quiet" id="admBillingNone" hidden>No matching accounts.</p>
     <?php endif; ?>
 </section>
+
+<?php /* Checkout attempts: every plan / add-on checkout opened and what happened (CheckoutAttempts). ?signup_day= narrows to one signup day (Growth > Funnel). */
+$co_rows = (array) $this->attempts; $co_day = (string) $this->signup_day;
+$co_cnt = array('all' => count($co_rows), 'failed' => 0, 'abandoned' => 0, 'succeeded' => 0);
+foreach ($co_rows as $ca) { if (isset($co_cnt[(string) $ca['status']])) { $co_cnt[(string) $ca['status']]++; } } ?>
+<section class="adm-box" id="checkout">
+    <header class="adm-box__h">
+        <h2 class="adm-box__t">Checkout attempts<?php if ($co_day !== ''): ?> <span class="adm-box__note">by people who signed up <?php echo $e(gmdate('D, M j', strtotime($co_day . ' 00:00:00 UTC'))); ?> (UTC) · <a href="/admin/billing#checkout">Show All</a></span><?php endif; ?></h2>
+        <div class="adm-seg" role="tablist" aria-label="Checkout status" data-filter-for="admCheckout" data-filter-attr="data-cstatus">
+            <?php foreach (array('all' => 'All', 'failed' => 'Failed', 'abandoned' => 'Abandoned', 'succeeded' => 'Succeeded') as $k => $l): ?><button type="button" role="tab" class="adm-seg__b<?php echo $k === 'all' ? ' is-on' : ''; ?>" aria-selected="<?php echo $k === 'all' ? 'true' : 'false'; ?>" data-filter="<?php echo $k; ?>"><?php echo $l; ?> <b><?php echo (int) $co_cnt[$k]; ?></b></button><?php endforeach; ?>
+        </div>
+    </header>
+    <?php if (empty($co_rows)): ?><?php echo adm_empty($co_day !== '' ? 'No checkouts opened by people who signed up that day' : 'No checkouts opened yet', 'fa-cart-shopping'); ?><?php else: ?>
+    <table class="adm-t" id="admCheckout" data-sortable data-pager>
+        <thead><tr><th data-sort="text">User</th><th data-sort="text">Plan</th><th class="adm-r" data-sort="num">Amount</th><th data-sort="text" data-sorted="desc">Opened</th><th data-sort="text">Status</th><th>Reason</th></tr></thead>
+        <tbody><?php include __DIR__ . '/_checkout_rows.php'; ?></tbody>
+    </table>
+    <p class="adm-quiet" id="admCheckoutNone" hidden>No matching checkouts.</p>
+    <?php endif; ?>
+</section>
 <?php include __DIR__ . '/_shell_end.php'; ?>
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>

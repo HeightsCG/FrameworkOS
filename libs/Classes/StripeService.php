@@ -656,12 +656,12 @@ class StripeService {
     }
 
     /** A SetupIntent to save a card for off-session charges. Returns ['id', 'client_secret'] or []. */
-    public static function create_setup_intent($customer_id): array
+    public static function create_setup_intent($customer_id, array $metadata = array()): array
     {
         try {
-            $si = self::client()->setupIntents->create(array(
-                'customer' => (string) $customer_id, 'usage' => 'off_session', 'payment_method_types' => self::SAVE_METHODS,
-            ));
+            $p = array('customer' => (string) $customer_id, 'usage' => 'off_session', 'payment_method_types' => self::SAVE_METHODS);
+            if ($metadata) { $p['metadata'] = $metadata; }
+            $si = self::client()->setupIntents->create($p);
             return array('id' => (string) $si->id, 'client_secret' => (string) $si->client_secret);
         } catch (\Throwable $e) {
             error_log('[stripe] create_setup_intent: ' . $e->getMessage());
@@ -684,6 +684,23 @@ class StripeService {
             return self::card_info($pm);
         } catch (\Throwable $e) {
             error_log('[stripe] card_from_setup_intent: ' . $e->getMessage());
+            return array();
+        }
+    }
+
+    /**
+     * Why a customer's SetupIntent failed, read from Stripe (never from the page): ['code' => decline_code or error code, 'message'],
+     * or [] when the intent is not the customer's or has no error.
+     */
+    public static function setup_intent_error($customer_id, $setup_intent_id): array
+    {
+        try {
+            $si = self::client()->setupIntents->retrieve((string) $setup_intent_id);
+            if ((string) $si->customer !== (string) $customer_id || empty($si->last_setup_error)) { return array(); }
+            $err = $si->last_setup_error;
+            return array('code' => (string) ($err->decline_code ?? '') !== '' ? (string) $err->decline_code : (string) ($err->code ?? ''), 'message' => (string) ($err->message ?? ''));
+        } catch (\Throwable $e) {
+            error_log('[stripe] setup_intent_error: ' . $e->getMessage());
             return array();
         }
     }
@@ -732,7 +749,8 @@ class StripeService {
             if ((string) ($err->code ?? '') === 'authentication_required' && $pi) {
                 return array('status' => 'requires_action', 'payment_intent_id' => (string) $pi->id, 'client_secret' => (string) $pi->client_secret, 'reason' => 'Your bank needs you to confirm this payment.');
             }
-            return array('status' => 'failed', 'payment_intent_id' => $pi ? (string) $pi->id : '', 'client_secret' => '', 'reason' => (string) ($err->message ?? $e->getMessage()));
+            return array('status' => 'failed', 'payment_intent_id' => $pi ? (string) $pi->id : '', 'client_secret' => '', 'reason' => (string) ($err->message ?? $e->getMessage()),
+                'code' => (string) ($err->decline_code ?? '') !== '' ? (string) $err->decline_code : (string) ($err->code ?? ''));
         } catch (\Stripe\Exception\InvalidRequestException $e) {   // rejected before any charge (bad card id, etc.)
             error_log('[stripe] charge_saved_card: ' . $e->getMessage());
             return array('status' => 'failed', 'payment_intent_id' => '', 'client_secret' => '', 'reason' => 'The payment could not be processed.');
@@ -786,9 +804,12 @@ class StripeService {
         $st = (string) $pi->status;
         $status = ($st === 'succeeded') ? 'succeeded' : ((in_array($st, array('requires_action', 'requires_confirmation'), true)) ? 'requires_action'
                 : (($st === 'processing') ? 'processing' : 'failed'));
-        $why = $reason;
-        if ($status === 'failed') { $why = (string) ($pi->last_payment_error->message ?? 'The card was declined.'); }
-        return array('status' => $status, 'payment_intent_id' => (string) $pi->id, 'client_secret' => (string) $pi->client_secret, 'reason' => $why);
+        $why = $reason; $code = '';
+        if ($status === 'failed') {
+            $why = (string) ($pi->last_payment_error->message ?? 'The card was declined.');
+            $code = (string) ($pi->last_payment_error->decline_code ?? '') !== '' ? (string) $pi->last_payment_error->decline_code : (string) ($pi->last_payment_error->code ?? '');
+        }
+        return array('status' => $status, 'payment_intent_id' => (string) $pi->id, 'client_secret' => (string) $pi->client_secret, 'reason' => $why, 'code' => $code);
     }
 
     /* ---------- Reading legacy platform subscriptions (migration only) ---------- */

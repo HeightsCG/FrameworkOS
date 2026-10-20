@@ -425,8 +425,14 @@ class AdminModel extends Model {
         }
         return (array) parent::select(
             "SELECT u.user_id, u.u_name, u.user_email, u.first_name, u.last_name, u.role_id, u.is_admin,
-                    u.user_status, u.created_at, u.last_active_at, r.role_name, cp.avatar_url
+                    u.user_status, u.created_at, u.last_active_at, r.role_name, cp.avatar_url,
+                    (SELECT a.status FROM checkout_attempts a WHERE a.user_id = u.user_id ORDER BY a.opened_at DESC, a.id DESC LIMIT 1) AS checkout_status,
+                    (SELECT MAX(a.opened_at) FROM checkout_attempts a WHERE a.user_id = u.user_id) AS checkout_at,
+                    (EXISTS (SELECT 1 FROM checkout_attempts a WHERE a.user_id = u.user_id)
+                     AND NOT EXISTS (SELECT 1 FROM checkout_attempts a WHERE a.user_id = u.user_id AND a.status = 'succeeded')
+                     AND NOT COALESCE(b.status IN ('active', 'past_due') AND b.plan_key <> 'free', 0)) AS checkout_unpaid
              FROM user_accounts u LEFT JOIN user_roles r ON r.id = u.role_id LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
+                  LEFT JOIN billing_accounts b ON b.user_id = u.user_id
              WHERE " . implode(' AND ', $where) . "
              ORDER BY u.created_at DESC
              LIMIT $limit",
@@ -436,7 +442,8 @@ class AdminModel extends Model {
 
     /**
      * Growth tab: signups over the last $days UTC days (today included), demo accounts left out.
-     * "checkout" = opened a plan checkout (Analytics 'checkout_started', recorded since 2026-10-18).
+     * "checkout" = opened a plan or add-on checkout (checkout_attempts since 2026-10-20, backfilled from Analytics 'checkout_started'
+     *   recorded since 2026-10-18; downgrades left out). Admin > Billing > Checkout attempts lists the same people by signup day.
      * "paid" = billing account active or past due on a selling plan (PagesController::selling_tiers()); a started trial counts.
      * "became_creator" (the Creators column) = UsersModel::creator_sql, the same rule TikTok CompleteRegistration fires on.
      */
@@ -449,7 +456,8 @@ class AdminModel extends Model {
         $sums   = "COUNT(*) AS signups,
                    COALESCE(SUM(u.email_verified = 1), 0) AS verified,
                    COALESCE(SUM(" . UsersModel::creator_sql('u') . "), 0) AS became_creator,
-                   COALESCE(SUM(EXISTS (SELECT 1 FROM analytics_events ae WHERE ae.kind = 'event' AND ae.name = 'checkout_started' AND ae.user_id = u.user_id)), 0) AS checkout,
+                   COALESCE(SUM(EXISTS (SELECT 1 FROM checkout_attempts ca WHERE ca.user_id = u.user_id)
+                                OR EXISTS (SELECT 1 FROM analytics_events ae WHERE ae.kind = 'event' AND ae.name = 'checkout_started' AND ae.user_id = u.user_id AND ae.meta NOT LIKE 'downgrade%')), 0) AS checkout,
                    COALESCE(SUM($paid), 0) AS paid,
                    COALESCE(SUM(u.referred_by_creator_id IS NOT NULL), 0) AS referred";
         return array('where' => $where, 'sums' => $sums, 'paid' => $paid, 'params' => $params);

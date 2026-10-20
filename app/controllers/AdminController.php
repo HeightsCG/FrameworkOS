@@ -97,6 +97,9 @@ class AdminController extends Controller {
         foreach (CronRuns::status() as $j) { if (($j['finished_at'] !== '' && !$j['ok']) || $j['stale']) { $jobs_bad[] = $j; } }
         $this->view->jobs_bad = $jobs_bad;
         $this->view->activity = self::platform_activity($model, 60);
+        $this->view->checkout_problems = array();
+        try { CheckoutAttempts::expire(); $this->view->checkout_problems = (new CheckoutAttemptsModel())->admin_list(array('problems_today' => 1), 50); }
+        catch (\Throwable $e) { error_log('[admin] today checkouts: ' . $e->getMessage()); }
         $this->view->render();
     }
 
@@ -173,6 +176,7 @@ class AdminController extends Controller {
     /** /admin/users — accounts, newest first; ?q= searches name, handle or email on the server. */
     public function usersAction(){
         $this->shell('users');
+        try { CheckoutAttempts::expire(); } catch (\Throwable $e) { error_log('[admin] checkout expire: ' . $e->getMessage()); }
         $q = trim((string) ($_GET['q'] ?? ''));
         $this->view->q     = mb_substr($q, 0, 80);
         $this->view->users = (new AdminModel())->users($this->view->q, '', $q !== '' ? 200 : 100);
@@ -206,6 +210,14 @@ class AdminController extends Controller {
         $this->shell('billing');
         $this->view->billing = array();
         try { $this->view->billing = (new BillingAccountsModel())->admin_list(300); } catch (\Throwable $e) { error_log('[admin] billing: ' . $e->getMessage()); }
+        // Checkout attempts, newest first. ?signup_day=Y-m-d (from Growth > Funnel) = attempts by people who signed up that UTC day.
+        $day = (string) ($_GET['signup_day'] ?? '');
+        $this->view->signup_day = preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) ? $day : '';
+        $this->view->attempts = array();
+        try {
+            CheckoutAttempts::expire();
+            $this->view->attempts = (new CheckoutAttemptsModel())->admin_list(array('signup_day' => $this->view->signup_day), 500);
+        } catch (\Throwable $e) { error_log('[admin] checkout attempts: ' . $e->getMessage()); }
         $this->view->render();
     }
 

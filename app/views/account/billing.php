@@ -56,7 +56,11 @@ $(function () {
     /* A charge the bank wants the cardholder to confirm (3-D Secure): confirm it here, then record it. */
     function authenticate(o) {
         stripe.confirmCardPayment(o.client_secret, o.payment_method ? { payment_method: o.payment_method } : {}).then(function (res) {
-            if (res.error) { toastr.error(res.error.message); reload_after(1800); return; }
+            if (res.error) {   // authentication failed or was closed: record the payment's outcome, then reload
+                toastr.error(res.error.message);
+                ApiDataSvc.apiCall('post', 'billing_confirm', { charge_id: o.charge_id }, function () { reload_after(1800); });
+                return;
+            }
             ApiDataSvc.apiCall('post', 'billing_confirm', { charge_id: o.charge_id }, function (data) {
                 var r = parse(data);
                 if (r.success) { toastr.success(plan_ok_message(r)); } else { toastr.error(r.message); }
@@ -104,7 +108,11 @@ $(function () {
     /* Save the card in the Payment Element; then run next(). */
     function save_card(next, $btn) {
         stripe.confirmSetup({ elements: card_elements, redirect: 'if_required' }).then(function (res) {
-            if (res.error) { toastr.error(res.error.message); $btn.prop('disabled', false); return; }
+            if (res.error) {
+                toastr.error(res.error.message); $btn.prop('disabled', false);
+                if (res.error.setup_intent && res.error.setup_intent.id) { ApiDataSvc.apiCall('post', 'billing_card_failed', { setup_intent_id: res.error.setup_intent.id }, function () {}); }   // Admin sees the decline
+                return;
+            }
             ApiDataSvc.apiCall('post', 'billing_card_save', { setup_intent_id: res.setupIntent.id }, function (data) {
                 var o = parse(data);
                 if (!o.success) { toastr.error(o.message); $btn.prop('disabled', false); return; }
