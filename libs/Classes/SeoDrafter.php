@@ -170,6 +170,12 @@ class SeoDrafter {
      */
     public static function linkify_bare_citations(string $md): string {
         $md = preg_replace_callback('/<(https:\/\/[^\s<>]+)>/', function ($m) { return self::citation_ok($m[1]) ? '[' . parse_url($m[1], PHP_URL_HOST) . '](' . $m[1] . ')' : $m[0]; }, $md);
+        // "(https://...)" after a sentence, not a link's own "](": the address becomes the link inside the parentheses (prod 2026-10-20: all
+        // three citations of a draft were written this way, so none counted and the draft failed with 0 sources)
+        $md = preg_replace_callback('/(?<!\])\((https:\/\/[^\s()<>]+)\)/', function ($m) {
+            $url = rtrim($m[1], '.,;:!?');
+            return self::citation_ok($url) ? '([' . preg_replace('/^www\./', '', (string) parse_url($url, PHP_URL_HOST)) . '](' . $url . '))' : $m[0];
+        }, $md);
         return preg_replace_callback('/(?<![\(\[<"\'\/])\bhttps:\/\/[^\s<>\)\]"\']+/', function ($m) {
             $url = rtrim($m[0], '.,;:!?'); $tail = substr($m[0], strlen($url));
             return self::citation_ok($url) ? '[' . parse_url($url, PHP_URL_HOST) . '](' . $url . ')' . $tail : $m[0];

@@ -54,13 +54,17 @@ class CheckoutAttemptsModel extends Model {
      */
     public function expire($secs = 3600){
         $cut = gmdate('Y-m-d H:i:s', time() - (int) $secs); $now = gmdate('Y-m-d H:i:s');
+        // the founding trial asks for no card (no-card trial, 2026-10-20): closing it means the trial was never started, not a missing card
+        $t = $this->db->prepare("UPDATE checkout_attempts SET status = 'abandoned', failure_reason = 'Closed checkout without starting the trial', finished_at = :now, updated_at = :now2
+                                 WHERE status = 'opened' AND founding = 1 AND amount_cents = 0 AND opened_at < :cut");
+        $t->execute(array('now' => $now, 'now2' => $now, 'cut' => $cut));
         $a = $this->db->prepare("UPDATE checkout_attempts SET status = 'abandoned', failure_reason = 'Closed checkout without entering a card', finished_at = :now, updated_at = :now2
                                  WHERE status = 'opened' AND opened_at < :cut");
         $a->execute(array('now' => $now, 'now2' => $now, 'cut' => $cut));
         $b = $this->db->prepare("UPDATE checkout_attempts SET status = 'abandoned', failure_reason = 'Entered a card but never paid', finished_at = :now, updated_at = :now2
                                  WHERE status = 'card_entered' AND charge_id IS NULL AND COALESCE(card_entered_at, opened_at) < :cut");
         $b->execute(array('now' => $now, 'now2' => $now, 'cut' => $cut));
-        return $a->rowCount() + $b->rowCount();
+        return $t->rowCount() + $a->rowCount() + $b->rowCount();
     }
 
     /**
