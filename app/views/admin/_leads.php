@@ -9,7 +9,7 @@ foreach ($this->leads as $ld) { if (isset($lead_counts[$ld['source']])) { $lead_
         <h2 class="adm-box__t">Leads <b class="adm-count"><?php echo (int) $lead_counts['all']; ?></b></h2>
         <div class="adm-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search name, email or niche" aria-label="Search leads" data-search-for="admLeads"></div>
         <div class="adm-seg" role="tablist" aria-label="Lead source" id="admLeadTabs">
-            <button type="button" class="adm-seg__b is-active is-on" role="tab" aria-selected="true" data-lead="">All <b><?php echo (int) $lead_counts['all']; ?></b></button>
+            <button type="button" class="adm-seg__b is-active" role="tab" aria-selected="true" data-lead="">All <b><?php echo (int) $lead_counts['all']; ?></b></button>
             <?php foreach (LeadsModel::SOURCES as $ls_key => $ls_label): ?>
             <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-lead="<?php echo $e($ls_key); ?>"><?php echo $e($ls_label); ?> <b><?php echo (int) $lead_counts[$ls_key]; ?></b></button>
             <?php endforeach; ?>

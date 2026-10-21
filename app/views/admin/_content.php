@@ -3,7 +3,7 @@
     <header class="adm-box__h">
         <h2 class="adm-box__t">Articles</h2>
         <div class="adm-seg adm-subtabs" role="tablist" aria-label="Articles">
-            <button type="button" class="adm-seg__b adm-subtab is-active is-on" role="tab" aria-selected="true" data-sub="published">Published <b><?php echo count($this->seo_published); ?></b></button>
+            <button type="button" class="adm-seg__b adm-subtab is-active" role="tab" aria-selected="true" data-sub="published">Published <b><?php echo count($this->seo_published); ?></b></button>
             <button type="button" class="adm-seg__b adm-subtab" role="tab" aria-selected="false" data-sub="keywords">Keyword queue <b><?php echo count($this->seo_keywords); ?></b></button>
             <button type="button" class="adm-seg__b adm-subtab" role="tab" aria-selected="false" data-sub="review">Unpublished <b><?php echo count($this->seo_review); ?></b></button>
         </div>

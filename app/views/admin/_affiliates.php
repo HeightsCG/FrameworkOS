@@ -20,7 +20,7 @@ $af_name = function ($r) { $n = trim((string) $r['first_name'] . ' ' . (string) 
     <div class="adm-box">
     <header class="adm-box__h">
         <div class="adm-seg" role="tablist" aria-label="Affiliates" id="admAffTabs">
-            <button type="button" class="adm-seg__b is-active is-on" role="tab" aria-selected="true" data-aff-tab="list">Affiliates <b><?php echo count($af_rows); ?></b></button>
+            <button type="button" class="adm-seg__b is-active" role="tab" aria-selected="true" data-aff-tab="list">Affiliates <b><?php echo count($af_rows); ?></b></button>
             <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-aff-tab="ledger">Commissions <b><?php echo count($af_ledger); ?></b></button>
             <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-aff-tab="payouts">Payouts <b><?php echo count($af_payouts); ?></b></button>
         </div>
