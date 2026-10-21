@@ -1154,7 +1154,10 @@ class SeoDrafter {
                 }
             }
         }
-        foreach (self::plan_sum_errors($plain) as $pe) { $err[] = $pe; }   // fee and plan price never in one figure, no crossover point
+        // The text of a link to another article is that article's subject, not a claim about plans ("when training pays off" pointing at
+        // /blog/custom-ai-influencer-training-when-to-invest failed a prod rewrite 2026-10-21), so the plan checks skip it.
+        $plan_text = preg_replace('/\]\([^)]*\)/', ']', preg_replace('/\[[^\]]*\]\(\/blog\/[^)]*\)/', ' ', $all));
+        foreach (self::plan_sum_errors($plan_text) as $pe) { $err[] = $pe; }   // fee and plan price never in one figure, no crossover point
         // the facts sheet is context, not copy: a sentence lifted from it word for word reads as the same paragraph in every article
         foreach (self::boilerplate_sentences() as $s) {
             if (stripos($plain, $s) !== false) { $err[] = 'copied from the facts sheet word for word, say it in the article\'s own words or leave it out: "' . mb_substr($s, 0, 60) . '"'; break; }
