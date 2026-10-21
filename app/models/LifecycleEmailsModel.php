@@ -17,6 +17,20 @@ class LifecycleEmailsModel extends Model {
         }
     }
 
+    /** Rows of {kind} sent at or after {since} (UTC), oldest first: the checkout follow-ups start from these. */
+    public function sent_since($kind, $since): array {
+        return (array) parent::select("SELECT id, user_id, ref, created_at FROM lifecycle_emails WHERE kind = :k AND status = 'sent' AND created_at >= :s ORDER BY created_at ASC, id ASC",
+            array('k' => (string) $kind, 's' => (string) $since));
+    }
+
+    /** Has the account a claim of this kind with exactly this ref (and this status, when given)? */
+    public function has_ref($user_id, $kind, $ref, $status = ''): bool {
+        $p = array('u' => (int) $user_id, 'k' => (string) $kind, 'r' => (string) $ref);
+        $sql = "SELECT 1 FROM lifecycle_emails WHERE user_id = :u AND kind = :k AND ref = :r";
+        if ((string) $status !== '') { $sql .= " AND status = :st"; $p['st'] = (string) $status; }
+        return !empty(parent::select($sql . " LIMIT 1", $p));
+    }
+
     /** Give a claim back (the send failed), so the next run tries again. */
     public function release($id): void {
         parent::delete('lifecycle_emails', 'id = :id', 1, array('id' => (int) $id));

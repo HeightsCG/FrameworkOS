@@ -39,6 +39,10 @@ try {
     $notes[] = 'checkout follow-ups ' . $n;
 } catch (\Throwable $e) { $ok = false; error_log('[lifecycle] abandoned checkouts: ' . $e->getMessage()); $notes[] = 'checkout follow-ups failed'; }
 try {
+    $n = LifecycleEmails::run_checkout_followups();
+    $notes[] = 'checkout reminders ' . $n;
+} catch (\Throwable $e) { $ok = false; error_log('[lifecycle] checkout reminders: ' . $e->getMessage()); $notes[] = 'checkout reminders failed'; }
+try {
     $n = NurtureEmails::run();
     $notes[] = 'nurture ' . $n;
 } catch (\Throwable $e) { $ok = false; error_log('[lifecycle] nurture: ' . $e->getMessage()); $notes[] = 'nurture failed'; }

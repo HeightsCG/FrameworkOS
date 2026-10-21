@@ -153,8 +153,9 @@ try {
     $ev($e, 120, 'subscribe creator');   // e is on a paid plan now
     $n = LifecycleEmails::run_abandoned_checkouts();
     $m = $sent_to($ef);
-    check('abandoned checkout email after ~1h', $n === 1 && count($m) === 1 && ($m[0]['Subject'] ?? '') === Notifications::env_subject('Your Creator plan didn\'t start'));
-    check('abandoned: card not charged + plan tab link with founding', strpos($m[0]['HtmlBody'], 'card wasn&#039;t charged') !== false && strpos($m[0]['HtmlBody'], '/account/billing?tab=plan&amp;plan=creator&amp;founding=1') !== false);
+    check('abandoned checkout email after ~1h (the trial is still open: trial wording)', $n === 1 && count($m) === 1 && ($m[0]['Subject'] ?? '') === Notifications::env_subject('Your free trial didn\'t start'));
+    check('abandoned: no card needed + plan tab link with founding', strpos($m[0]['HtmlBody'], 'needs no card') !== false && strpos($m[0]['HtmlBody'], '/account/billing?tab=plan&amp;plan=creator&amp;founding=1') !== false);
+    check('abandoned, no trial left: card not charged wording', strpos(implode(' ', LifecycleEmails::abandoned_email(array(), 'creator', false)['paras']), 'card wasn\'t charged') !== false && LifecycleEmails::abandoned_email(array(), 'creator', false)['subject'] === 'Your Creator plan didn\'t start');
     check('no email while the checkout is 20 minutes old', count($sent_to('lifecycle.g' . $tag . '@cls-mailtest.com')) === 0);
     check('no email to an account on a paid plan', count($sent_to($ee)) === 2);
     check('abandoned: marketing stream with postal address + unsubscribe', ($m[0]['MessageStream'] ?? '') === Notifications::STREAM_BROADCAST
@@ -162,6 +163,40 @@ try {
     $ev($f, 70, 'subscribe creator founding');
     LifecycleEmails::run_abandoned_checkouts();
     check('abandoned checkout at most once per 7 days', count($sent_to($ef)) === 1);
+
+    // ---- the two reminders after it (1 and 4 days later) ----
+    $first = (new LifecycleEmailsModel())->last($f, 'checkout_abandoned');
+    check('reminders: none on the same day', LifecycleEmails::run_checkout_followups() === 0);
+    $back = function ($days) use ($db, $first) { $db->run("UPDATE lifecycle_emails SET created_at = :t WHERE id = :i", array(':t' => gmdate('Y-m-d H:i:s', time() - $days * 86400 - 60), ':i' => (int) $first['id'])); };
+    $back(1);
+    $n = LifecycleEmails::run_checkout_followups(); $m = $sent_to($ef);
+    check('reminder 2 a day later', $n === 1 && count($m) === 2 && ($m[1]['Subject'] ?? '') === Notifications::env_subject('Your free trial is still waiting'), json_encode(array_column($m, 'Subject')));
+    check('reminder 2 on the marketing stream with unsubscribe', ($m[1]['MessageStream'] ?? '') === Notifications::STREAM_BROADCAST && strpos($m[1]['HtmlBody'], '{{{ pm:unsubscribe }}}') !== false);
+    check('reminder 2 only once', LifecycleEmails::run_checkout_followups() === 0 && count($sent_to($ef)) === 2);
+    $back(3);
+    check('reminder 3 waits for day 4', LifecycleEmails::run_checkout_followups() === 0);
+    $back(4);
+    $n = LifecycleEmails::run_checkout_followups(); $m = $sent_to($ef);
+    check('reminder 3 on day 4, the last one', $n === 1 && count($m) === 3 && ($m[2]['Subject'] ?? '') === Notifications::env_subject('Last reminder about your free trial'));
+    $back(6);
+    check('nothing after the last reminder', LifecycleEmails::run_checkout_followups() === 0 && count($sent_to($ef)) === 3);
+    // a plan started after the first email stops the reminders
+    $ep = 'lifecycle.p' . $tag . '@cls-mailtest.com';
+    $pu = $mk('pia', $ep, array('email_verified' => 1));
+    LifecycleEmails::$only_users = array($pu);
+    $ev($pu, 120, 'subscribe creator');
+    LifecycleEmails::run_abandoned_checkouts();
+    $pf = (new LifecycleEmailsModel())->last($pu, 'checkout_abandoned');
+    $db->run("UPDATE lifecycle_emails SET created_at = :t WHERE id = :i", array(':t' => gmdate('Y-m-d H:i:s', time() - 86400 - 60), ':i' => (int) $pf['id']));
+    $db->add('billing_charges', array('user_id' => $pu, 'kind' => 'subscribe', 'status' => 'succeeded', 'applied' => 1, 'amount_cents' => 0, 'line_items' => '[]', 'effects' => '{}', 'idempotency_key' => 'lifecycle-test-' . $pu, 'created_at' => gmdate('Y-m-d H:i:s')));
+    check('no reminder once a plan started', LifecycleEmails::run_checkout_followups() === 0 && count($sent_to($ep)) === 1);
+    LifecycleEmails::$only_users = array($e, $f, $g);
+    // the founding trial needs no card: its emails say so and never mention a card charge
+    $tu = array('first_name' => 'Tia', 'last_name' => '', 'user_email' => 'x@cls-mailtest.com');
+    $t1 = LifecycleEmails::abandoned_email($tu, 'creator', true); $t2 = LifecycleEmails::followup_email($tu, 'creator', true, 2); $t3 = LifecycleEmails::followup_email($tu, 'creator', true, 3);
+    check('trial emails: no card needed, Start Free Trial', strpos(implode(' ', $t1['paras']), 'needs no card') !== false && strpos(implode(' ', $t2['paras']), 'needs no card') !== false
+        && strpos(implode(' ', $t3['paras']), 'No card is needed') !== false && $t1['button'] === 'Start Free Trial' && $t3['button'] === 'Start Free Trial'
+        && strpos(implode(' ', array_merge($t1['paras'], $t2['paras'], $t3['paras'])), 'charged') === false && strpos($t2['link'], 'founding=1') !== false);
     $eo = 'lifecycle.o' . $tag . '@cls-mailtest.com';
     $o = $mk('ola', $eo, array('email_verified' => 1));
     (new NotificationPrefsModel())->save_prefs($o, array(NurtureEmails::CATEGORY => array('in_platform' => 0, 'email' => 0)));

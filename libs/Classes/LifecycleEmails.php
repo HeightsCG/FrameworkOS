@@ -8,6 +8,8 @@
  *   - "Your trial ends {date}" 3 days before the first charge (cron/billing.php)
  *   - "Your plan didn't start" about an hour after a plan checkout that never finished (cron/lifecycle.php). This one is
  *     marketing: broadcast stream, postal address + unsubscribe footer, and the Tips and Offers switch stops it.
+ *   - two follow-ups to it, 1 and 4 days later (FOLLOWUP_DAYS, run_checkout_followups), same rules; they stop once a plan
+ *     starts. The founding trial needs no card, so its versions say so.
  *   - Postmark hard bounces / transactional spam complaints (/webhook/postmark): the address is marked and never emailed
  *     again. A spam complaint about a marketing (broadcast) email only turns Tips and Offers off.
  *
@@ -20,6 +22,8 @@ class LifecycleEmails {
     const TRIAL_NOTICE_HOURS = 72;    // the trial-ending email goes this long before the first charge
     const ABANDON_AFTER_MIN = 60;     // a checkout with no activity for this long counts as abandoned
     const ABANDON_EVERY_DAYS = 7;     // at most one abandoned-checkout email per account per this many days
+    /** Follow-ups after the abandoned-checkout email: step => days after it. Each goes only if the one before it went. */
+    const FOLLOWUP_DAYS = array(2 => 1, 3 => 4);
     const BOUNCED_MESSAGE   = 'We couldn\'t deliver email to %s. Check it or use another.';
     const PLAN_TAB          = '/account/billing?tab=plan';
 
@@ -272,25 +276,101 @@ class LifecycleEmails {
                 $id = $m->claim($uid, 'checkout_abandoned', 'w' . (int) floor(time() / (self::ABANDON_EVERY_DAYS * 86400)), $ok_to_send ? 'sent' : 'skipped');
                 if ($id < 1 || !$ok_to_send) { continue; }
                 $plan = PlanTiers::get($a['plan']) && $a['plan'] !== 'free' ? $a['plan'] : Founding::PLAN;
-                $mail = self::abandoned_email($u, $plan, Founding::eligible($uid));
-                // sent on the broadcast stream with the postal address and unsubscribe link (Postmark suppresses whoever unsubscribes)
-                $html = NotificationsModel::build_lifecycle_email($mail['subject'], $mail['paras'], array(), 'Pick Up Where You Left Off', $mail['link'], $mail['footer'], NurtureEmails::footer_html());
-                $ok = (new Notifications())->send_email(array(array('email' => (string) $u['user_email'], 'name' => self::name($u))), 0, $mail['subject'], $html, Notifications::STREAM_BROADCAST);
-                if ($ok) { $sent++; }
-                elseif ((int) Notifications::$last_error_code === 406) {   // unsubscribed or suppressed on the broadcast stream: stop for good
-                    (new NotificationPrefsModel())->save_prefs($uid, array(NurtureEmails::CATEGORY => array('in_platform' => 0, 'email' => 0)));
-                    $m->set_status($id, 'suppressed');
-                } else { $m->release($id); }
+                if (self::send_checkout_email($m, $id, $u, self::abandoned_email($u, $plan, Founding::eligible($uid)))) { $sent++; }
             } catch (\Throwable $e) { error_log('[lifecycle] abandoned checkout ' . (int) $uid . ': ' . $e->getMessage()); }
         }
         return $sent;
     }
 
+    /**
+     * The follow-ups to the abandoned-checkout email (FOLLOWUP_DAYS): for each one sent in the last ABANDON_EVERY_DAYS days,
+     * the next step once its day comes, while no plan has started since. Same switch, stream and footer. Returns how many went out.
+     */
+    public static function run_checkout_followups(int $limit = self::REMINDER_CAP): int {
+        $m = new LifecycleEmailsModel();
+        $sent = 0;
+        foreach ($m->sent_since('checkout_abandoned', gmdate('Y-m-d H:i:s', time() - self::ABANDON_EVERY_DAYS * 86400)) as $first) {
+            if ($sent >= $limit) { break; }
+            $uid = (int) $first['user_id'];
+            if (self::skip_for_test($uid)) { continue; }
+            try {
+                $step = 0;   // the next step not claimed yet, once its day has come
+                foreach (self::FOLLOWUP_DAYS as $n => $days) {
+                    if ($m->has_ref($uid, 'checkout_followup', (int) $first['id'] . ':' . $n)) { continue; }
+                    if (strtotime($first['created_at'] . ' UTC') + $days * 86400 <= time()) { $step = $n; }
+                    break;
+                }
+                if ($step === 0) { continue; }
+                if ($step > 2 && !$m->has_ref($uid, 'checkout_followup', (int) $first['id'] . ':' . ($step - 1), 'sent')) { continue; }   // only after the one before went
+                if (BillingService::is_paid(BillingService::account($uid)) || $m->subscribed_since($uid, (string) $first['created_at'])) { continue; }
+                $u = self::user($uid);
+                if (!$u || (int) ($u['deleted'] ?? 0) === 1 || (int) ($u['email_verified'] ?? 0) !== 1) { continue; }
+                $ok_to_send = self::deliverable($u) && (new NotificationPrefsModel())->email_on($uid, NurtureEmails::CATEGORY);
+                $id = $m->claim($uid, 'checkout_followup', (int) $first['id'] . ':' . $step, $ok_to_send ? 'sent' : 'skipped');
+                if ($id < 1 || !$ok_to_send) { continue; }
+                if (self::send_checkout_email($m, $id, $u, self::followup_email($u, self::followup_plan($m, $uid), Founding::eligible($uid), $step))) { $sent++; }
+            } catch (\Throwable $e) { error_log('[lifecycle] checkout follow-up ' . $uid . ': ' . $e->getMessage()); }
+        }
+        return $sent;
+    }
+
+    /** The plan the account last opened a checkout for (else the founding plan). */
+    private static function followup_plan(LifecycleEmailsModel $m, int $uid): string {
+        $s = $m->checkout_starts(self::ABANDON_EVERY_DAYS)[$uid] ?? null;
+        $p = $s ? (string) (explode(' ', (string) $s['meta'])[1] ?? '') : '';
+        return PlanTiers::get($p) && $p !== 'free' ? $p : Founding::PLAN;
+    }
+
+    /** Send a checkout email on the broadcast stream (postal address + unsubscribe link). An unsubscribe stops them for good; a failure gives the claim back. */
+    private static function send_checkout_email(LifecycleEmailsModel $m, int $id, array $u, array $mail): bool {
+        $html = NotificationsModel::build_lifecycle_email($mail['subject'], $mail['paras'], array(), $mail['button'] ?? 'Pick Up Where You Left Off', $mail['link'], $mail['footer'], NurtureEmails::footer_html());
+        $ok = (new Notifications())->send_email(array(array('email' => (string) $u['user_email'], 'name' => self::name($u))), 0, $mail['subject'], $html, Notifications::STREAM_BROADCAST);
+        if ($ok) { return true; }
+        if ((int) Notifications::$last_error_code === 406) {   // unsubscribed or suppressed on the broadcast stream
+            (new NotificationPrefsModel())->save_prefs((int) $u['user_id'], array(NurtureEmails::CATEGORY => array('in_platform' => 0, 'email' => 0)));
+            $m->set_status($id, 'suppressed');
+        } else { $m->release($id); }
+        return false;
+    }
+
+    /** Subject, paragraphs, button, link and footer of follow-up {step} (2 or 3) (pure). */
+    public static function followup_email(array $u, string $plan, bool $founding, int $step): array {
+        $name = self::plan_name($plan);
+        $days = Founding::TRIAL_DAYS;
+        if ($founding) {
+            $paras = $step === 2
+                ? array('Your ' . $days . '-day free trial of ' . $name . ' is ready whenever you are. Starting it takes one click and needs no card.',
+                        'During the trial your page goes public, you can sell memberships and pay-per-view, and you get ' . Founding::NO_CARD_CREDITS . ' AI credits. Everything you\'ve set up is saved.')
+                : array('This is the last reminder about your ' . $days . '-day free trial of ' . $name . '. No card is needed to start it, and with no card your account moves back to Free when the trial ends.',
+                        'If something stopped you, open Support in your account and tell us.');
+            $subject = $step === 2 ? 'Your free trial is still waiting' : 'Last reminder about your free trial';
+            $button = 'Start Free Trial';
+        } else {
+            $paras = $step === 2
+                ? array('Your ' . $name . ' plan is still ready to start. Everything you\'ve set up is saved.')
+                : array('This is the last reminder about the ' . $name . ' plan you started choosing. Everything you\'ve set up is saved.',
+                        'If something stopped you, open Support in your account and tell us.');
+            $subject = $step === 2 ? 'Your ' . $name . ' plan is still ready' : 'Last reminder about your ' . $name . ' plan';
+            $button = 'Pick Up Where You Left Off';
+        }
+        return array('subject' => $subject, 'paras' => $paras, 'button' => $button,
+            'link' => self::PLAN_TAB . '&plan=' . rawurlencode($plan) . ($founding ? '&founding=1&checkout=1' : ''),   // the trial dialog opens straight away
+            'footer' => 'You\'re receiving this because you started choosing a plan on ' . Main::site_name() . '.');
+    }
+
     /** Subject, paragraphs, link and footer of the abandoned-checkout email (pure). */
     public static function abandoned_email(array $u, string $plan, bool $founding): array {
         $name = self::plan_name($plan);
+        if ($founding) {   // the founding trial asks for no card (no-card trial, 2026-10-20)
+            return array(
+                'subject' => 'Your free trial didn\'t start',
+                'paras'   => array('Your ' . Founding::TRIAL_DAYS . '-day free trial of ' . $name . ' didn\'t start. Starting it takes one click and needs no card.', 'Everything you\'ve set up is saved.'),
+                'button'  => 'Start Free Trial',
+                'link'    => self::PLAN_TAB . '&plan=' . rawurlencode($plan) . '&founding=1&checkout=1',   // the trial dialog opens straight away
+                'footer'  => 'You\'re receiving this because you started choosing a plan on ' . Main::site_name() . '.',
+            );
+        }
         $paras = array('Your card wasn\'t charged. Pick up where you left off: everything you\'ve set up is saved.');
-        if ($founding) { $paras[] = 'Your ' . Founding::TRIAL_DAYS . '-day free trial is still available, so nothing is charged until it ends.'; }
         return array(
             'subject' => 'Your ' . $name . ' plan didn\'t start',
             'paras'   => $paras,
