@@ -501,7 +501,6 @@ class BillingService {
         if ((int) ($acct['billing_anchor_day'] ?? 0) === 0) { $accts->save($uid, array('billing_anchor_day' => $anchor)); }
         $end     = self::add_period($start, 1, $anchor);
         $fx      = array('plan' => $plan, 'slots' => (int) $acct['influencer_slots'], 'pack' => (int) $acct['pack_dollars']);
-        if ($plan !== self::PLAN_FREE && empty($acct['promo_code']) && self::recover_stripe_promo($uid, $acct)) { $acct = self::account($uid); }
         if ($plan !== self::PLAN_FREE && !empty($acct['promo_code'])) {
             $off = self::promo_off($plan_cents, $acct);
             if ($off > 0) {
@@ -511,32 +510,6 @@ class BillingService {
             }
         }
         return self::charge($uid, 'renewal', $lines, $fx, $start, $end, 'renewal-' . $uid . '-' . strtotime($start . ' UTC') . '-a' . $attempt, $attempt);
-    }
-
-    /**
-     * A coupon the account had on its old Stripe plan subscription, or on its Stripe customer, that billing_accounts
-     * doesn't have: the move to app billing (cron/migrate_subscriptions.php, 2026-09-23) never copied it, so a free or
-     * discounted plan was renewed at full price. Stored like a promo entered at checkout. True when one was stored.
-     */
-    public static function recover_stripe_promo($user_id, array $acct): bool
-    {
-        $uid = (int) $user_id;
-        $sub_id = (string) ($acct['migrated_subscription_id'] ?? '');
-        $cus_id = (string) (self::user($uid)['stripe_customer_id'] ?? '');
-        if ($sub_id === '' && $cus_id === '') { return false; }
-        try {
-            $c   = StripeService::client();
-            $sub = $sub_id !== '' ? $c->subscriptions->retrieve($sub_id, array('expand' => array('discounts', 'customer'))) : null;
-            $cus = $sub ? $sub->customer : $c->customers->retrieve($cus_id);
-            $p = StripeService::subscription_promo($sub ?: new \stdClass(), $cus, (string) ($acct['next_charge_at'] ?: gmdate('Y-m-d H:i:s')));
-            if (!$p) { return false; }
-            (new BillingAccountsModel())->save($uid, array_diff_key($p, array('label' => 1)));
-            error_log('[billing] user ' . $uid . ': restored Stripe coupon ' . $p['promo_code'] . ' (' . $p['label'] . ') before renewal');
-            return true;
-        } catch (\Throwable $e) {
-            error_log('[billing] coupon check ' . $uid . ': ' . $e->getMessage());
-            return false;
-        }
     }
 
     /** A period end further back than this is not renewed from; the next period starts now (restart_period). */

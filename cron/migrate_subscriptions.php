@@ -50,7 +50,7 @@ foreach ($rows as $uid) {
         }
         $existing = $accts->get($uid);
         if ($existing && (string) ($existing['migrated_subscription_id'] ?? '') !== '') { echo "user $uid: already migrated, skipped\n"; continue; }
-        $sub = $c->subscriptions->retrieve((string) $u['stripe_subscription_id'], array('expand' => array('items.data.price.product', 'default_payment_method', 'customer', 'discounts')));
+        $sub = $c->subscriptions->retrieve((string) $u['stripe_subscription_id'], array('expand' => array('items.data.price.product', 'default_payment_method', 'customer')));
         if (!in_array((string) $sub->status, array('active', 'trialing', 'past_due'), true)) {
             echo "user $uid: subscription {$sub->id} is {$sub->status}, left on Free\n";
             if ($apply) { (new BillingModel())->save_plan_mirror($uid, null, null, null, 0); }
@@ -77,8 +77,7 @@ foreach ($rows as $uid) {
             $end   = $start;
             $start = gmdate('Y-m-d H:i:s', (int) $item->current_period_start - $len);
         }
-        $promo = StripeService::subscription_promo($sub, $customer, $end);   // the subscription's coupon carries over (it was dropped before 2026-10-21)
-        echo "user $uid: {$sub->id} → plan $plan" . ($promo ? ', promo ' . $promo['promo_code'] . ' (' . $promo['label'] . ')' : '') . ($slots ? " + $slots slot(s)" : '') . ($past_due ? ", PAST DUE: retry bills the unpaid period from $end UTC now; Stripe invoice voided + subscription canceled" : ", next charge $end UTC") . ", card " . ($card ? $card['brand'] . ' ' . $card['last4'] : 'NONE (they must add one)')
+        echo "user $uid: {$sub->id} → plan $plan" . ($slots ? " + $slots slot(s)" : '') . ($past_due ? ", PAST DUE: retry bills the unpaid period from $end UTC now; Stripe invoice voided + subscription canceled" : ", next charge $end UTC") . ", card " . ($card ? $card['brand'] . ' ' . $card['last4'] : 'NONE (they must add one)')
             . ((int) $sub->cancel_at_period_end ? ', already canceling (moves to Free at period end)' : '') . "\n";
         if (!$apply) { continue; }
 
@@ -87,7 +86,7 @@ foreach ($rows as $uid) {
             'cancel_at_period_end' => (int) $sub->cancel_at_period_end ? 1 : 0, 'influencer_slots' => $slots,
             'stripe_payment_method_id' => $card['id'] ?? null, 'card_brand' => $card['brand'] ?? null, 'card_last4' => $card['last4'] ?? null, 'card_exp' => $card['exp'] ?? null,
             'next_retry_at' => (string) $sub->status === 'past_due' ? gmdate('Y-m-d H:i:s') : null, 'past_due_since' => (string) $sub->status === 'past_due' ? gmdate('Y-m-d H:i:s') : null,
-            'migrated_subscription_id' => (string) $sub->id) + ($promo ? array_diff_key($promo, array('label' => 1)) : array()));
+            'migrated_subscription_id' => (string) $sub->id));
         if ((string) $customer->id !== (string) ($u['stripe_customer_id'] ?? '')) { (new BillingModel())->set_customer_id($uid, (string) $customer->id); }
         // This period's plan credits were granted under the old system: count them as the plan bucket.
         $t = PlanTiers::get($plan);
