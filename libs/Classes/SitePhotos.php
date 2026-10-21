@@ -45,7 +45,6 @@ class SitePhotos
         'about'         => array('site', 'about', self::WIDE, 1440, 816, 'A shared workspace at dusk with laptops, a camera and notebooks on a long table', '50% 50%'),
         'contact'       => array('site', 'contact', self::TALL, 1152, 1440, 'A woman smiling on a phone call at her desk by a window', '50% 30%'),
         'press'         => array('site', 'press', self::WIDE, 1440, 816, 'A podcast microphone, headphones, a camera and a notebook on a dark desk', '60% 50%'),
-        'founding'      => array('site', 'founding', self::WIDE, 1440, 816, 'Four creators laughing together on a rooftop terrace at dusk', '55% 40%'),
         'affiliates'    => array('site', 'affiliates', self::WIDE, 1440, 816, 'Two creators at a cafe table at night, one showing the other her phone', '60% 40%'),
         'integrations'  => array('site', 'integrations', self::WIDE, 1440, 816, 'A creator checking one of four phones standing on tripods in a row', '72% 40%'),
         'integration'   => array('site', 'integration', self::WIDE, 1440, 816, 'A barista filming latte art with his phone above the cup', '72% 40%'),

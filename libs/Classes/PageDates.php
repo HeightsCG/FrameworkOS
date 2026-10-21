@@ -44,7 +44,6 @@ class PageDates {
         '/features/payouts' => array('2026-10-15', '3a5d3ace82f7'),
         '/features/publishing' => array('2026-10-15', 'cf300c17a391'),
         '/features/services-and-events' => array('2026-10-15', '804e9b51d335'),
-        '/founding' => array('2026-10-15', '75c26bcecfa6'),
         '/integrations' => array('2026-10-15', 'ef9d59032660'),
         '/integrations/bluesky' => array('2026-10-15', '1d1e75b84e4a'),
         '/integrations/facebook' => array('2026-10-15', 'a035345c7976'),

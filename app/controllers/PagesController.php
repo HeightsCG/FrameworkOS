@@ -883,25 +883,6 @@ class PagesController extends Controller {
         $this->page('monetize', array('hero_photo' => 'monetize', 'path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => $faq));
     }
 
-    /** The founding creator offer (/founding): terms, what founding creators agree to, spots left (Founding). */
-    public static function founding_meta(): array {
-        return array('title' => 'Founding Creators: First ' . Founding::TRIAL_DAYS . ' Days Free on ' . Founding::plan_names(),
-            'description' => Founding::SPOTS . ' founding spots on ' . Founding::plan_names() . ': your ' . Founding::free_label() . ', plus featured placement in the creator directory and on the home page.');   // 120-160 characters
-    }
-
-    public static function founding_faq(): array {
-        $names = Founding::plan_names(); $pp = array(); foreach (Founding::PLANS as $fk) { $ft = PlanTiers::get($fk); if ($ft) { $pp[] = '$' . number_format((int) $ft['price']) . ' a month on ' . $ft['name']; } } $after = implode(' or ', $pp);
-        return array(
-            array('q' => 'Who can claim a founding spot?', 'a' => 'Any account starting the ' . $names . ' plan from Free, while spots remain. There are ' . Founding::SPOTS . ' founding spots, one per account, open until they are filled.'),
-            array('q' => 'What does it cost?', 'a' => 'Your first ' . Founding::TRIAL_DAYS . ' days on ' . $names . ' are free. After that the plan is ' . $after . ', charged to your card until you cancel.'),
-            array('q' => 'Is the free period always ' . Founding::TRIAL_DAYS . ' days?', 'a' => 'Usually. If your account already renews a monthly AI credit pack, the plan joins that billing date. The free period then runs until that date, and the regular price starts from it.'),
-            array('q' => 'How long do the founding terms last?', 'a' => 'The free period is your first ' . Founding::TRIAL_DAYS . ' days. Featured placement lasts for as long as your paid plan stays active, including a short past-due grace period. If you move to Free or the plan lapses, the founding terms end and do not come back.'),
-            array('q' => 'What do founding creators agree to?', 'a' => 'To share a short testimonial about their experience, which we ask for after two weeks. To be featured in the creator directory and on the home page, and to stay listed in the directory.'),
-            array('q' => 'Do I need a card?', 'a' => 'Yes. Nothing is charged today, but the card is kept for the monthly charge that starts after the free period. Cancel any time from Billing before then and you will not be charged.'),
-            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee. You cash out to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold. Earnings from an event are released after the event has taken place.'),
-        );
-    }
-
     /**
      * /start (2026-10-16): the paid-traffic landing page for TikTok ads. Its own standalone document (app/views/pages/start.php):
      * no site nav or footer, signup in a sheet on the page. noindex: it is an ad destination, not a search page.
@@ -931,20 +912,11 @@ class PagesController extends Controller {
         require Main::app_path() . '/app/views/pages/start.php';
     }
 
+    /** /founding/testimonial only: the public /founding page was removed 2026-10-20 (Daniel); the founding trial itself never needed it. */
     public function foundingAction(){
         $u = Main::get_url();
         if (count($u) === 2 && (string) $u[1] === 'testimonial') { (new FoundingController())->testimonialAction(); return; }   // the app page for founding creators
-        if (count($u) > 1) { Errors::page_not_found(); return; }
-        if (!self::$embedded) { Session::cache_header(60); }   // the spots counter is at most a minute old
-        $path = '/founding'; $m = self::founding_meta(); $faq = self::founding_faq();
-        $jsonld = array(
-            SeoMeta::faq($faq),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Founding Creators', 'url' => $path))),
-        );
-        $claim = Founding::claim_link();
-        $this->page('founding', array('hero_photo' => 'founding', 'hero_sizes' => '100vw', 'path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
-            array('faq' => $faq, 'left' => Founding::remaining_cached(),
-                  'claim_url' => $claim[0], 'claim_auth' => $claim[1]));
+        Errors::page_not_found();
     }
 
     /** The affiliate program (/affiliates): Affiliates::RATE_PERCENT of the plan payments of referred accounts. */

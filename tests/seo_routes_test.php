@@ -2,7 +2,6 @@
 $base  = getenv('SEO_TEST_BASE') ?: 'http://framework.contentos.cvk';
 $paths = array('/features', '/features/ai-influencer', '/features/dm-agent', '/features/payouts', '/pricing', '/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/best-creator-monetization-platforms', '/monetize-your-content', '/about', '/contact');
 $paths = array_merge($paths, array('/onlyfans-alternatives', '/fanvue-alternatives'));
-$paths = array_merge($paths, array('/founding'));
 $paths = array_merge($paths, array('/affiliates'));
 $paths = array_merge($paths, array('/tools/fan-questions', '/tools/ai-influencer-persona'));
 $paths = array_merge($paths, array('/author/dr-glauber'));
@@ -58,15 +57,12 @@ foreach (array('/fanvue-alternatives/extra', '/onlyfans-alternatives/x') as $p) 
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
 }
-// Founding offer: FAQPage parses, the spots counter is on the page, nothing answers under it.
-$ch = curl_init($base . '/founding'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
-preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $body, $m); $types = array();
-foreach ($m[1] as $j) { $o = json_decode($j, true); if (is_array($o)) { $types[] = (string) ($o['@type'] ?? ''); } }
-$ok = in_array('FAQPage', $types, true) && count($types) === count($m[1]) && strpos($body, 'Spots left') === false && strpos($body, 'founding=1') !== false && !preg_match('/[\x{2013}\x{2014}]/u', strip_tags($body));
-echo ($ok ? 'ok   ' : 'FAIL ') . "/founding FAQPage parse + counter + claim link\n"; if (!$ok) { $fail++; }
-$ch = curl_init($base . '/founding/x'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
-$code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-echo ($code === 404 ? 'ok   ' : 'FAIL ') . "/founding/x → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+// /founding was removed 2026-10-20: the page and anything under it (but /founding/testimonial) is a 404
+foreach (array('/founding', '/founding/x') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+}
 // /affiliates: FAQPage JSON-LD parses, the apply link, no dashes; /affiliates/x is a 404; the app pages send signed-out visitors to sign up
 $ch = curl_init($base . '/affiliates'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
 preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $body, $m); $types = array();

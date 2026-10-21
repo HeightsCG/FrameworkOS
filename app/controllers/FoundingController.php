@@ -1,7 +1,7 @@
 <?php
 /**
  * /founding/testimonial: where a founding creator writes the sentence the testimonial request asks for (Founding).
- * Reached through PagesController::foundingAction (the /founding URL is a public page). Account owners with an
+ * Reached through PagesController::foundingAction (/founding itself is a 404 since 2026-10-20). Account owners with an
  * active founding claim only; everyone else gets a 404. Saved through /api/founding_testimonial_save.
  */
 class FoundingController extends Controller {

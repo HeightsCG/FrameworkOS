@@ -18,7 +18,7 @@
         var body_el = document.getElementById('admMsgBody'), send_el = document.getElementById('admMsgSend'), to_user = 0, picking = false;
         var pick_el = document.getElementById('admMsgPick'), find_el = document.getElementById('admMsgFind'), res_el = document.getElementById('admMsgResults');
         var chosen_el = document.getElementById('admMsgChosen'), from_el = document.getElementById('admMsgFrom');
-        var found = [], hi = -1, seq = 0, timer = null;
+        var found = [], hi = -1, seq = 0, timer = null, preset = null;   // preset: the user the dialog was opened for, while the To text still names them
         function set_to(id, name) {
             to_user = id;
             document.getElementById('admMsgTo').textContent = name || 'this user';
@@ -52,7 +52,12 @@
         function open_modal(new_msg, id, name) {
             picking = new_msg;
             body_el.value = ''; body_el.classList.remove('is-invalid'); find_el.classList.remove('is-invalid');
-            if (new_msg) { reset_pick(); } else { pick_el.hidden = true; chosen_el.hidden = true; from_el.hidden = false; set_to(id, name); }
+            preset = null;
+            if (new_msg) { reset_pick(); }
+            else {   // from a user: the To field shows their name, and can still be typed over to search for someone else
+                reset_pick(); set_to(id, name);
+                preset = { id: id, name: name || '' }; find_el.value = preset.name; from_el.hidden = false;
+            }
             if (modal) { modal.show(); }
         }
         document.addEventListener('click', function (e) {
@@ -66,6 +71,10 @@
         find_el.addEventListener('input', function () {
             var q = find_el.value.trim(); find_el.classList.remove('is-invalid');
             clearTimeout(timer);
+            if (preset) {
+                if (q === preset.name.trim()) { set_to(preset.id, preset.name); from_el.hidden = false; show_results(false); return; }   // back to their name
+                to_user = 0; from_el.hidden = true;
+            }
             if (q.length < 2) { found = []; hi = -1; show_results(false); return; }
             render_results('loading');
             timer = setTimeout(function () {
@@ -85,7 +94,7 @@
             else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); show_results(false); }
         });
         res_el.addEventListener('mousedown', function (e) { var o = e.target.closest('[data-i]'); if (o) { e.preventDefault(); choose(parseInt(o.getAttribute('data-i'), 10)); } });
-        document.getElementById('admMsgChange').addEventListener('click', function () { reset_pick(); find_el.focus(); });
+        document.getElementById('admMsgChange').addEventListener('click', function () { preset = null; reset_pick(); find_el.focus(); });
         send_el.addEventListener('click', function () {
             if (!to_user) { find_el.classList.add('is-invalid'); find_el.focus(); return; }
             var text = body_el.value.trim();

@@ -41,7 +41,7 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
                     <p class="sf__h">Press</p>
                     <a href="<?php echo $fb; ?>/press">Press kit</a><a href="<?php echo $fb; ?>/press#logos">Logos</a><a href="<?php echo $fb; ?>/press#link-to-us">Link to us</a>
                     <a href="<?php echo $fb; ?>/about">About</a><a href="<?php echo $fb; ?>/contact">Contact</a>
-                    <a href="<?php echo $fb; ?>/founding">Founding creators</a><a href="<?php echo $fb; ?>/affiliates">Affiliate program</a>
+                    <a href="<?php echo $fb; ?>/affiliates">Affiliate program</a>
                     <a href="<?php echo $fb; ?>/monetize-your-content">Monetize your content</a><a href="<?php echo $fb; ?>/blog/feed.xml">RSS feed</a>
                 </div>
             </nav>

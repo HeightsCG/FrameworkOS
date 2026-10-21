@@ -51,7 +51,6 @@ class SiteNav
                 array('/monetize-your-content', 'Monetize Your Content', 'Five ways to get paid, and how to price them', 'wallet'),
                 array('/best-creator-monetization-platforms', 'Compare Platforms', 'Fees and features side by side', 'arrows'),
                 array('/creators', 'Creator Directory', 'Creators with a public page', 'star'),
-                array('/founding', 'Founding Creators', 'The founding offer and how to claim it', 'badge'),
                 array('/affiliates', 'Affiliate Program', 'Earn for every creator you refer', 'user-plus'),
                 array('/about', 'About', 'Who builds it and why', 'shield'),
                 array('/contact', 'Contact', 'Questions, billing and support', 'message'),

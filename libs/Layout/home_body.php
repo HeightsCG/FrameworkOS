@@ -227,7 +227,7 @@ if ($tiles !== '') {
     echo Sections::close();
 }
 
-/* Founding creators (/founding): up to six, listed like the directory, only when there is at least one. Avatar, name and handle; never a screenshot. */
+/* Founding creators: up to six, listed like the directory, only when there is at least one. Avatar, name and handle; never a screenshot. */
 $founders = array();
 try { $founders = (new CreatorProfileModel())->founding_showcase(gmdate('Y-m-d'), 6); } catch (\Throwable $ex) { error_log('[home] founding row: ' . $ex->getMessage()); }
 if (!empty($founders)) {
