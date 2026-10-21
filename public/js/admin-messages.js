@@ -18,7 +18,7 @@
         var body_el = document.getElementById('admMsgBody'), send_el = document.getElementById('admMsgSend'), to_user = 0, picking = false;
         var pick_el = document.getElementById('admMsgPick'), find_el = document.getElementById('admMsgFind'), res_el = document.getElementById('admMsgResults');
         var chosen_el = document.getElementById('admMsgChosen'), from_el = document.getElementById('admMsgFrom');
-        var found = [], hi = -1, seq = 0, timer = null, preset = null;   // preset: the user the dialog was opened for, while the To text still names them
+        var found = [], hi = -1, seq = 0, timer = null;
         function set_to(id, name) {
             to_user = id;
             document.getElementById('admMsgTo').textContent = name || 'this user';
@@ -36,12 +36,15 @@
             find_el.setAttribute('aria-activedescendant', hi >= 0 ? 'admMsgOpt' + hi : '');
             show_results(true);
         }
-        function choose(i) {
-            var u = found[i]; if (!u) { return; }
+        function show_user(u) {   // the To line, filled in: avatar, name, handle (Change goes back to the search)
             set_to(u.id, u.name);
-            document.getElementById('admMsgChosenWho').innerHTML = avatar(u.name, u.avatar, 28) + '<span class="adm-msgm__optt"><b>' + esc(u.name) + '</b><span>@' + esc(u.handle) + '</span></span>';
+            document.getElementById('admMsgChosenWho').innerHTML = avatar(u.name, u.avatar, 28) + '<span class="adm-msgm__optt"><b>' + esc(u.name) + '</b>' + (u.handle ? '<span>@' + esc(u.handle) + '</span>' : '') + '</span>';
             pick_el.hidden = true; chosen_el.hidden = false; from_el.hidden = false; show_results(false);
             find_el.classList.remove('is-invalid');
+        }
+        function choose(i) {
+            var u = found[i]; if (!u) { return; }
+            show_user(u);
             body_el.focus();
         }
         function reset_pick() {
@@ -49,32 +52,28 @@
             pick_el.hidden = false; chosen_el.hidden = true; from_el.hidden = true;
             document.getElementById('admMsgTitle').textContent = 'New Message';
         }
-        function open_modal(new_msg, id, name) {
+        function open_modal(new_msg, id, name, handle, av) {
             picking = new_msg;
             body_el.value = ''; body_el.classList.remove('is-invalid'); find_el.classList.remove('is-invalid');
-            preset = null;
-            if (new_msg) { reset_pick(); }
-            else {   // from a user: the To field shows their name, and can still be typed over to search for someone else
-                reset_pick(); set_to(id, name);
-                preset = { id: id, name: name || '' }; find_el.value = preset.name; from_el.hidden = false;
-            }
+            reset_pick();
+            if (!new_msg) { show_user({ id: id, name: name, handle: handle || '', avatar: av || '' }); }   // from a user: To is that user, filled in
             if (modal) { modal.show(); }
         }
         document.addEventListener('click', function (e) {
             var nb = e.target.closest('[data-message-new]');
-            if (nb) { open_modal(true); return; }
+            if (nb) {   // on Messages with a conversation open, New Message is to that user
+                var cu = window.admInboxUser && window.admInboxUser();
+                if (cu) { open_modal(false, cu.id, cu.name, cu.handle, cu.avatar); } else { open_modal(true); }
+                return;
+            }
             var b = e.target.closest('[data-message-user]'); if (!b) { return; }
-            open_modal(false, b.getAttribute('data-message-user'), b.getAttribute('data-name'));
+            open_modal(false, b.getAttribute('data-message-user'), b.getAttribute('data-name'), b.getAttribute('data-handle'), b.getAttribute('data-avatar'));
         });
         modal_el.addEventListener('shown.bs.modal', function () { (picking && !to_user ? find_el : body_el).focus(); });
         body_el.addEventListener('input', function () { body_el.classList.remove('is-invalid'); });
         find_el.addEventListener('input', function () {
             var q = find_el.value.trim(); find_el.classList.remove('is-invalid');
             clearTimeout(timer);
-            if (preset) {
-                if (q === preset.name.trim()) { set_to(preset.id, preset.name); from_el.hidden = false; show_results(false); return; }   // back to their name
-                to_user = 0; from_el.hidden = true;
-            }
             if (q.length < 2) { found = []; hi = -1; show_results(false); return; }
             render_results('loading');
             timer = setTimeout(function () {
@@ -94,7 +93,7 @@
             else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); show_results(false); }
         });
         res_el.addEventListener('mousedown', function (e) { var o = e.target.closest('[data-i]'); if (o) { e.preventDefault(); choose(parseInt(o.getAttribute('data-i'), 10)); } });
-        document.getElementById('admMsgChange').addEventListener('click', function () { preset = null; reset_pick(); find_el.focus(); });
+        document.getElementById('admMsgChange').addEventListener('click', function () { reset_pick(); find_el.focus(); });
         send_el.addEventListener('click', function () {
             if (!to_user) { find_el.classList.add('is-invalid'); find_el.focus(); return; }
             var text = body_el.value.trim();
@@ -115,7 +114,7 @@
     if (!root) { return; }
     var items_el = document.getElementById('admInboxItems'), thread_el = document.getElementById('admInboxThread'), none_el = document.getElementById('admInboxNone');
     var msgs_el = document.getElementById('admInboxMsgs'), reply_el = document.getElementById('admInboxBody'), reply_btn = document.getElementById('admInboxSend');
-    var current = parseInt(root.getAttribute('data-open'), 10) || 0, convs = [];
+    var current = parseInt(root.getAttribute('data-open'), 10) || 0, convs = [], current_user = null;
 
     function when(iso, full) {
         if (!iso) { return ''; }
@@ -174,6 +173,7 @@
             + '</p><time>' + esc(when(m.at, true)) + '</time></div>';
     }
     function open(id, quiet) {
+        if (id !== current) { current_user = null; }
         current = id;
         none_el.hidden = true; thread_el.hidden = false; root.classList.add('is-open');
         if (!quiet) { msgs_el.innerHTML = '<p class="adm-quiet">Loading…</p>'; }
@@ -182,7 +182,7 @@
         call('admin_message_thread', { conversation_id: id }, function (o) {
             if (id !== current) { return; }
             if (!o) { msgs_el.innerHTML = '<p class="adm-quiet">Could not load this conversation.</p>'; return; }
-            var u = o.user;
+            var u = o.user; current_user = { id: u.id, name: u.name, handle: u.handle || '', avatar: u.avatar || '' };
             document.getElementById('admInboxWho').innerHTML = '<span class="adm-who">' + avatar(u.name, u.avatar, 32) + '<span class="adm-who__t"><span class="adm-who__n">'
                 + esc(u.name) + '</span>' + (u.handle ? '<span class="adm-who__s">@' + esc(u.handle) + '</span>' : '') + '</span></span>';
             document.getElementById('admInboxAccount').href = '/admin/user/' + u.id;
@@ -221,6 +221,7 @@
         });
     });
 
+    window.admInboxUser = function () { return current ? current_user : null; };
     window.admInboxShow = function (id) { load_list(function () { open(parseInt(id, 10) || 0); }); };   // the New Message dialog sent one: show its conversation
     load_list(function () {
         if (current && convs.some(function (c) { return c.id === current; })) { open(current); }

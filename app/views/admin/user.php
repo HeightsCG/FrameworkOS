@@ -44,7 +44,7 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
         <button type="button" class="adm-btn" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>">Sign In as User</button>
         <?php endif; ?>
         <?php if (!$deleted && !PlatformAccount::is($u['user_id'])): ?>
-        <button type="button" class="adm-btn" data-message-user="<?php echo (int) $u['user_id']; ?>" data-name="<?php echo $e(trim($u['first_name'] . ' ' . $u['last_name']) ?: '@' . $u['u_name']); ?>">Message</button>
+        <button type="button" class="adm-btn" data-message-user="<?php echo (int) $u['user_id']; ?>" data-name="<?php echo $e(trim($u['first_name'] . ' ' . $u['last_name']) ?: '@' . $u['u_name']); ?>" data-handle="<?php echo $e($u['u_name']); ?>" data-avatar="<?php echo $e($u['avatar_url'] ?? ''); ?>">Message</button>
         <?php endif; ?>
         <button type="button" class="adm-btn adm-btn--primary" data-act="adjust">Adjust Balance</button>
         <div class="dropdown">

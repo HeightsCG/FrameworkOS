@@ -25,6 +25,14 @@ class BillingAccountsModel extends Model {
         return is_array($r) ? $r : array();
     }
 
+    /** Accounts moved from a Stripe plan subscription (cron/migrate_subscription_promos.php). */
+    public function migrated(){
+        $r = parent::select("SELECT b.user_id, b.plan_key, b.status, b.next_charge_at, b.promo_code, b.migrated_subscription_id, u.u_name, u.user_email
+                               FROM billing_accounts b JOIN user_accounts u ON u.user_id = b.user_id
+                              WHERE b.migrated_subscription_id IS NOT NULL AND b.migrated_subscription_id <> '' ORDER BY b.user_id", array());
+        return is_array($r) ? $r : array();
+    }
+
     /** The row, created as Free when the account has none yet. */
     public function get_or_create($user_id){
         $row = $this->get($user_id);

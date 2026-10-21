@@ -509,6 +509,46 @@ class StripeService {
         return array();
     }
 
+    /**
+     * The discount an old Stripe plan subscription (or its customer) still gives, as billing_accounts promo fields for
+     * app-managed billing, plus 'label'; null when there is none left. $next_at (UTC) is the app's next plan charge, used
+     * to count the charges a repeating coupon still covers. A 'once' coupon was spent on Stripe's first invoice.
+     * Retrieve the subscription with expand discounts (cron/migrate_subscriptions.php, cron/migrate_subscription_promos.php).
+     */
+    public static function subscription_promo($sub, $customer, $next_at)
+    {
+        $client = self::client();
+        $ds = array();
+        foreach ((array) ($sub->discounts ?? array()) as $d) { $ds[] = $d; }
+        if (!empty($sub->discount)) { $ds[] = $sub->discount; }
+        if (is_object($customer) && !empty($customer->discount)) { $ds[] = $customer->discount; }
+        foreach ($ds as $d) {
+            if (!is_object($d)) { continue; }   // an id only: retrieve the subscription with expand discounts
+            $coupon = $d->source->coupon ?? ($d->coupon ?? null);   // 2026 API nests it under source
+            if (is_string($coupon) && $coupon !== '') { $coupon = $client->coupons->retrieve($coupon); }
+            if (!is_object($coupon) || (empty($coupon->percent_off) && empty($coupon->amount_off))) { continue; }
+            $dur = (string) ($coupon->duration ?? 'once');
+            if ($dur === 'once') { continue; }
+            $periods = null;
+            if ($dur === 'repeating') {
+                $end = (int) ($d->end ?? 0);
+                $t = strtotime((string) $next_at . ' UTC') ?: time();
+                $periods = 0;
+                while ($end > 0 && $t < $end && $periods < 120) { $periods++; $t = strtotime('+1 month', $t); }
+                if ($periods < 1) { continue; }
+            }
+            $pc = $d->promotion_code ?? null; $code = '';
+            if (is_object($pc)) { $code = (string) $pc->code; }
+            elseif (is_string($pc) && $pc !== '') { try { $code = (string) $client->promotionCodes->retrieve($pc)->code; } catch (\Throwable $e) { $code = ''; } }
+            if ($code === '') { $code = (string) (($coupon->name ?? '') !== '' ? $coupon->name : $coupon->id); }
+            return array('promo_code' => substr(strtoupper($code), 0, 64),
+                'promo_percent' => !empty($coupon->percent_off) ? (float) $coupon->percent_off : null,
+                'promo_amount_cents' => empty($coupon->percent_off) && !empty($coupon->amount_off) ? (int) $coupon->amount_off : null,
+                'promo_periods_left' => $periods, 'label' => self::coupon_label($coupon));
+        }
+        return null;
+    }
+
     /** What a coupon takes off, for app-managed billing: code, percent or amount (cents), and how many charges (null = forever). */
     private static function coupon_terms($coupon, $code): array
     {

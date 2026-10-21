@@ -107,6 +107,13 @@ class BillingChargesModel extends Model {
     }
 
     /** Has this account ever paid anything through app billing? (Stripe's "first-time customers only") */
+    /** Renewals the account paid money for, oldest first (cron/migrate_subscription_promos.php lists the ones a lost coupon should have covered). */
+    public function paid_renewals($user_id){
+        $r = parent::select("SELECT id, amount_cents, line_items, stripe_payment_intent_id, period_start, created_at FROM billing_charges
+                              WHERE user_id = :u AND kind = 'renewal' AND status = 'succeeded' AND amount_cents > 0 ORDER BY id", array(':u' => (int) $user_id));
+        return is_array($r) ? $r : array();
+    }
+
     public function has_paid_before($user_id){
         $r = parent::select("SELECT id FROM billing_charges WHERE user_id = :u AND status = 'succeeded' AND amount_cents > 0 LIMIT 1", array('u' => (int) $user_id));
         return is_array($r) && count($r) === 1;
