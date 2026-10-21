@@ -33,7 +33,7 @@
                     <li><hr class="dropdown-divider"></li>
                     <li class="cs-create__label">Library</li>
                     <li><button type="button" class="dropdown-item" id="csUploadBtn"><span class="cs-create__ic"><i class="fa-solid fa-arrow-up-from-bracket"></i></span><span><strong>Upload Media</strong><small>Add files to your library</small></span></button></li>
-                    <li><a class="dropdown-item" href="/studio/edit" id="csNewEditBtn"><span class="cs-create__ic"><i class="fa-solid fa-scissors"></i></span><span><strong>New Edit</strong><small>Join clips, add text and audio</small></span></a></li>
+                    <li><a class="dropdown-item" href="/studio/edit" id="csNewEditBtn"<?php if (!empty($this->edit_upgrade)) { echo ' data-need-plan="' . htmlspecialchars(json_encode($this->edit_upgrade), ENT_QUOTES) . '"'; } ?>><span class="cs-create__ic"><i class="fa-solid fa-scissors"></i></span><span><strong>New Edit</strong><small>Join clips, add text and audio</small></span></a></li>
                     <li><button type="button" class="dropdown-item" id="csCreateCollectionBtn"><span class="cs-create__ic"><i class="fa-solid fa-folder-plus"></i></span><span><strong>Create Collection</strong><small>Group related files</small></span></button></li>
                 </ul>
             </div>

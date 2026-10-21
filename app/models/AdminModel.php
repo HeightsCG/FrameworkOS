@@ -424,7 +424,7 @@ class AdminModel extends Model {
             $where[] = 'u.user_status = :st'; $params['st'] = $status;
         }
         return (array) parent::select(
-            "SELECT u.user_id, u.u_name, u.user_email, u.first_name, u.last_name, u.role_id, u.is_admin,
+            "SELECT u.user_id, u.u_name, u.user_email, u.first_name, u.last_name, u.role_id, u.is_admin, u.verified,
                     u.user_status, u.created_at, u.last_active_at, r.role_name, cp.avatar_url,
                     (SELECT a.status FROM checkout_attempts a WHERE a.user_id = u.user_id ORDER BY a.opened_at DESC, a.id DESC LIMIT 1) AS checkout_status,
                     (SELECT MAX(a.opened_at) FROM checkout_attempts a WHERE a.user_id = u.user_id) AS checkout_at,

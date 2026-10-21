@@ -95,6 +95,13 @@ class MessagesModel extends Model {
         ));
     }
 
+    /** Has this conversation already had a message with this trigger key (welcome, first-message triggers)? */
+    public function has_trigger($conversation_id, $trigger_key){
+        $rows = parent::select("SELECT id FROM messages WHERE conversation_id = :c AND trigger_key = :k LIMIT 1",
+            array('c' => (int) $conversation_id, 'k' => (string) $trigger_key));
+        return is_array($rows) && count($rows) > 0;
+    }
+
     /** Is this account a Creator? (role check) */
     public function is_creator($user_id){
         $rid = $this->creator_role_id();

@@ -363,6 +363,24 @@
     }
 
     var usersBody = document.getElementById('admUsers');
+    /* ---- Remove a verified badge (Didit verified them; staff can take it back) ---- */
+    if (usersBody) {
+        usersBody.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-badge-revoke]');
+            if (!btn) { return; }
+            var row = btn.closest('.adm-urow');
+            confirmAction({ title: 'Remove the verified badge?', text: 'The creator stops showing as verified and is told. They can pass a new ID check later.', icon: 'warning', confirmButtonText: 'Remove Badge' }).then(function (ok) {
+                if (!ok) { return; }
+                ApiDataSvc.apiCall('post', 'verification_resolve', { user_id: row.getAttribute('data-uid'), action: 'revoke' }, function (r) {
+                    var o = parse(r);
+                    if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not update'); } return; }
+                    var pill = row.querySelector('[data-role-cell] .adm-pill--ok'); if (pill) { pill.remove(); }
+                    var li = btn.closest('li'); (li || btn).remove();
+                    if (window.toastr) { toastr.success('Badge removed'); }
+                });
+            });
+        });
+    }
     /* ---- Suspend / reactivate ---- */
     if (usersBody) {
         usersBody.addEventListener('click', function (e) {

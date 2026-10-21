@@ -30,7 +30,7 @@ $users = (array) $this->users; $q = (string) $this->q; $me = (int) $this->me; ?>
         <tr class="adm-urow adm-t__link" data-uid="<?php echo (int) $u['user_id']; ?>" data-href="/admin/user/<?php echo (int) $u['user_id']; ?>" data-status-f="<?php echo $e($flt); ?>" data-search="<?php echo $e(mb_strtolower($name . ' @' . $u['u_name'] . ' ' . $u['user_email'])); ?>">
             <td class="adm-t__who" data-value="<?php echo $e(mb_strtolower($name)); ?>"><?php echo adm_who($name, $u['u_name'], '/admin/user/' . (int) $u['user_id'], (string) ($u['avatar_url'] ?? '')); ?></td>
             <td class="adm-t__muted adm-t__trunc" title="<?php echo $e($u['user_email']); ?>"><?php echo $e($u['user_email']); ?></td>
-            <td><?php echo adm_pill($role, $isAdm ? 'acc' : 'gray'); ?></td>
+            <td data-role-cell><?php echo adm_pill($role, $isAdm ? 'acc' : 'gray'); ?><?php if (!empty($u['verified'])): ?> <?php echo adm_pill('Verified', 'ok'); ?><?php endif; ?></td>
             <td data-status-cell><?php echo adm_pill($dis ? 'Suspended' : 'Active'); ?></td>
             <td class="adm-t__nowrap" data-value="<?php echo $e((string) ($u['checkout_at'] ?? '')); ?>"><?php if ($cst !== ''): ?><?php echo adm_pill(CheckoutAttempts::label($cst), array('succeeded' => 'ok', 'failed' => 'bad', 'abandoned' => 'warn')[$cst] ?? 'gray'); ?><span class="adm-t__sub"><?php echo $e($fmt($u['checkout_at'])); ?></span><?php else: ?><span class="adm-t__muted">—</span><?php endif; ?></td>
             <td class="adm-t__muted adm-t__nowrap" data-value="<?php echo $e($u['created_at']); ?>"><?php echo $e($fmt($u['created_at'])); ?></td>
@@ -39,6 +39,7 @@ $users = (array) $this->users; $q = (string) $this->q; $me = (int) $this->me; ?>
                 array('text' => 'Open account', 'href' => '/admin/user/' . (int) $u['user_id']),
                 !PlatformAccount::is($u['user_id']) ? array('text' => 'Message', 'attrs' => 'data-message-user="' . (int) $u['user_id'] . '" data-name="' . $e($name) . '" data-handle="' . $e($u['u_name']) . '" data-avatar="' . $e($u['avatar_url'] ?? '') . '"') : null,
                 (!$isMe && !$isAdm && !$dis) ? array('text' => 'Sign in as user', 'attrs' => 'data-impersonate="' . (int) $u['user_id'] . '" data-handle="' . $e($u['u_name']) . '"') : null,
+                !empty($u['verified']) ? array('text' => 'Remove Verified Badge…', 'attrs' => 'data-badge-revoke', 'danger' => true) : null,
                 (!$isMe && !$isAdm) ? array('text' => $dis ? 'Reactivate' : 'Suspend…', 'attrs' => 'data-status="' . ($dis ? 'Active' : 'Disabled') . '"', 'danger' => !$dis) : null,
             )); ?></td>
         </tr>

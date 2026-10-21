@@ -25,6 +25,9 @@ class StudioController extends Controller {
             // Creator tools require an active platform plan. We still render the
             // full workspace, but the view blurs it behind a plan-lock overlay.
             $this->view->needs_plan = !Plan::can_use_creator_features($user) && !Plan::cover('studio');   // behind the cover the full workspace shows, create buttons included
+            // New Edit (the clip editor) is paid: a Free creator gets the upgrade prompt instead of a silent bounce back here
+            $this->view->edit_upgrade = Plan::can_use_creator_features($user) ? null
+                : array('message' => 'Upgrade to ' . PlanTiers::TIERS['creator']['name'] . ' to edit clips.') + UpgradePrompt::payload($user, '/studio/edit');
 
             // Every active membership tier (free ones too), for the composer's tier checkboxes.
             $plans = array();

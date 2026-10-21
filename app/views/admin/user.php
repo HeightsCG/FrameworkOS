@@ -35,6 +35,7 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
                 <?php if ($deleted): echo adm_pill('Deleted'); elseif ($disabled): echo adm_pill('Suspended'); else: echo adm_pill('Active'); endif; ?>
                 <?php if (!empty($u['is_admin'])): echo adm_pill('Staff', 'acc'); endif; ?>
                 <?php if (!empty($u['is_demo'])): echo adm_pill('Demo'); endif; ?>
+                <?php if (!empty($u['verified'])): echo adm_pill('Verified', 'ok'); endif; ?>
                 <?php if (empty($u['email_verified'])): echo adm_pill('Email not verified', 'warn'); endif; ?>
             </p>
         </div>
@@ -53,6 +54,7 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
                 <li><button type="button" class="dropdown-item" data-act="password">Send Password Reset</button></li>
                 <li><button type="button" class="dropdown-item" data-act="mfa_reset">Reset Two-Step Sign-In</button></li>
                 <?php if ($av): ?><li><button type="button" class="dropdown-item" data-act="age_reset">Reset Age Verification</button></li><?php endif; ?>
+                <?php if (!empty($u['verified'])): ?><li><button type="button" class="dropdown-item adm-menu__danger" data-act="badge_revoke">Remove Verified Badge…</button></li><?php endif; ?>
                 <?php if (!$this->is_me && !$deleted): ?>
                 <li><button type="button" class="dropdown-item" data-act="demo" data-demo="<?php echo !empty($u['is_demo']) ? '0' : '1'; ?>"><?php echo !empty($u['is_demo']) ? 'Unmark Demo' : 'Mark as Demo'; ?></button></li>
                 <li><hr class="dropdown-divider"></li>

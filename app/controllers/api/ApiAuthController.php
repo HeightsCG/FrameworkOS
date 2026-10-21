@@ -83,6 +83,7 @@ class ApiAuthController extends BaseApiController {
         }
 
         SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details (first, so nothing below can stop it; the job reads attribution when it runs)
+        WelcomeMessage::send($user_id);   // the welcome message in their Inbox, from Creator Link Studio
         // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php). Attribution never blocks the verification email.
         try {
             $this->userModel->record_first_touch($user_id);

@@ -245,7 +245,7 @@ class ApiAdminController extends BaseApiController {
         if ((string) ($this->post['action'] ?? '') !== 'revoke' || $uid <= 0) { $this->jsonError('Invalid action'); }
         (new VerificationsModel())->revoke($uid, (int) Session::get('user_id'));
         $this->notify($uid, 'system', 'Your verified badge was removed', 'Contact support if you think this is a mistake.', '/support', 'fa-shield-halved');
-        $this->jsonSuccess(['action' => 'revoke']);
+        $this->jsonSuccess(['action' => 'revoke', 'message' => 'Badge removed']);
     }
 
     /* ---------- Blocked accounts ---------- */

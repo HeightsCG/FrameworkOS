@@ -403,6 +403,7 @@ class AccountController extends Controller {
             if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
             $users->link_google($uid, $g['sub']);
             SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details (first, so nothing below can stop it)
+            WelcomeMessage::send($uid);   // the welcome message in their Inbox, from Creator Link Studio
             try {
                 $users->record_first_touch($uid);
                 $users->record_ad_touch($uid);   // the paid ad behind it (cls_ad from /start, else cls_ttclid)

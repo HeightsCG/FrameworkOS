@@ -51,6 +51,9 @@
         } else if (act === 'age_reset') {
             confirmAction({ title: 'Reset age verification?', text: 'The verification is removed and adult content is hidden for this account again. The next time they turn it on, or publish an adult post, they go through the age check once more.', icon: 'warning', confirmButtonText: 'Reset', confirmButtonColor: '#e5484d' })
                 .then(function (ok) { if (ok) { call('admin_reset_age_verification', { user_id: user_id }, b); } });
+        } else if (act === 'badge_revoke') {
+            confirmAction({ title: 'Remove the verified badge?', text: 'The creator stops showing as verified and is told. They can pass a new ID check later.', icon: 'warning', confirmButtonText: 'Remove Badge', confirmButtonColor: '#e5484d' })
+                .then(function (ok) { if (ok) { call('verification_resolve', { user_id: user_id, action: 'revoke' }, b); } });
         } else if (act === 'mfa_email') {
             call('admin_set_mfa_email', { user_id: user_id, enabled: b.getAttribute('data-enabled') }, b);
         } else if (act === 'verify') {

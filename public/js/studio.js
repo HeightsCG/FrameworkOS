@@ -322,6 +322,11 @@ jQuery(function ($) {
         $('#csFileInput').val('').trigger('click');
     }
     $('#csUploadBtn, #csEmptyUpload').on('click', function () { uploadOnComplete = null; pickFiles(); });
+    // New Edit on Free: the upgrade prompt (back to the editor after checkout), not the editor's bounce to /studio
+    $('#csNewEditBtn[data-need-plan]').on('click', function (e) {
+        var o = null; try { o = JSON.parse(this.getAttribute('data-need-plan')); } catch (err) { o = null; }
+        if (o && window.cls_need_plan(o)) { e.preventDefault(); }
+    });
     $('#csFileInput').on('change', function () { var cb = uploadOnComplete; uploadOnComplete = null; handleFiles(this.files, cb); });
     $('#csTrayClose').on('click', function () { $('#csTray').prop('hidden', true); });
 
