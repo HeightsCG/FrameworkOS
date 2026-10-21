@@ -272,13 +272,14 @@ class AutoPostService {
             'tier_id'          => 0,
             'tier_ids'         => ($audience === 'subscribers' && (int) ($rule['tier_id'] ?? 0) > 0) ? array((int) $rule['tier_id']) : array(),
             'comments_enabled' => !empty($rule['comments_enabled']) ? 1 : 0,
+            'on_cls'           => (isset($rule['on_cls']) && (int) $rule['on_cls'] === 0) ? 0 : 1,   // off = socials-only post, never on the page or the Home feed
         ));
         $posts->set_assets($creator_id, $post_id, array($asset_id), $asset_id);
 
         // 5) Publish (the generated asset is ready, so validation is satisfied).
         if ($posts->count_missing_assets($post_id) > 0) { return self::fail($post_id, 'Post had missing media; left unpublished.'); }
         $posts->set_state($creator_id, $post_id, 'published');
-        PostNotifier::published($creator_id, $post_id);
+        if (!isset($rule['on_cls']) || (int) $rule['on_cls'] !== 0) { PostNotifier::published($creator_id, $post_id); }   // socials-only posts don't notify followers
         $post = $posts->get_by_id($post_id);
 
         // 6) Cross-post to social (best-effort — never fails the run, but the

@@ -9,7 +9,7 @@ class SchedulerRulesModel extends Model {
 
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
-        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'character_id', 'character_name', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'audience', 'tier_id', 'comments_enabled',
+        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'character_id', 'character_name', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'audience', 'tier_id', 'comments_enabled', 'on_cls',
         'use_brand', 'ai_assist', 'caption_text', 'caption_mode', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
@@ -76,6 +76,7 @@ class SchedulerRulesModel extends Model {
         $out['audience']         = (($f['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
         $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;
         $out['comments_enabled'] = !empty($f['comments_enabled']) ? 1 : 0;
+        $out['on_cls']           = (isset($f['on_cls']) && (string) (int) $f['on_cls'] === '0') ? 0 : 1;   // the post goes on the creator's Creator Link Studio page (default, as before)
         $out['use_brand']        = !empty($f['use_brand']) ? 1 : 0;
         $out['ai_assist']        = (isset($f['ai_assist']) && (string) $f['ai_assist'] === '0') ? 0 : 1;
         $out['caption_text']     = mb_substr(trim((string) ($f['caption_text'] ?? '')), 0, 5000);

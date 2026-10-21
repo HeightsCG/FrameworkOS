@@ -2223,8 +2223,9 @@ jQuery(function ($) {
             var aud = schedForm.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
             var tier = schedForm.audience === 'subscribers' ? ($('#csSchedTierSel option:selected').text() || 'All tiers') : ($('#csSchedAi').is(':checked') ? 'AI captions' : 'Own caption');
             schedSum('publishing', aud + ' · ' + tier);
-            var n = $('#csSchedSocial input[data-sacct]:checked').length, total = $('#csSchedSocial input[data-sacct]').length;
-            schedSum('destinations', total ? (n + ' of ' + total + ' account' + (total === 1 ? '' : 's')) : 'No accounts connected');
+            var n = $('#csSchedSocial input[data-sacct]:checked').length, page = $('#csSchedDestCls').is(':checked');
+            var parts = []; if (page) { parts.push('Creator Link Studio'); } if (n) { parts.push(n + ' social account' + (n === 1 ? '' : 's')); }
+            schedSum('destinations', parts.length ? parts.join(' + ') : 'Nowhere selected');
         } else {
             schedSum('content', $('#csSchedMsgAi').is(':checked') ? 'Written by AI' : 'Written by you');
             schedSum('destinations', schedTargetsSummary({ message_targets: { cls: schedTargetsChecked() } }));
@@ -2294,14 +2295,21 @@ jQuery(function ($) {
     $('#csSchedTargets').on('change', 'input, select', function () { schedClearError('targets'); updateSchedSummaries(); });
 
     /* destinations: filterable list of every connected account; the checkbox keeps data-sacct so saving is unchanged */
-    function renderSchedSocial(selected) {
+    function renderSchedSocial(selected, on_cls) {
         var soc = CFG.social || { accounts: [] };
         var $wrap = $('#csSchedSocial').empty();
         var sel = new Set((selected || []).map(String));
         var accounts = soc.accounts || [];
+        if (on_cls === undefined) { on_cls = $('#csSchedDestCls').length ? $('#csSchedDestCls').is(':checked') : true; }   // keep the page choice when only the socials change
         $('#csSchedDestEmpty').prop('hidden', accounts.length > 0);
         $('#csSchedDestSearch').val('').prop('disabled', !accounts.length);
         $('#csSchedDestNone').prop('hidden', true);
+        // Creator Link Studio itself is a destination too (same as the post editor): off = socials-only posts.
+        $wrap.append('<label class="cs-ae__dest' + (on_cls ? ' is-on' : '') + '" for="csSchedDestCls" data-search="creator link studio profile feed">' +
+            '<input class="form-check-input" type="checkbox" id="csSchedDestCls" data-cls="1"' + (on_cls ? ' checked' : '') + '>' +
+            '<i class="fa-solid fa-house cs-ae__desticon" aria-hidden="true"></i>' +
+            '<span class="cs-ae__destname">Creator Link Studio</span>' +
+            '<span class="cs-ae__destplat">Your profile and the Home feed</span></label>');
         accounts.forEach(function (a) {
             var on = sel.has(String(a.id));
             var name = a.username || a.platform;
@@ -2317,11 +2325,11 @@ jQuery(function ($) {
     }
     function socialPlatformLabel(p) { var m = { x: 'X', twitter: 'X', instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', bluesky: 'Bluesky', threads: 'Threads', youtube: 'YouTube', linkedin: 'LinkedIn', pinterest: 'Pinterest', fanvue: 'Fanvue' }; p = String(p || '').toLowerCase(); return m[p] || (p.charAt(0).toUpperCase() + p.slice(1)); }
     function updateSchedDestCount() {
-        var n = $('#csSchedSocial input[data-sacct]:checked').length, total = $('#csSchedSocial input[data-sacct]').length;
-        $('#csSchedDestCount').text(total ? (n + ' of ' + total + ' selected') : '');
+        var n = $('#csSchedSocial input[data-sacct]:checked, #csSchedDestCls:checked').length, total = $('#csSchedSocial input[data-sacct], #csSchedDestCls').length;
+        $('#csSchedDestCount').text(total > 1 ? (n + ' of ' + total + ' selected') : '');
         updateSchedSummaries();
     }
-    $('#csSchedSocial').on('change', 'input[data-sacct]', function () { $(this).closest('.cs-ae__dest').toggleClass('is-on', this.checked); updateSchedDestCount(); });
+    $('#csSchedSocial').on('change', 'input[data-sacct], #csSchedDestCls', function () { $(this).closest('.cs-ae__dest').toggleClass('is-on', this.checked); updateSchedDestCount(); });
     $('#csSchedDestSearch').on('input', function () {
         var q = String(this.value || '').trim().toLowerCase(), shown = 0;
         $('#csSchedSocial .cs-ae__dest').each(function () { var hit = q === '' || String($(this).data('search')).indexOf(q) >= 0; $(this).prop('hidden', !hit); if (hit) { shown++; } });
@@ -2351,7 +2359,7 @@ jQuery(function ($) {
         $('#csSchedMsgAi').prop('checked', rule ? !!rule.message_ai : false);
         $('#csSchedMsgText').val(rule ? (rule.message_text || '') : '');
         setSchedKind(kind);
-        renderSchedSocial(rule ? rule.social_accounts : []);
+        renderSchedSocial(rule ? rule.social_accounts : [], rule ? (rule.on_cls === undefined ? true : !!Number(rule.on_cls)) : true);
         renderSchedDays(rule ? rule.days_of_week : []);
 
         $('#csSchedId').val(rule ? rule.id : 0);
@@ -2618,7 +2626,7 @@ jQuery(function ($) {
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',
             use_brand: $('#csSchedBrand').is(':checked') ? '1' : '0',
             ai_assist: $('#csSchedAi').is(':checked') ? '1' : '0', caption_text: $('#csSchedCaption').val() || '', caption_mode: $('#csSchedCapMode').val() || 'standard',
-            social_accounts: social, cadence: schedForm.cadence, days_of_week: days,
+            social_accounts: social, on_cls: $('#csSchedDestCls').is(':checked') ? '1' : '0', cadence: schedForm.cadence, days_of_week: days,
             run_time: $('#csSchedTime').val() || '09:00',
             timezone: (CFG.creator && CFG.creator.timezone) || USER_TZ || '', active: '1'
         }, function (resp) { var o = JSON.parse(resp);

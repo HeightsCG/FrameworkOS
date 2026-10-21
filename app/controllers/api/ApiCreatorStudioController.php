@@ -679,6 +679,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'audience'         => (string) ($this->post['audience'] ?? 'free'),
             'tier_id'          => (int) ($this->post['tier_id'] ?? 0),
             'comments_enabled' => ((string) ($this->post['comments_enabled'] ?? '1')) !== '0',
+            'on_cls'           => ((string) ($this->post['on_cls'] ?? '1')) !== '0' ? 1 : 0,
             'use_brand'        => ((string) ($this->post['use_brand'] ?? '1')) !== '0',
             'ai_assist'        => ((string) ($this->post['ai_assist'] ?? '1')) !== '0' ? 1 : 0,
             'caption_mode'     => (string) ($this->post['caption_mode'] ?? 'standard'),
@@ -690,6 +691,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'timezone'         => $this->valid_tz($this->post['timezone'] ?? '') ?: (string) ($user['content_timezone'] ?? 'UTC'),
         ];
         if (SchedulerRulesModel::weekly_without_days($fields)) { $this->jsonError('Pick at least one day for a weekly automation.'); }
+        if ($kind !== 'message' && empty($fields['on_cls']) && empty(array_filter((array) $fields['social_accounts']))) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
         $model = new SchedulerRulesModel();
         if ($id > 0 && $model->get_one($creator_id, $id)) {
             $model->update_rule($creator_id, $id, $fields);
@@ -1265,6 +1267,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'audience'         => (string) $r['audience'],
             'tier_id'          => $r['tier_id'] !== null ? (int) $r['tier_id'] : null,
             'comments_enabled' => (int) $r['comments_enabled'],
+            'on_cls'           => isset($r['on_cls']) ? (int) $r['on_cls'] : 1,
             'use_brand'        => (int) $r['use_brand'],
             'ai_assist'        => isset($r['ai_assist']) ? (int) $r['ai_assist'] : 1,
             'caption_mode'     => BrandService::caption_mode($r['caption_mode'] ?? 'standard'),

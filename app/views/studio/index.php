@@ -712,7 +712,7 @@
                                 <span class="cs-ae__destcount" id="csSchedDestCount" aria-live="polite"></span>
                             </div>
                             <div class="cs-ae__destlist" id="csSchedSocial" role="group" aria-label="Connected accounts"></div>
-                            <p class="cs-ae__empty" id="csSchedDestEmpty" hidden>No connected accounts yet. Connect one in <a href="/account/settings?section=connected">Settings</a> and it will appear here.</p>
+                            <p class="cs-ae__empty" id="csSchedDestEmpty" hidden>No social accounts connected. Connect one in <a href="/account/settings?section=connected">Settings</a> to post there too.</p>
                             <p class="cs-ae__empty" id="csSchedDestNone" hidden>No accounts match that filter.</p>
                         </div>
 
