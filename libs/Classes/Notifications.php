@@ -28,6 +28,14 @@ class Notifications {
     /** The postal address every marketing email carries (CAN-SPAM). Change it here only. */
     const POSTAL_ADDRESS = 'Creator Link Studio · 504 W. Plant Street, Winter Garden, FL 34787';
 
+    /** Every email sent from anywhere but production says TEST in its subject (Daniel 2026-10-21): production is APPLICATION_ENV=production (Apache SetEnv, and every prod cron line). */
+    public static function env_subject($subject): string
+    {
+        $subject = (string) $subject;
+        if (getenv('APPLICATION_ENV') === 'production' || stripos($subject, '[TEST]') === 0) { return $subject; }
+        return '[TEST] ' . $subject;
+    }
+
     /** Load an HTML template from app/email_templates and substitute {vars}. */
     public function clean_template($template_name, $variables){
         $template = $this->get_email_template($template_name);
@@ -161,6 +169,7 @@ class Notifications {
             return true;   // nothing could deliver it: treat as handled so test flows carry on
         }
         $cc = array_values(array_filter((array) $cc, function ($c) { return !self::undeliverable($c); }));
+        $subject = self::env_subject($subject);
         $payload = array(
             'From'          => $from_field,
             'To'            => $to_email,

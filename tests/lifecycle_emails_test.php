@@ -72,7 +72,7 @@ try {
     $m = $sent_to($ea);
     $ra = $row($a);
     check('reminder 1 at ~2h: sent once', count($m) === 1 && (int) $ra['verify_reminders_sent'] === 1);
-    check('reminder 1 subject', ($m[0]['Subject'] ?? '') === 'Confirm your email to open your studio');
+    check('reminder 1 subject', ($m[0]['Subject'] ?? '') === Notifications::env_subject('Confirm your email to open your studio'));
     check('reminder 1 has a fresh token in the link', $ra['email_verify_token'] !== $tok0 && strpos($m[0]['HtmlBody'] ?? '', urlencode($ra['email_verify_token'])) !== false);
     check('fresh token valid ~24h', abs(strtotime($ra['email_verify_expires'] . ' UTC') - time() - 86400) < 120);
     check('plain-text part with the link', strpos($m[0]['TextBody'] ?? '', '/account/verify?token=' . urlencode($ra['email_verify_token'])) !== false && strpos($m[0]['TextBody'], '<') === false);
@@ -88,7 +88,7 @@ try {
     $tok1 = (string) $row($a)['email_verify_token'];
     LifecycleEmails::run_verify_reminders();
     $m = $sent_to($ea);
-    check('reminder 2 at ~23h', count($m) === 2 && ($m[1]['Subject'] ?? '') === 'Your link expires soon — here\'s a new one' && (int) $row($a)['verify_reminders_sent'] === 2);
+    check('reminder 2 at ~23h', count($m) === 2 && ($m[1]['Subject'] ?? '') === Notifications::env_subject('Your link expires soon — here\'s a new one') && (int) $row($a)['verify_reminders_sent'] === 2);
     check('reminder 2 token differs from reminder 1', (string) $row($a)['email_verify_token'] !== $tok1);
 
     foreach (array($a, $b) as $u) { $clear_cap($u); $age($u, 80); }
@@ -96,7 +96,7 @@ try {
     $m = $sent_to($ea);
     $open = Founding::open();
     if ($open) {
-        check('reminder 3 at ~72h for a founding sign-up', count($m) === 3 && strpos($m[2]['Subject'] ?? '', 'Your account is waiting') === 0 && (int) $row($a)['verify_reminders_sent'] === 3);
+        check('reminder 3 at ~72h for a founding sign-up', count($m) === 3 && strpos($m[2]['Subject'] ?? '', Notifications::env_subject('Your account is waiting')) === 0 && (int) $row($a)['verify_reminders_sent'] === 3);
     } else {
         check('founding spots full: no reminder 3', count($m) === 2);
     }
@@ -120,7 +120,7 @@ try {
     $acct = BillingService::account($e);
     $want_date = (new DateTimeImmutable($acct['next_charge_at'], new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Pacific/Honolulu'))->format('M j, Y');
     $price = BillingService::money(BillingService::plan_cents(Founding::PLAN));
-    check('trial-started email sent once', count($m) === 1 && ($m[0]['Subject'] ?? '') === 'Your ' . Founding::TRIAL_DAYS . '-day free trial has started');
+    check('trial-started email sent once', count($m) === 1 && ($m[0]['Subject'] ?? '') === Notifications::env_subject('Your ' . Founding::TRIAL_DAYS . '-day free trial has started'));
     check('trial-started: amount + date in the user\'s timezone', strpos($m[0]['HtmlBody'] ?? '', $price . ' on ' . $want_date) !== false);
     check('trial-started: Manage Plan button + Billing', strpos($m[0]['HtmlBody'], 'Manage Plan') !== false && strpos($m[0]['HtmlBody'], '/account/billing?tab=plan') !== false && stripos($m[0]['HtmlBody'], 'cancel anytime in billing') !== false);
     check('trial-started: never names the processor', stripos($m[0]['HtmlBody'], 'stripe') === false);
@@ -135,7 +135,7 @@ try {
     $n = LifecycleEmails::send_trial_ending();
     $m = $sent_to($ee);
     $local = (new DateTimeImmutable($at, new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Pacific/Honolulu'))->format('M j, Y');
-    check('trial-ending email 2 days out', $n === 1 && count($m) === 2 && ($m[1]['Subject'] ?? '') === 'Your trial ends ' . $local);
+    check('trial-ending email 2 days out', $n === 1 && count($m) === 2 && ($m[1]['Subject'] ?? '') === Notifications::env_subject('Your trial ends ' . $local));
     check('trial-ending date is local (not the UTC day)', $local !== gmdate('M j, Y', strtotime($at . ' UTC')));
     check('trial-ending: amount per month + card', strpos($m[1]['HtmlBody'], $price . ' / month') !== false && strpos($m[1]['HtmlBody'], 'Visa ending 4242') !== false);
     check('trial-ending exactly once', LifecycleEmails::send_trial_ending() === 0 && count($sent_to($ee)) === 2);
@@ -153,7 +153,7 @@ try {
     $ev($e, 120, 'subscribe creator');   // e is on a paid plan now
     $n = LifecycleEmails::run_abandoned_checkouts();
     $m = $sent_to($ef);
-    check('abandoned checkout email after ~1h', $n === 1 && count($m) === 1 && ($m[0]['Subject'] ?? '') === 'Your Creator plan didn\'t start');
+    check('abandoned checkout email after ~1h', $n === 1 && count($m) === 1 && ($m[0]['Subject'] ?? '') === Notifications::env_subject('Your Creator plan didn\'t start'));
     check('abandoned: card not charged + plan tab link with founding', strpos($m[0]['HtmlBody'], 'card wasn&#039;t charged') !== false && strpos($m[0]['HtmlBody'], '/account/billing?tab=plan&amp;plan=creator&amp;founding=1') !== false);
     check('no email while the checkout is 20 minutes old', count($sent_to('lifecycle.g' . $tag . '@cls-mailtest.com')) === 0);
     check('no email to an account on a paid plan', count($sent_to($ee)) === 2);
