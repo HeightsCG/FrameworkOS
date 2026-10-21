@@ -160,7 +160,8 @@ class AccountController extends Controller {
         $this->view->bank_payouts        = !empty($payout_status['payouts_enabled']) ? StripeService::payout_history((int) $user['user_id'], (string) $user['stripe_connect_account_id']) : array();
         $this->view->has_connect         = ($is_owner_creator && !empty($user['stripe_connect_account_id']));
         $this->view->verified            = !empty($owner['verified']);
-        $this->view->verif_status        = $is_owner_creator ? (new VerificationsModel())->status_for($owner['user_id']) : '';
+        $this->view->verif_state         = $is_owner_creator ? IdentityVerification::state((int) $owner['user_id']) : array('status' => 'none', 'reason' => '');
+        $this->view->verif_status        = $this->view->verif_state['status'];
         $this->view->creator_terms       = $this->creator_terms(Main::site_name());
         $this->view->fanvue              = $can_post ? (new FanvueAccountsModel())->get_for_user($owner['user_id']) : null;
         $this->view->can_inbox           = $can_manage;   // inbox automation is included on every plan
@@ -513,6 +514,15 @@ class AccountController extends Controller {
      * The result itself arrives by webhook; if it has not landed yet the vendor is asked once, then the person goes
      * back to the page they started from with ?age_verification=<status> so it can finish what they were doing.
      */
+    /** Didit sends the creator back here after the ID check: record the result if the webhook hasn't, then on to Settings. */
+    public function identity_verificationAction(){
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { Controller::bounce(); }
+        $status = IdentityVerification::refresh_if_pending($uid);
+        header('Location: /account/settings?section=creator&identity_verification=' . rawurlencode($status), true, 302);
+        exit;
+    }
+
     public function age_verificationAction(){
         $uid = (int) Session::get('user_id');
         if ($uid <= 0) { Controller::bounce(); }

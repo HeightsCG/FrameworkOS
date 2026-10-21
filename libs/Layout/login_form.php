@@ -49,7 +49,7 @@
                     '@type' => 'WebPage',
                     '@id' => $seo_base_raw . '/#webpage',
                     'url' => $seo_base_raw . '/',
-                    'name' => Main::site_name() . ': Create. Share. Earn.',
+                    'name' => Main::site_name() . ': Creator Monetization Platform',   // names the buyer, same as the page title (HeyCatch D1.1)
                     'description' => SeoMeta::brand_tagline(),
                     'inLanguage' => 'en-US',
                     'isPartOf' => SeoMeta::website_ref(),

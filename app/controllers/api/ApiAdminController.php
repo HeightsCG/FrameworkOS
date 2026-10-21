@@ -226,41 +226,26 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['action' => $action]);
     }
 
-    /* ---------- Creator verification (PRD §33) ---------- */
+    /* ---------- Creator verification (PRD §33): an ID check, IdentityVerification ---------- */
 
-    /** A creator requests verification (a legal name + optional note the admin reviews). */
+    /** A creator starts (or carries on with) the ID check that verifies them (IdentityVerification): the page goes to the url. */
     public function verification_requestAction(){
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
-        if (!Permissions::is_owner_creator()) { $this->jsonError('Only creators can request verification.'); }
-        $rows = $this->userModel->get_user_by_id($me);
-        if (is_array($rows) && count($rows) === 1 && !empty($rows[0]['verified'])) {
-            $this->jsonSuccess(['status' => 'approved', 'message' => 'You\'re already verified.']);
-        }
-        $full_name = trim(html_entity_decode((string) ($this->post['full_name'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        $note      = trim(html_entity_decode((string) ($this->post['note'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        if ($full_name === '') { $this->jsonError('Enter your legal name.'); }
-        (new VerificationsModel())->request($me, $full_name, $note);
-        $this->jsonSuccess(['status' => 'pending', 'message' => 'Verification requested — we\'ll review it shortly.']);
+        if (!Permissions::is_owner_creator()) { $this->jsonError('Only creators can get verified.'); }
+        $r = IdentityVerification::start($me);
+        if (empty($r['ok'])) { $this->jsonError($r['error']); }
+        $this->jsonSuccess(['url' => $r['url']]);
     }
 
-    /** Admin approves or rejects a verification request. */
+    /** Staff remove a creator's verified badge (action 'revoke'). Verifying is Didit's decision, never an admin approval. */
     public function verification_resolveAction(){
         $this->admin_guard();
-        $me     = (int) Session::get('user_id');
-        $vid    = (int) ($this->post['verification_id'] ?? 0);
-        $action = (string) ($this->post['action'] ?? '');
-        if (!in_array($action, ['approve', 'reject'], true)) { $this->jsonError('Invalid action'); }
-        $vmodel = new VerificationsModel();
-        $v = $vmodel->get($vid);
-        if (!$v || !$vmodel->resolve($vid, $me, $action === 'approve')) {
-            $this->jsonError('Request not found');
-        }
-        $this->notify((int) $v['user_id'], 'system',
-            $action === 'approve' ? 'You\'re verified' : 'Verification update',
-            $action === 'approve' ? 'Your account is now verified — the badge shows on your profile.' : 'Your verification request wasn\'t approved. You can re-apply anytime.',
-            '/account/settings', $action === 'approve' ? 'fa-circle-check' : 'fa-shield-halved');
-        $this->jsonSuccess(['action' => $action]);
+        $uid = (int) ($this->post['user_id'] ?? 0);
+        if ((string) ($this->post['action'] ?? '') !== 'revoke' || $uid <= 0) { $this->jsonError('Invalid action'); }
+        (new VerificationsModel())->revoke($uid, (int) Session::get('user_id'));
+        $this->notify($uid, 'system', 'Your verified badge was removed', 'Contact support if you think this is a mistake.', '/support', 'fa-shield-halved');
+        $this->jsonSuccess(['action' => 'revoke']);
     }
 
     /* ---------- Blocked accounts ---------- */

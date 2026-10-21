@@ -1,65 +1,64 @@
 <?php
 /**
- * Creator verification (PRD §33). A creator requests verification; an admin reviews and
- * approves/rejects. Approval sets user_accounts.verified = 1, which drives the verified
- * badge in search and on the profile. Lightweight (no KYC/document upload yet — the
- * request carries a legal name + note the admin reviews manually).
+ * Creator verification (PRD §33), by ID check since 2026-10-21 (IdentityVerification): each row is one Didit session
+ * (provider, provider_ref, session_url). Didit's decision sets the status (approved / rejected) and user_accounts.verified;
+ * full_name is the name read from the ID. 'revoked' = staff removed the badge, 'replaced' = an old manual request
+ * (a typed name, never checked) closed when the ID check came in.
  */
 class VerificationsModel extends Model {
 
-    /** File (or return the existing open) verification request. Returns the request id. */
-    public function request($user_id, $full_name, $note){
-        $ex = parent::select("SELECT id FROM verifications WHERE user_id = :u AND status = 'pending' LIMIT 1", array('u' => (int) $user_id));
-        if (is_array($ex) && count($ex)) { return (int) $ex[0]['id']; }
+    /** A new ID-check session for a user. Returns the row id. */
+    public function start_session($user_id, $provider, $ref, $url){
         return (int) parent::insert('verifications', array(
-            'user_id'    => (int) $user_id,
-            'full_name'  => mb_substr((string) $full_name, 0, 190),
-            'note'       => mb_substr((string) $note, 0, 2000),
-            'status'     => 'pending',
-            'created_at' => date('Y-m-d H:i:s'),
+            'user_id' => (int) $user_id, 'status' => 'pending', 'provider' => (string) $provider, 'provider_ref' => (string) $ref,
+            'session_url' => mb_substr((string) $url, 0, 255), 'created_at' => gmdate('Y-m-d H:i:s'),
         ));
     }
 
-    /** Latest request status for a user: 'pending' | 'approved' | 'rejected' | ''. */
-    public function status_for($user_id){
-        $r = parent::select("SELECT status FROM verifications WHERE user_id = :u ORDER BY id DESC LIMIT 1", array('u' => (int) $user_id));
-        return (is_array($r) && count($r)) ? (string) $r[0]['status'] : '';
+    public function by_ref($provider, $ref){
+        $r = parent::select("SELECT * FROM verifications WHERE provider = :p AND provider_ref = :r LIMIT 1", array('p' => (string) $provider, 'r' => (string) $ref));
+        return (is_array($r) && count($r)) ? $r[0] : null;
     }
 
-    public function pending_for_admin($limit = 40){
-        $limit = max(1, min(100, (int) $limit));
+    /** The user's latest row, or null. */
+    public function latest_for($user_id){
+        $r = parent::select("SELECT * FROM verifications WHERE user_id = :u ORDER BY id DESC LIMIT 1", array('u' => (int) $user_id));
+        return (is_array($r) && count($r)) ? $r[0] : null;
+    }
+
+    /** Record Didit's decision on a row, and set the badge to match. */
+    public function decide($id, $approved, $name, $reason){
+        $v = $this->get($id);
+        if (!$v) { return false; }
+        parent::update('verifications', array('status' => $approved ? 'approved' : 'rejected', 'full_name' => $name !== '' ? mb_substr((string) $name, 0, 190) : $v['full_name'],
+            'review_note' => mb_substr((string) $reason, 0, 255), 'decided_at' => gmdate('Y-m-d H:i:s')), 'id = :id', array('id' => (int) $id));
+        parent::update('user_accounts', array('verified' => $approved ? 1 : 0), 'user_id = :u', array('u' => (int) $v['user_id']));
+        return true;
+    }
+
+    /** Staff removed the badge: the latest approved row is marked revoked, the account unverified. */
+    public function revoke($user_id, $admin_id){
+        parent::sql("UPDATE verifications SET status = 'revoked', reviewed_by = :a, reviewed_at = :t WHERE user_id = :u AND status = 'approved'",
+            array(':a' => (int) $admin_id, ':t' => gmdate('Y-m-d H:i:s'), ':u' => (int) $user_id));
+        parent::update('user_accounts', array('verified' => 0), 'user_id = :u', array('u' => (int) $user_id));
+        return true;
+    }
+
+    /** The admin record: each creator's latest ID check, newest first. */
+    public function recent_for_admin($limit = 50){
+        $limit = max(1, min(200, (int) $limit));
         return (array) parent::select(
-            "SELECT v.*, u.u_name,
+            "SELECT v.*, u.u_name, u.verified,
                     COALESCE(NULLIF(TRIM(cp.display_name), ''), NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), '')) AS name
-             FROM verifications v
-             JOIN user_accounts u ON u.user_id = v.user_id
-             LEFT JOIN creator_profiles cp ON cp.user_id = v.user_id
-             WHERE v.status = 'pending'
-             ORDER BY v.created_at ASC
-             LIMIT $limit");
-    }
-
-    public function pending_count(){
-        $r = parent::select("SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'");
-        return is_array($r) && count($r) ? (int) $r[0]['n'] : 0;
+               FROM verifications v
+               JOIN (SELECT user_id, MAX(id) AS id FROM verifications WHERE provider IS NOT NULL GROUP BY user_id) last ON last.id = v.id
+               JOIN user_accounts u ON u.user_id = v.user_id
+               LEFT JOIN creator_profiles cp ON cp.user_id = v.user_id
+              ORDER BY COALESCE(v.decided_at, v.created_at) DESC LIMIT $limit");
     }
 
     public function get($id){
         $r = parent::select("SELECT * FROM verifications WHERE id = :id", array('id' => (int) $id));
         return (is_array($r) && count($r)) ? $r[0] : null;
-    }
-
-    /** Approve (sets verified=1) or reject a request. */
-    public function resolve($id, $admin_id, $approve, $note = ''){
-        $v = $this->get($id);
-        if (!$v) { return false; }
-        parent::update('verifications',
-            array('status' => $approve ? 'approved' : 'rejected',
-                  'reviewed_by' => (int) $admin_id, 'review_note' => mb_substr((string) $note, 0, 255),
-                  'reviewed_at' => date('Y-m-d H:i:s')),
-            'id = :id', array('id' => (int) $id));
-        parent::update('user_accounts', array('verified' => $approve ? 1 : 0),
-            'user_id = :u', array('u' => (int) $v['user_id']));
-        return true;
     }
 }

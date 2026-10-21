@@ -4,7 +4,8 @@
  * owner can also be a Creator). One page per job, all sharing the admin rail (app/views/admin/_shell.php):
  *
  *   /admin             Today: key numbers, what needs a person, one activity table (signups, sales, payouts, staff actions)
- *   /admin/moderation  moderation, reports, verification + age checks, support, past-due billing (?show=<section>)
+ *   /admin/moderation  moderation, reports, verification + age checks, past-due billing (?show=<section>)
+ *   /admin/support     support requests (its own tab since 2026-10-21; ?show=support on moderation redirects here)
  *   /admin/users       accounts                      /admin/user/<id>  one account (single scroll)
  *   /admin/financials  ledgers and the revenue chart  /admin/sales  sales + chargebacks   /admin/billing  plan billing
  *   /admin/growth      funnel; /leads /founding /affiliates sit under the same sidebar item
@@ -24,7 +25,7 @@ class AdminController extends Controller {
     const TAB_ROUTES = array(
         'financials' => '/admin/financials', 'sales' => '/admin/sales', 'billing' => '/admin/billing',
         'moderation' => '/admin/moderation?show=moderation', 'reports' => '/admin/moderation?show=reports',
-        'verification' => '/admin/moderation?show=verification', 'support' => '/admin/moderation?show=support',
+        'verification' => '/admin/moderation?show=verification', 'support' => '/admin/support',
         'users' => '/admin/users', 'growth' => '/admin/growth', 'leads' => '/admin/leads', 'founding' => '/admin/founding',
         'affiliates' => '/admin/affiliates', 'content' => '/admin/content', 'scenes' => '/admin/scenes', 'niches' => '/admin/niches',
         'audit' => '/admin/system', 'jobs' => '/admin/jobs', 'analytics' => '/admin/analytics',
@@ -34,7 +35,7 @@ class AdminController extends Controller {
 
     /** Sidebar item → the pages it covers (the page key the shell highlights). */
     const SECTIONS = array(
-        'today' => array('today'), 'moderation' => array('moderation'), 'users' => array('users', 'messages', 'announcements'), 'financials' => array('financials'),
+        'today' => array('today'), 'moderation' => array('moderation'), 'support' => array('support'), 'users' => array('users', 'messages', 'announcements'), 'financials' => array('financials'),
         'sales' => array('sales'), 'billing' => array('billing'),
         'growth' => array('growth', 'leads', 'founding', 'affiliates'), 'content' => array('content', 'scenes', 'niches'), 'system' => array('system', 'jobs', 'generations'),
         'analytics' => array('analytics', 'analytics_pages', 'analytics_sources', 'analytics_conversions', 'analytics_product', 'analytics_creators'),
@@ -66,14 +67,14 @@ class AdminController extends Controller {
         $try = function ($key, $fn) use (&$n) { try { $n[$key] = (int) $fn(); } catch (\Throwable $e) { error_log('[admin] count ' . $key . ': ' . $e->getMessage()); } };
         $try('moderation',   function () { return (new AdminModel())->moderation_count(); });
         $try('reports',      function () { return (new ReportsModel())->open_count(); });
-        $try('verification', function () { return (new VerificationsModel())->pending_count(); });
+        // creator ID checks are decided by Didit (IdentityVerification): nothing waits on staff, so no count
         $try('age',          function () { $c = (new AgeVerificationsModel())->counts(); return $c['pending']; });
         $try('support',      function () { return (new SupportModel())->count_open(); });
         $try('billing',      function () { return (new BillingAccountsModel())->past_due_count(); });
         $try('articles',     function () { return count((new SeoArticlesModel())->by_status(array('review', 'draft'))); });
         $try('affiliates',   function () { return (new AffiliatesModel())->pending_count() + (new AffiliatePayoutsModel())->requested_count(); });
         $try('messages',     function () { return (new MessagesModel())->total_unread(PlatformAccount::ID); });   // unread replies to Creator Link Studio
-        $n['queue'] = $n['moderation'] + $n['reports'] + $n['verification'] + $n['age'] + $n['support'] + $n['billing'];   // the Moderation tab's pill
+        $n['queue'] = $n['moderation'] + $n['reports'] + $n['verification'] + $n['age'] + $n['billing'];   // the Moderation tab's pill (support has its own tab)
         return $n;
     }
 
@@ -139,8 +140,17 @@ class AdminController extends Controller {
         return array_slice($out, 0, $limit);
     }
 
-    /** /admin/moderation — moderation, reports, verification + age checks, support and past-due billing. ?show=<section> opens one. */
+    /** /admin/support — support requests from users: waiting on us, replied, closed. Each opens at /support/ticket/<id>. */
+    public function supportAction(){
+        $this->shell('support');
+        $this->view->support = array();
+        try { $this->view->support = (new SupportModel())->for_staff('', 300); } catch (\Throwable $e) { error_log('[admin] support: ' . $e->getMessage()); }
+        $this->view->render();
+    }
+
+    /** /admin/moderation — moderation, reports, verification + age checks and past-due billing. ?show=<section> opens one. */
     public function moderationAction(){
+        if ((string) ($_GET['show'] ?? '') === 'support') { header('Location: /admin/support', true, 302); exit; }   // support moved to its own tab
         $this->shell('moderation');
         $model = new AdminModel();
         $queue = array();
@@ -161,12 +171,10 @@ class AdminController extends Controller {
         $this->view->queue         = $queue;
         $this->view->show          = preg_replace('/[^a-z]/', '', (string) ($_GET['show'] ?? ''));
         $this->view->reports_queue = (new ReportsModel())->open_for_admin(40);
-        $this->view->verifications = (new VerificationsModel())->pending_for_admin(40);
+        $this->view->verifications = (new VerificationsModel())->recent_for_admin(50);   // the record of ID checks (read-only)
         $this->view->age_rows = array(); $this->view->age_counts = array('pending' => 0, 'verified' => 0, 'failed' => 0);
         try { $am = new AgeVerificationsModel(); $this->view->age_rows = $am->recent(200); $this->view->age_counts = $am->counts(); }
         catch (\Throwable $e) { error_log('[admin] age checks: ' . $e->getMessage()); }
-        $this->view->support = array();
-        try { $this->view->support = (new SupportModel())->for_staff('', 300); } catch (\Throwable $e) { error_log('[admin] support: ' . $e->getMessage()); }
         $this->view->billing = array();
         try { foreach ((new BillingAccountsModel())->admin_list(300) as $b) { if ((string) $b['status'] === 'past_due') { $this->view->billing[] = $b; } } }
         catch (\Throwable $e) { error_log('[admin] billing: ' . $e->getMessage()); }

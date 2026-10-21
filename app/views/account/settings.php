@@ -245,16 +245,22 @@
                 <?php $cp = $this->creator_profile; ?>
                 <div class="cprofile">
                     <?php if ($this->is_owner_creator): ?>
-                    <div class="cprofile__verify cprofile__verify--<?php echo $this->verified ? 'done' : ($this->verif_status === 'pending' ? 'pending' : 'none'); ?>">
+                    <?php $vs = (string) $this->verif_status; $vr = (string) ($this->verif_state['reason'] ?? ''); /* IdentityVerification::state: Didit's ID check sets the badge */ ?>
+                    <div class="cprofile__verify cprofile__verify--<?php echo $this->verified ? 'done' : ($vs === 'pending' ? 'pending' : 'none'); ?>">
                         <?php if ($this->verified): ?>
                             <span class="cprofile__verify-ic"><i class="fa-solid fa-circle-check"></i></span>
-                            <div class="cprofile__verify-txt"><strong>Verified creator</strong><span>Your identity is verified — the badge shows on your profile.</span></div>
-                        <?php elseif ($this->verif_status === 'pending'): ?>
+                            <div class="cprofile__verify-txt"><strong>Verified creator</strong><span>Your ID check passed. The badge shows on your profile.</span></div>
+                        <?php elseif ($vs === 'pending'): ?>
                             <span class="cprofile__verify-ic"><i class="fa-solid fa-clock"></i></span>
-                            <div class="cprofile__verify-txt"><strong>Verification pending</strong><span>We're reviewing your request — you'll get the badge once approved.</span></div>
+                            <div class="cprofile__verify-txt"><strong>ID check in progress</strong><span>Finish the ID check to get your badge. If you already did, the result can take a minute.</span></div>
+                            <button type="button" class="btn btn-secondary" id="verify_request_btn">Continue ID Check</button>
+                        <?php elseif ($vs === 'rejected'): ?>
+                            <span class="cprofile__verify-ic"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                            <div class="cprofile__verify-txt"><strong>We couldn't verify your ID</strong><span><?php echo htmlspecialchars($vr !== '' ? rtrim($vr, '.') . '.' : 'The ID check did not pass.', ENT_QUOTES, 'UTF-8'); ?> Use a valid photo ID and good light, then try again.</span></div>
+                            <button type="button" class="btn btn-primary" id="verify_request_btn">Try Again</button>
                         <?php else: ?>
                             <span class="cprofile__verify-ic"><i class="fa-solid fa-shield-halved"></i></span>
-                            <div class="cprofile__verify-txt"><strong>Get verified</strong><span>Add a verified badge so fans know it's really you.</span></div>
+                            <div class="cprofile__verify-txt"><strong>Get verified</strong><span>Add a verified badge so fans know it's really you. It takes a photo of your ID and a selfie.</span></div>
                             <button type="button" class="btn btn-primary" id="verify_request_btn">Request Verification</button>
                         <?php endif; ?>
                     </div>
@@ -1955,34 +1961,22 @@ $(function () {
         });
     });
 
-    /* ---- verification (PRD §33) ---- */
+    /* ---- verification (PRD §33): the ID check opens on Didit and comes back to /account/identity_verification ---- */
     $('#verify_request_btn').on('click', function () {
-        if (!window.Swal) { return; }
-        Swal.fire({
-            title: 'Request Verification',
-            width: 460,
-            html: '<div class="rpt-swal">'
-                + '<label for="vfName">Legal Name</label>'
-                + '<input id="vfName" type="text" placeholder="Your full legal name" maxlength="190">'
-                + '<label for="vfNote">Anything That Helps Us Verify You <span style="font-weight:400;text-transform:none;color:#9a97a8;">(optional)</span></label>'
-                + '<textarea id="vfNote" rows="3" maxlength="2000" placeholder="Links, socials, or context."></textarea>'
-                + '</div>',
-            focusConfirm: false, showCancelButton: true, reverseButtons: true,
-            confirmButtonText: 'Submit request', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779',
-            preConfirm: function () {
-                var name = (document.getElementById('vfName').value || '').trim();
-                if (name === '') { Swal.showValidationMessage('Enter your legal name'); return false; }
-                return { full_name: name, note: document.getElementById('vfNote').value };
-            }
-        }).then(function (r) {
-            if (!r.isConfirmed || !r.value) { return; }
-            ApiDataSvc.apiCall('post', 'verification_request', r.value, function (resp) {
-                var o = null; try { o = JSON.parse(resp); } catch (e) {}
-                if (o && o.success) { toastr.success(o.message || 'Verification requested'); setTimeout(function () { location.reload(); }, 900); }
-                else { toastr.error((o && o.message) || 'Could not submit'); }
-            });
+        var $b = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'verification_request', {}, function (resp) {
+            var o = null; try { o = JSON.parse(resp); } catch (e) {}
+            if (o && o.success && o.url) { window.location.href = o.url; return; }
+            $b.prop('disabled', false);
+            toastr.error((o && o.message) || 'Could not open the ID check');
         });
     });
+    (function () {   // back from the ID check
+        var st = new URLSearchParams(window.location.search).get('identity_verification');
+        if (st === 'approved') { toastr.success('You\'re verified'); }
+        else if (st === 'rejected') { toastr.error('We couldn\'t verify your ID'); }
+        else if (st === 'pending') { toastr.info('Your ID check is still being processed'); }
+    })();
 
     /* ---- profile details ---- */
     $('#save_profile').on('click', function () {

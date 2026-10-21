@@ -15,13 +15,13 @@ $btn = function (array $t, $class) use ($e) {   // a trial_link() tuple as a but
     return '<a class="sx-btn ' . $class . '" href="' . $e($t[1]) . '" rel="nofollow"' . ($t[2] !== '' ? ' data-auth="' . $e($t[2]) . '"' : '') . '>' . $e($t[0]) . Sections::icon('arrow-right', 18) . '</a>';
 };
 
-// Hero (2026-10-15 redesign, from Daniel's ad; no logo here, the nav already carries it): H1, supporting line, three benefits, the trial CTA; the portrait sits right and fades into the black.
+// Hero (2026-10-15 redesign, from Daniel's ad; no logo here, the nav already carries it): H1 (names creators in its first words: HeyCatch D1.1, 2026-10-21), supporting line, three benefits, the trial CTA; the portrait sits right and fades into the black.
 ?>
 <section class="hm-hero" aria-labelledby="hm_title">
     <div class="hm-hero__media"><?php echo $pic('hero', array(640, 960, 1152), 1152, 1440, 'A content creator sitting on the edge of her bed in warm window light, looking into the camera', '(max-width: 760px) 100vw, 55vw', 'hm-hero__img', true); ?></div>
     <div class="ld-wrap hm-hero__in">
         <div class="hm-hero__copy">
-            <h1 class="hm-hero__title" id="hm_title"><span class="hm-hero__l1">Create Stunning Content</span> <span class="hm-hero__l2">Publish Everywhere.</span></h1>
+            <h1 class="hm-hero__title" id="hm_title"><span class="hm-hero__l1">The One Page Creators Sell Memberships and <span class="hm-nw">Pay-Per-View</span> From,</span> <span class="hm-hero__l2">and the Studio That Posts Everywhere.</span></h1>
             <p class="hm-hero__sub">Create AI-powered photos and videos, publish across <?php echo count(IntegrationPages::PAGES); ?> platforms, automate your content, and monetize your audience&mdash;all from one studio.</p>
             <ul class="hm-hero__pts">
                 <li><?php echo Sections::icon('image', 22); ?>AI Images &amp; Video</li>

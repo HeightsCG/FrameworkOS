@@ -186,7 +186,7 @@
     if (wantTab && document.getElementById(wantTab) && document.querySelector('[data-admin-user]')) { setTimeout(function () { document.getElementById(wantTab).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 50); }
 
     /* ---- Support queue sub-tabs ---- */
-    var supPanel = document.querySelector('.adm-panel[data-panel="support"]');
+    var supPanel = document.querySelector('.adm-panel[data-panel="support"]') ? document : null;   // /admin/support: the status filter sits in the page header
     if (supPanel) {
         supPanel.querySelectorAll('[data-sup]').forEach(function (b) {
             b.addEventListener('click', function () {
@@ -300,29 +300,21 @@
         });
     }
 
-    /* ---- Verification ---- */
+    /* ---- Verification: the ID-check record; staff can only remove a badge (Didit decides who is verified) ---- */
     var verif = document.getElementById('admVerif');
     if (verif) {
         verif.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-verif-action]');
+            var btn = e.target.closest('[data-verif-action="revoke"]');
             if (!btn) { return; }
             var row = btn.closest('.adm-vrow');
-            var vid = parseInt(row.getAttribute('data-verif'), 10);
-            var action = btn.getAttribute('data-verif-action');
-            var proceed = action === 'reject'
-                ? confirmAction({ title: 'Reject this request?', text: "The creator won't be verified. They can re-apply later.", icon: 'warning', confirmButtonText: 'Reject' })
-                : Promise.resolve(true);
-            proceed.then(function (ok) {
+            confirmAction({ title: 'Remove the verified badge?', text: 'The creator stops showing as verified and is told. They can pass a new ID check later.', icon: 'warning', confirmButtonText: 'Remove Badge' }).then(function (ok) {
                 if (!ok) { return; }
-                row.querySelectorAll('.adm-btn').forEach(function (b) { b.disabled = true; });
-                ApiDataSvc.apiCall('post', 'verification_resolve', { verification_id: vid, action: action }, function (r) {
+                ApiDataSvc.apiCall('post', 'verification_resolve', { user_id: row.getAttribute('data-user'), action: 'revoke' }, function (r) {
                     var o = parse(r);
-                    if (!o || !o.success) { row.querySelectorAll('.adm-btn').forEach(function (b) { b.disabled = false; }); if (window.toastr) { toastr.error((o && o.message) || 'Could not update'); } return; }
-                    row.parentNode.removeChild(row);
-                    if (window.toastr) { toastr.success(action === 'approve' ? 'Creator verified' : 'Request rejected'); }
-                    bump('verification', -1);
-                    var remaining = verif.querySelectorAll('.adm-vrow').length;
-                    if (!remaining) { var n = document.getElementById('admVerifNone'); if (n) { n.hidden = false; } }
+                    if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not update'); } return; }
+                    row.querySelector('.adm-vrow__st').innerHTML = '<span class="adm-pill adm-pill--gray">Badge removed</span>';
+                    var menu = row.querySelector('.adm-t__act'); if (menu) { menu.innerHTML = ''; }
+                    if (window.toastr) { toastr.success('Badge removed'); }
                 });
             });
         });

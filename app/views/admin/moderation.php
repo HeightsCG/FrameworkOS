@@ -1,24 +1,20 @@
 <?php include __DIR__ . '/_shell.php'; ?>
 <?php
-/* /admin/moderation — moderation, reports, verification (identity + Didit age checks), support and past-due billing,
+/* /admin/moderation — moderation, reports, verification (identity + Didit age checks) and past-due billing,
    each in its own panel, with the sub-menu showing one or all. The panels keep the DOM hooks the handlers in
-   public/js/admin.js key on (#admMod, #admReports, #admVerif, #admAge, [data-sup], [data-billing-retry], [data-age-reset]). */
+   public/js/admin.js key on (#admMod, #admReports, #admVerif, #admAge, [data-billing-retry], [data-age-reset]). Support is its own tab (support.php). */
 $queue = (array) $this->queue;
-$sup_status = array('open' => 'Waiting on us', 'answered' => 'Replied', 'closed' => 'Closed');
-$sup_counts = array('open' => 0, 'answered' => 0, 'closed' => 0);
-foreach ((array) $this->support as $st) { if (isset($sup_counts[$st['status']])) { $sup_counts[$st['status']]++; } }
 $ac = (array) $this->age_counts;
 $av_label = array('pending' => 'Pending', 'verified' => 'Verified', 'failed' => 'Failed');
 $n = array(
     'moderation'   => count($queue),
     'reports'      => count((array) $this->reports_queue),
-    'verification' => count((array) $this->verifications) + (int) $ac['pending'],
-    'support'      => $sup_counts['open'],
+    'verification' => (int) $ac['pending'],   // creator ID checks never wait on staff (Didit decides)
     'billing'      => count((array) $this->billing),
 );
 $total = array_sum($n);
 $show = in_array((string) $this->show, array_keys($n), true) ? (string) $this->show : 'all';
-$chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Reports', 'verification' => 'Verification', 'support' => 'Support', 'billing' => 'Billing');
+$chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Reports', 'verification' => 'Verification', 'billing' => 'Billing');
 ?>
 <?php $zero = array(); foreach ($chips as $k => $label) { if ($k !== 'all' && $n[$k] === 0) { $zero[] = $label; } } ?>
 <header class="adm-head">
@@ -92,29 +88,29 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
     <section class="adm-group adm-panel adm-box" data-group="verification" data-panel="verification" data-empty="<?php echo $n['verification'] === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'verification') || ($show === 'all' && $n['verification'] === 0)) ? ' hidden' : ''; ?>>
         <header class="adm-box__h"><h2 class="adm-box__t">Verification <b class="adm-count" data-count="verification"><?php echo $n['verification']; ?></b></h2></header>
         <?php $age_open = (int) $ac['pending'] + (int) $ac['failed']; /* on the All view a part with nothing waiting stays out of the way; the Verification view shows both */ ?>
-        <div class="adm-part" data-part-empty="<?php echo empty($this->verifications) ? '1' : '0'; ?>"<?php echo ($show === 'all' && empty($this->verifications)) ? ' hidden' : ''; ?>>
-        <div class="adm-part__h"><h3 class="adm-h3">Identity requests <b class="adm-count"><?php echo count((array) $this->verifications); ?></b></h3></div>
+        <?php $vlabel = array('approved' => array('Verified', 'ok'), 'rejected' => array('Declined', 'bad'), 'pending' => array('In progress', 'gray'), 'revoked' => array('Badge removed', 'gray')); ?>
+        <div class="adm-part" data-part-empty="<?php echo empty($this->verifications) ? '1' : '0'; ?>"<?php echo $show === 'all' ? ' hidden' : ''; ?>>
+        <div class="adm-part__h"><h3 class="adm-h3">ID checks <b class="adm-count"><?php echo count((array) $this->verifications); ?></b></h3></div>
         <?php if (empty($this->verifications)): ?>
-            <?php echo adm_empty('No pending identity requests', 'fa-id-card'); ?>
+            <?php echo adm_empty('No creator has started an ID check yet', 'fa-id-card'); ?>
         <?php else: ?>
         <table class="adm-t">
-            <thead><tr><th>Creator</th><th>Legal name</th><th>Note</th><th>When</th><th></th></tr></thead>
+            <thead><tr><th>Creator</th><th>Result</th><th>Name on ID</th><th>Reason</th><th>Checked</th><th></th></tr></thead>
             <tbody id="admVerif">
-            <?php foreach ($this->verifications as $v): $vname = trim((string) ($v['name'] ?? '')); $vname = $vname !== '' ? $vname : ('@' . $v['u_name']); ?>
-                <tr class="adm-vrow adm-t__link" data-verif="<?php echo (int) $v['id']; ?>" data-href="/admin/user/<?php echo (int) $v['user_id']; ?>">
+            <?php foreach ($this->verifications as $v): $vname = trim((string) ($v['name'] ?? '')); $vname = $vname !== '' ? $vname : ('@' . $v['u_name']); $vl = $vlabel[(string) $v['status']] ?? array(ucfirst((string) $v['status']), 'gray'); ?>
+                <tr class="adm-vrow adm-t__link" data-user="<?php echo (int) $v['user_id']; ?>" data-href="/admin/user/<?php echo (int) $v['user_id']; ?>">
                     <td class="adm-t__who"><?php echo adm_who($vname, $v['u_name'], '/admin/user/' . (int) $v['user_id']); ?></td>
-                    <td><?php echo $e($v['full_name'] !== '' ? $v['full_name'] : '—'); ?></td>
-                    <td class="adm-t__muted adm-t__wrap"><?php echo $v['note'] !== '' ? $e(mb_substr((string) $v['note'], 0, 120)) : '—'; ?></td>
-                    <td class="adm-t__muted adm-t__nowrap"><?php echo $e($fmt($v['created_at'], true)); ?></td>
-                    <td class="adm-t__act"><?php echo adm_row_menu('Verification actions', array(
-                        array('text' => 'Approve', 'attrs' => 'data-verif-action="approve"'),
-                        array('text' => 'Reject…', 'attrs' => 'data-verif-action="reject"', 'danger' => true),
-                    )); ?></td>
+                    <td class="adm-vrow__st"><?php echo adm_pill($vl[0], $vl[1]); ?></td>
+                    <td><?php echo $e(trim((string) $v['full_name']) !== '' ? $v['full_name'] : '—'); ?></td>
+                    <td class="adm-t__muted adm-t__wrap"><?php echo $e((string) $v['status'] === 'rejected' && trim((string) $v['review_note']) !== '' ? $v['review_note'] : '—'); ?></td>
+                    <td class="adm-t__muted adm-t__nowrap"><?php echo $e($fmt($v['decided_at'] ?: $v['created_at'], true)); ?></td>
+                    <td class="adm-t__act"><?php echo (int) $v['verified'] === 1 ? adm_row_menu('Verification actions', array(
+                        array('text' => 'Remove Badge…', 'attrs' => 'data-verif-action="revoke"', 'danger' => true),
+                    )) : ''; ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
         </table>
-        <p class="adm-quiet" id="admVerifNone" hidden>No pending requests.</p>
         <?php endif; ?>
         </div>
 
@@ -145,33 +141,6 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
         </table>
         <div class="adm-empty" id="admAgeNone"<?php echo $age_open > 0 ? ' hidden' : ''; ?>><i class="fa-solid fa-user-check" aria-hidden="true"></i><p>No age checks need a look.</p></div>
         </div>
-    </section>
-
-    <section class="adm-group adm-panel adm-box" data-group="support" data-panel="support" data-empty="<?php echo $n['support'] === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'support') || ($show === 'all' && $n['support'] === 0)) ? ' hidden' : ''; ?>>
-        <header class="adm-box__h"><h2 class="adm-box__t">Support <b class="adm-count" data-count="support"><?php echo $sup_counts['open']; ?></b></h2>
-            <div class="adm-seg" role="tablist" aria-label="Support status">
-                <button type="button" class="adm-seg__b is-on" role="tab" aria-selected="true" data-sup="open">Waiting on us <b><?php echo $sup_counts['open']; ?></b></button>
-                <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-sup="answered">Replied <b><?php echo $sup_counts['answered']; ?></b></button>
-                <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-sup="closed">Closed <b><?php echo $sup_counts['closed']; ?></b></button>
-                <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-sup="all">All <b><?php echo count((array) $this->support); ?></b></button>
-            </div>
-        </header>
-        <table class="adm-t">
-            <thead><tr><th>Request</th><th>From</th><th>Topic</th><th class="adm-r">Messages</th><th>Last activity</th><th>Status</th></tr></thead>
-            <tbody id="admSupport">
-            <?php foreach ((array) $this->support as $st): $nm = trim((string) $st['first_name'] . ' ' . (string) $st['last_name']); ?>
-                <tr class="adm-suprow adm-t__link" data-href="/support/ticket/<?php echo (int) $st['id']; ?>" data-status="<?php echo $e($st['status']); ?>"<?php echo $st['status'] !== 'open' ? ' hidden' : ''; ?>>
-                    <td class="adm-t__main"><a href="/support/ticket/<?php echo (int) $st['id']; ?>"><?php echo $e($st['subject']); ?></a></td>
-                    <td class="adm-t__who"><?php echo adm_who($nm, $st['u_name'], '/admin/user/' . (int) $st['user_id']); ?></td>
-                    <td class="adm-t__muted"><?php echo $e(SupportModel::CATEGORIES[$st['category']] ?? 'Something else'); ?></td>
-                    <td class="adm-r adm-t__num adm-t__muted"><?php echo (int) $st['message_count']; ?></td>
-                    <td class="adm-t__muted adm-t__nowrap"><?php echo $e($fmt($st['last_message_at'], true)); ?></td>
-                    <td><?php echo adm_pill($sup_status[$st['status']] ?? $st['status'], $st['status'] === 'open' ? 'warn' : ($st['status'] === 'answered' ? 'ok' : 'gray')); ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <p class="adm-quiet" id="admSupportNone"<?php echo $sup_counts['open'] > 0 ? ' hidden' : ''; ?>>Nothing here.</p>
     </section>
 
     <!-- Billing: past due -->

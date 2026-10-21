@@ -4,7 +4,9 @@
  * webhook. The workflow (selfie age estimation with ID fallback, "Adaptive Age Verification") is configured in the
  * Didit console; this class only opens sessions and reads outcomes.
  *
- * app.ini [global]: didit_api_key, didit_workflow_id, didit_webhook_secret (the destination's secret_shared_key),
+ * Also runs the creator ID check (IdentityVerification): a second workflow, didit_identity_workflow_id.
+ *
+ * app.ini [global]: didit_api_key, didit_workflow_id, didit_identity_workflow_id, didit_webhook_secret (the destination's secret_shared_key),
  * didit_sandbox_scenario (dev only: forces an outcome in the sandbox, e.g. "approved" / "declined").
  */
 class DiditProvider implements AgeVerificationProvider {
@@ -21,11 +23,17 @@ class DiditProvider implements AgeVerificationProvider {
     }
 
     public static function start(int $user_id, string $return_url): array {
-        if (self::cfg('didit_api_key') === '' || self::cfg('didit_workflow_id') === '') {
-            return array('ok' => false, 'ref' => '', 'url' => '', 'error' => 'Age verification is not configured.');
+        if (self::cfg('didit_workflow_id') === '') { return array('ok' => false, 'ref' => '', 'url' => '', 'error' => 'Age verification is not configured.'); }
+        return self::start_workflow($user_id, $return_url, self::cfg('didit_workflow_id'));
+    }
+
+    /** A session on any Didit workflow: the age check (start) or the creator ID check (IdentityVerification, didit_identity_workflow_id). Same answer shape as start(). */
+    public static function start_workflow(int $user_id, string $return_url, string $workflow_id): array {
+        if (self::cfg('didit_api_key') === '' || $workflow_id === '') {
+            return array('ok' => false, 'ref' => '', 'url' => '', 'error' => 'Verification is not configured.');
         }
         $body = array(
-            'workflow_id'     => self::cfg('didit_workflow_id'),
+            'workflow_id'     => $workflow_id,
             'vendor_data'     => (string) $user_id,   // our account id travels with the session and comes back on the webhook
             'callback'        => $return_url,
             'callback_method' => 'both',
@@ -73,6 +81,29 @@ class DiditProvider implements AgeVerificationProvider {
         if ($ref === '' || self::cfg('didit_api_key') === '') { return ''; }
         list($code, $resp) = self::request('GET', '/session/' . rawurlencode($ref) . '/decision/');
         return ($code === 200 && is_array($resp)) ? self::map_status((string) ($resp['status'] ?? '')) : '';
+    }
+
+    /**
+     * The decision for an ID-check session, reduced to what the admin record keeps: array('status' => ours, 'name' =>
+     * the full name read from the ID ('' when none), 'reason' => Didit's first warning, for a decline). Null when
+     * Didit cannot be read. Images, document numbers and birth dates are never kept.
+     */
+    public static function decision(string $ref) {
+        if ($ref === '' || self::cfg('didit_api_key') === '') { return null; }
+        list($code, $resp) = self::request('GET', '/session/' . rawurlencode($ref) . '/decision/');
+        if ($code !== 200 || !is_array($resp)) { return null; }
+        $id = $resp['id_verifications'][0] ?? ($resp['id_verification'] ?? array());
+        $name = is_array($id) ? trim((string) ($id['full_name'] ?? '')) : '';
+        if ($name === '' && is_array($id)) { $name = trim((string) ($id['first_name'] ?? '') . ' ' . (string) ($id['last_name'] ?? '')); }
+        $reason = '';
+        foreach (array('id_verifications', 'liveness_checks', 'face_matches') as $k) {
+            foreach ((array) ($resp[$k] ?? array()) as $part) {
+                foreach ((array) ($part['warnings'] ?? array()) as $w) {
+                    if ($reason === '' && !empty($w['short_description'])) { $reason = (string) $w['short_description']; }
+                }
+            }
+        }
+        return array('status' => self::map_status((string) ($resp['status'] ?? '')), 'name' => $name, 'reason' => $reason);
     }
 
     /** Didit session statuses -> ours. Only "Approved" verifies; the final negative states fail; everything else is still pending. */

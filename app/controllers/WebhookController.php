@@ -522,7 +522,7 @@ class WebhookController extends Controller {
     }
 
     /**
-     * Age verification result (Didit, or whichever AgeVerificationProvider is configured). The provider signs every
+     * Age verification and creator ID check results (Didit, or whichever AgeVerificationProvider is configured). The provider signs every
      * delivery; an unsigned or stale one is refused. A genuine one is always answered 2xx so the vendor stops
      * retrying, including an unknown session reference (acknowledged, nothing changes).
      */
@@ -530,6 +530,10 @@ class WebhookController extends Controller {
         $raw = (string) file_get_contents('php://input');
         $headers = function_exists('getallheaders') ? (getallheaders() ?: array()) : array();
         $res = AgeVerification::apply_webhook($raw, $headers);
+        if (!empty($res['ok']) && ($res['status'] ?? '') === 'ignored') {   // not an age check: a creator ID check (IdentityVerification); the signature is already verified
+            $payload = json_decode($raw, true);
+            if (is_array($payload)) { IdentityVerification::apply_payload($payload); }
+        }
         if (empty($res['ok'])) {
             http_response_code(401);
             echo 'unauthorized';

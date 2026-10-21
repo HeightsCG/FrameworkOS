@@ -19,7 +19,7 @@ $attention = array(
     array('Moderation',   (int) ($nav['moderation'] ?? 0),   'to review',     '/admin/moderation?show=moderation'),
     array('Reports',      (int) ($nav['reports'] ?? 0),      'open',          '/admin/moderation?show=reports'),
     array('Verification', (int) ($nav['verification'] ?? 0) + (int) ($nav['age'] ?? 0), 'waiting', '/admin/moderation?show=verification'),
-    array('Support',      (int) ($nav['support'] ?? 0),      'waiting on us', '/admin/moderation?show=support'),
+    array('Support',      (int) ($nav['support'] ?? 0),      'waiting on us', '/admin/support'),
     array('Billing',      (int) ($nav['billing'] ?? 0),      'past due',      '/admin/moderation?show=billing'),
     array('Articles',     (int) ($nav['articles'] ?? 0),     'unpublished',   '/admin/content'),
     array('Affiliates',   (int) ($nav['affiliates'] ?? 0),   'to settle',     '/admin/affiliates'),
