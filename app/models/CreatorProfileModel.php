@@ -120,7 +120,7 @@ class CreatorProfileModel extends Model {
 
     /**
      * Who may appear: opted in, images checked as they are now, an active creator account, and at least one
-     * published page post whose images are all scanned and not adult. The directory is safe-for-work only.
+     * published page post with a photo or video, every one scanned and not adult. The directory is safe-for-work only.
      */
     private function directory_where(): string {
         return "cp.directory_listed = 1
@@ -129,7 +129,7 @@ class CreatorProfileModel extends Model {
             AND " . Plan::paid_sql('u') . "
             AND EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
-                          AND ma.deleted_at IS NULL AND ma.type = 'image' AND ma.moderation_status = 'approved' AND ma.is_adult = 0
+                          AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video') AND ma.moderation_status = 'approved' AND ma.is_adult = 0
                           AND NOT EXISTS (SELECT 1 FROM post_assets pa2 JOIN media_assets m2 ON m2.id = pa2.asset_id
                                           WHERE pa2.post_id = p.id AND m2.deleted_at IS NULL AND m2.type IN ('image', 'video')
                                             AND m2.moderation_status <> 'n_a'
@@ -248,7 +248,7 @@ class CreatorProfileModel extends Model {
                     (" . Plan::paid_sql('u') . ") AS paid,
                     EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
-                          AND ma.deleted_at IS NULL AND ma.type = 'image' AND ma.moderation_status = 'approved' AND ma.is_adult = 0
+                          AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video') AND ma.moderation_status = 'approved' AND ma.is_adult = 0
                           AND NOT EXISTS (SELECT 1 FROM post_assets pa2 JOIN media_assets m2 ON m2.id = pa2.asset_id
                                           WHERE pa2.post_id = p.id AND m2.deleted_at IS NULL AND m2.type IN ('image', 'video')
                                             AND m2.moderation_status <> 'n_a'
@@ -263,7 +263,7 @@ class CreatorProfileModel extends Model {
         if ((int) $x['paid'] !== 1) { return 'Needs a paid plan'; }
         if ((string) $x['avatar_url'] === '') { return 'Needs a profile photo'; }
         if ((int) $x['media_ok'] !== 1) { return 'Photos not approved yet'; }
-        if ((int) $x['has_post'] !== 1) { return 'Needs a published photo post'; }
+        if ((int) $x['has_post'] !== 1) { return 'Needs a published post with a photo or video'; }
         return '';
     }
 

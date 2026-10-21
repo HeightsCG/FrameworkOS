@@ -76,7 +76,7 @@ class DirectoryService {
         // creator without a photo out (CreatorProfileModel::directory_where). Adding a photo queues the image check.
         if ((string) ($p['avatar_url'] ?? '') === '') {
             $m->set_directory($user_id, true, $category);
-            return array('ok' => true, 'message' => 'Saved. You\'ll appear in the directory once you add a profile photo and have a published post whose images aren\'t adult content.');
+            return array('ok' => true, 'message' => 'Saved. You\'ll appear in the directory once you add a profile photo and have a published post whose photos and videos aren\'t adult content.');
         }
         $check = self::check_images($p);
         if (!$check['ok']) { return array('ok' => false, 'message' => $check['message']); }
@@ -84,7 +84,7 @@ class DirectoryService {
         $m->set_directory_media($user_id, self::media_hash($p));
         return array('ok' => true, 'message' => $m->directory_eligible($user_id)
             ? 'You\'re listed in the Creator Directory.'
-            : 'Saved. You\'ll appear in the directory once you have a published post whose images aren\'t adult content.');
+            : 'Saved. You\'ll appear in the directory once you have a published post whose photos and videos aren\'t adult content.');
     }
 
     /**
