@@ -238,6 +238,35 @@ class CreatorProfileModel extends Model {
     }
 
     /** Is this one creator in the directory right now? */
+    /**
+     * Why a creator who switched the directory on isn't showing: the first rule of directory_where() they miss, in plain
+     * words for the Settings label, or '' when they show. Same rules, checked one at a time.
+     */
+    public function directory_missing($user_id){
+        $r = parent::select("SELECT u.deleted, u.user_status, u.is_demo, r.role_name, u.u_name, COALESCE(cp.avatar_url, '') AS avatar_url,
+                    (cp.directory_media_ok = SHA1(CONCAT(COALESCE(cp.avatar_url, ''), '|', COALESCE(cp.cover_url, '')))) AS media_ok,
+                    (" . Plan::paid_sql('u') . ") AS paid,
+                    EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
+                        WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
+                          AND ma.deleted_at IS NULL AND ma.type = 'image' AND ma.moderation_status = 'approved' AND ma.is_adult = 0
+                          AND NOT EXISTS (SELECT 1 FROM post_assets pa2 JOIN media_assets m2 ON m2.id = pa2.asset_id
+                                          WHERE pa2.post_id = p.id AND m2.deleted_at IS NULL AND m2.type IN ('image', 'video')
+                                            AND m2.moderation_status <> 'n_a'
+                                            AND (m2.moderation_status <> 'approved' OR m2.is_adult = 1))) AS has_post
+             FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id
+             WHERE cp.user_id = :uid", array('uid' => (int) $user_id));
+        if (!is_array($r) || count($r) !== 1) { return 'Account not active'; }   // no account or role behind the profile
+        $x = $r[0];
+        if ((int) $x['deleted'] === 1 || (string) $x['user_status'] !== 'Active') { return 'Account not active'; }
+        if ((int) $x['is_demo'] === 1) { return 'Demo accounts aren\'t listed'; }
+        if ((string) $x['role_name'] !== 'Creator' || (string) $x['u_name'] === '') { return 'Needs a creator username'; }
+        if ((int) $x['paid'] !== 1) { return 'Needs a paid plan'; }
+        if ((string) $x['avatar_url'] === '') { return 'Needs a profile photo'; }
+        if ((int) $x['media_ok'] !== 1) { return 'Photos not approved yet'; }
+        if ((int) $x['has_post'] !== 1) { return 'Needs a published photo post'; }
+        return '';
+    }
+
     public function directory_eligible($user_id){
         $r = parent::select("SELECT 1 FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id
                              WHERE cp.user_id = :uid AND " . $this->directory_where(), array('uid' => (int) $user_id));

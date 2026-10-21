@@ -49,7 +49,9 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->require_creator('content', false);
         $r = DirectoryService::save(Permissions::creator_id(), !empty($this->post['listed']), (string) ($this->post['category'] ?? ''));
         if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
-        $this->jsonSuccess(['message' => $r['message']]);
+        $m = new CreatorProfileModel(); $cid = Permissions::creator_id();
+        $on = !empty($this->post['listed']);
+        $this->jsonSuccess(['message' => $r['message'], 'listed' => $on && $m->directory_eligible($cid), 'missing' => $on ? $m->directory_missing($cid) : '']);   // the Settings label: Listed, or what's missing
     }
 
     /** Generate brand details from a website URL (Claude). Does not persist. */

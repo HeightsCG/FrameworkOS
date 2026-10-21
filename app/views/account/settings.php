@@ -333,7 +333,7 @@
                     <?php $dir_on = !empty($cp['directory_listed']); $dir_state = (string) $this->directory_state; ?>
                     <div class="cprofile__subhead">
                         <h3 class="cprofile__subtitle">Creator Directory</h3>
-                        <span class="dir-status dir-status--<?php echo $dir_state; ?>" id="dir_status"<?php echo $dir_state === 'off' ? ' hidden' : ''; ?>><?php echo $dir_state === 'listed' ? 'Listed' : 'Not showing yet'; ?></span>
+                        <span class="dir-status dir-status--<?php echo $dir_state; ?>" id="dir_status"<?php echo $dir_state === 'off' ? ' hidden' : ''; ?>><?php echo $dir_state === 'listed' ? 'Listed' : ((string) ($this->directory_missing ?? '') !== '' ? 'Not showing: ' . htmlspecialchars(lcfirst($this->directory_missing), ENT_QUOTES) : 'Not showing yet'); ?></span>
                     </div>
                     <div class="dir-row">
                         <label class="notif__switch">
@@ -2019,8 +2019,9 @@ $(function () {
             var o = null; try { o = JSON.parse(data); } catch (e) {}
             if (!o || !o.success) { done(false, (o && o.message) || 'Could not save your directory listing'); return; }
             dir_saved = { on: on, cat: cat };
-            var listed = on && /listed in the Creator Directory/.test(o.message);
-            $('#dir_status').prop('hidden', !on).text(listed ? 'Listed' : 'Not showing yet').attr('class', 'dir-status dir-status--' + (!on ? 'off' : (listed ? 'listed' : 'waiting')));
+            var listed = on && (o.listed === true || /listed in the Creator Directory/.test(o.message));
+            var why = o.missing ? 'Not showing: ' + o.missing.charAt(0).toLowerCase() + o.missing.slice(1) : 'Not showing yet';
+            $('#dir_status').prop('hidden', !on).text(listed ? 'Listed' : why).attr('class', 'dir-status dir-status--' + (!on ? 'off' : (listed ? 'listed' : 'waiting')));
             done(true, o.message);
         });
     }

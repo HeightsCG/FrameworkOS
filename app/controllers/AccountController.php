@@ -124,6 +124,7 @@ class AccountController extends Controller {
         // Creator Directory: off, listed (showing now) or waiting (switched on, not eligible yet).
         $this->view->directory_state     = empty($this->view->creator_profile['directory_listed']) ? 'off'
             : ((new CreatorProfileModel())->directory_eligible($owner['user_id']) ? 'listed' : 'waiting');
+        $this->view->directory_missing   = $this->view->directory_state === 'waiting' ? (new CreatorProfileModel())->directory_missing($owner['user_id']) : '';   // the label says which rule is missing
         $me_profile = (new CreatorProfileModel())->get_for_user((int) Session::get('user_id'));
         $this->view->my_avatar          = (string) ($me_profile['avatar_url'] ?? '');
         $this->view->creator_links       = $can_content ? (new CreatorLinksModel())->get_for_user($owner['user_id']) : array();
