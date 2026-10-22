@@ -344,6 +344,26 @@ class UsersModel extends Model {
         );
     }
 
+    /** "Why are you leaving?" choices in the Delete Account and Stop Being a Creator dialogs (a reason is required, the note is not). */
+    const LEAVE_REASONS = array(
+        'cost'      => 'It costs more than I expected',
+        'missing'   => 'It doesn\'t do what I need',
+        'confusing' => 'It was hard to figure out',
+        'not_ready' => 'I\'m not ready yet',
+        'elsewhere' => 'I\'m using another platform',
+        'privacy'   => 'Privacy or data concerns',
+        'other'     => 'Something else',
+    );
+
+    /** Keep the optional answer on the account row ($kind 'account' or 'creator'); nothing is stored when both are empty. */
+    public function record_leave($user_id, $kind, $reason, $note){
+        $reason = isset(self::LEAVE_REASONS[(string) $reason]) ? (string) $reason : '';
+        $note   = trim(mb_substr(html_entity_decode((string) $note, ENT_QUOTES, 'UTF-8'), 0, 500));
+        if ($reason === '' && $note === '') { return false; }
+        return parent::update('user_accounts', array('left_reason' => $reason !== '' ? $reason : null, 'left_note' => $note !== '' ? $note : null,
+            'left_kind' => $kind === 'creator' ? 'creator' : 'account', 'left_at' => gmdate('Y-m-d H:i:s')), 'user_id = :u', array('u' => (int) $user_id));
+    }
+
     public function delete_account($user_id, $updated_by=0){
         $done = parent::update(
             'user_accounts',

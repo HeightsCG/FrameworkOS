@@ -1511,7 +1511,18 @@
             <div class="modal-body">
                 <p>This will <strong>permanently delete all of your creator content</strong> — it will not be recoverable. Your account will return to a regular user account.</p>
                 <p>Memberships end and members are not charged again. Upcoming paid events are canceled and open bookings refunded. Anything fans bought stays in their purchases.</p>
-                <p class="mb-0">Are you sure you want to continue?</p>
+                <p>Are you sure you want to continue?</p>
+                <div class="leave-why">
+                    <div class="form-floating mb-2">
+                        <select class="form-select" id="lc_reason" required aria-describedby="lc_reason_err"><option value="">Choose one</option><?php foreach (UsersModel::LEAVE_REASONS as $lk => $ll): ?><option value="<?php echo $lk; ?>"><?php echo htmlspecialchars($ll, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select>
+                        <label for="lc_reason">Reason for Leaving</label>
+                        <div class="invalid-feedback" id="lc_reason_err">Choose a reason.</div>
+                    </div>
+                    <div class="form-floating">
+                        <textarea class="form-control" id="lc_note" style="height:88px"></textarea>
+                        <label for="lc_note">Anything Else (Optional)</label>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -1677,6 +1688,17 @@
             </div>
             <div class="modal-body">
                 <p>Are you sure you want to delete your account? This action is irreversible and will permanently delete your account and all associated data.</p>
+                <div class="leave-why">
+                    <div class="form-floating mb-2">
+                        <select class="form-select" id="del_reason" required aria-describedby="del_reason_err"><option value="">Choose one</option><?php foreach (UsersModel::LEAVE_REASONS as $lk => $ll): ?><option value="<?php echo $lk; ?>"><?php echo htmlspecialchars($ll, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select>
+                        <label for="del_reason">Reason for Leaving</label>
+                        <div class="invalid-feedback" id="del_reason_err">Choose a reason.</div>
+                    </div>
+                    <div class="form-floating">
+                        <textarea class="form-control" id="del_note" style="height:88px"></textarea>
+                        <label for="del_note">Anything Else (Optional)</label>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -2073,9 +2095,11 @@ $(function () {
         new bootstrap.Modal(document.getElementById('delete_account_form')).show();
     });
 
+    $('#del_reason, #lc_reason').on('change', function () { $(this).toggleClass('is-invalid', !this.value); });
     $('#confirm_delete_account').on('click', function () {
+        if (!$('#del_reason').val()) { $('#del_reason').addClass('is-invalid').trigger('focus'); return; }   // a reason is required
         bootstrap.Modal.getInstance(document.getElementById('delete_account_form')).hide();
-        ApiDataSvc.apiCall('post', 'delete_my_account', {}, function (data) {
+        ApiDataSvc.apiCall('post', 'delete_my_account', { leave_reason: $('#del_reason').val() || '', leave_note: $('#del_note').val() || '' }, function (data) {
             var o = JSON.parse(data);
             if (o.success) { setTimeout(function () { window.location.href = '/'; }, 800); }
             else { toastr.error(o.message); }
@@ -3090,8 +3114,9 @@ $(function () {
     });
 
     $('#leave_creator_confirm').on('click', function () {
+        if (!$('#lc_reason').val()) { $('#lc_reason').addClass('is-invalid').trigger('focus'); return; }   // a reason is required
         var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'leave_creator', { confirm: 1 }, function (data) {
+        ApiDataSvc.apiCall('post', 'leave_creator', { confirm: 1, leave_reason: $('#lc_reason').val() || '', leave_note: $('#lc_note').val() || '' }, function (data) {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);

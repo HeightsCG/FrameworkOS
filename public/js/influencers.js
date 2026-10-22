@@ -25,8 +25,9 @@ jQuery(function ($) {
     function err(o, fallback) {
         if (window.cls_need_plan && window.cls_need_plan(o)) { return; }   // the upgrade prompt (site.js)
         if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {   // plan / credit refusals link to Billing
-            toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),
-                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? '/account/billing?tab=credits' : (o.need_plan && window.cls_plan_url ? window.cls_plan_url(o) : '/account/billing'); } });
+            var held = parseInt(window.CLS_TRIAL_HELD, 10) || 0;   // a no-card trial: the fix is a card, not a purchase
+            toastr.error(o.message + (o.need_credits && held > 0 ? ' Add a card to unlock ' + held.toLocaleString() + ' more AI credits. Nothing is charged today.' : ''), o.need_plan ? 'Choose a plan' : (o.need_credits ? (held > 0 ? 'Add a card' : 'Buy AI credits') : 'Upgrade your plan'),
+                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? (held > 0 ? '/account/billing?add_card=1' : '/account/billing?tab=credits') : (o.need_plan && window.cls_plan_url ? window.cls_plan_url(o) : '/account/billing'); } });
             return;
         }
         toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.');
@@ -47,7 +48,8 @@ jQuery(function ($) {
     function credits_html(n) {
         var left = parseInt(C.ai_credits, 10) || 0;
         var low  = left < n * 2;
-        return esc(credits_text(n)) + (low ? ' <a class="inf-buy-credits" href="/account/billing?tab=credits">' + (left < n ? 'Not enough left. Buy AI Credits' : 'Running low. Buy AI Credits') + '</a>' : '');
+        var unlock = low && window.cls_credits_link ? window.cls_credits_link(left < n) : null;   // a no-card trial: adding a card unlocks the held credits
+        return esc(credits_text(n)) + (low ? ' ' + (unlock || '<a class="inf-buy-credits" href="/account/billing?tab=credits">' + (left < n ? 'Not enough left. Buy AI Credits' : 'Running low. Buy AI Credits') + '</a>') : '');
     }
     function spend_credits(n) { C.ai_credits = Math.max(0, (parseInt(C.ai_credits, 10) || 0) - n); }
     function price_of(type, n) { var p = (C.ai_prices || {})[type] || 0; return p * (n || 1); }

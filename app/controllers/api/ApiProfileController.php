@@ -332,6 +332,9 @@ class ApiProfileController extends BaseApiController {
         }
 
         $user_id = (int) Session::get('user_id');
+        if (!isset(UsersModel::LEAVE_REASONS[(string) ($this->post['leave_reason'] ?? '')])) { $this->jsonError('Choose a reason for leaving.'); }
+        try { $this->userModel->record_leave($user_id, 'creator', (string) ($this->post['leave_reason'] ?? ''), (string) ($this->post['leave_note'] ?? '')); }   // the optional "why"
+        catch (\Throwable $e) { error_log('[leave] reason ' . $user_id . ': ' . $e->getMessage()); }
 
         // Stop every recurring charge tied to the creator side: fans' memberships to them (each fan is told) and their own plan.
         AccountBilling::on_leave_creator($user_id);
@@ -358,6 +361,9 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('Not authorized');
         }
 
+        if (!isset(UsersModel::LEAVE_REASONS[(string) ($this->post['leave_reason'] ?? '')])) { $this->jsonError('Choose a reason for leaving.'); }
+        try { $this->userModel->record_leave((int) Session::get('user_id'), 'account', (string) ($this->post['leave_reason'] ?? ''), (string) ($this->post['leave_note'] ?? '')); }   // the optional "why", kept on the (soft-deleted) row
+        catch (\Throwable $e) { error_log('[leave] reason ' . (int) Session::get('user_id') . ': ' . $e->getMessage()); }
         AccountBilling::on_delete((int) Session::get('user_id'));   // stop every recurring charge first
         $this->userModel->delete_account((int) Session::get('user_id'), (int) Session::get('user_id'));
         Main::do_logout();

@@ -38,8 +38,9 @@ window.AiTools = (function ($) {
         if (window.cls_need_plan && window.cls_need_plan(o)) { return; }   // the upgrade prompt (site.js)
         if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {
             if (o.need_credits && typeof o.balance !== 'undefined') { balance = parseInt(o.balance, 10) || 0; }
-            toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),
-                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? '/account/billing?tab=credits' : (o.need_plan && window.cls_plan_url ? window.cls_plan_url(o) : '/account/billing'); } });
+            var held = parseInt(window.CLS_TRIAL_HELD, 10) || 0;   // a no-card trial: the fix is a card, not a purchase
+            toastr.error(o.message + (o.need_credits && held > 0 ? ' Add a card to unlock ' + held.toLocaleString() + ' more AI credits. Nothing is charged today.' : ''), o.need_plan ? 'Choose a plan' : (o.need_credits ? (held > 0 ? 'Add a card' : 'Buy AI credits') : 'Upgrade your plan'),
+                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? (held > 0 ? '/account/billing?add_card=1' : '/account/billing?tab=credits') : (o.need_plan && window.cls_plan_url ? window.cls_plan_url(o) : '/account/billing'); } });
             return;
         }
         toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.');
@@ -53,7 +54,7 @@ window.AiTools = (function ($) {
         var low = balance < n * 2;
         show_balance();
         return esc(Number(n).toLocaleString() + ' AI credits') +
-            (low ? ' <a class="ai-buy" href="/account/billing?tab=credits">' + (balance < n ? 'Not enough left. Buy AI Credits' : 'Running low. Buy AI Credits') + '</a>' : '');
+            (low ? ' ' + ((window.cls_credits_link && window.cls_credits_link(balance < n)) || '<a class="ai-buy" href="/account/billing?tab=credits">' + (balance < n ? 'Not enough left. Buy AI Credits' : 'Running low. Buy AI Credits') + '</a>') : '');
     }
     function can_afford(n) { return balance >= (parseInt(n, 10) || 0); }
 

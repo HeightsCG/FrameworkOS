@@ -358,7 +358,9 @@ $(function () {
     /* ---- one-time AI credits (existing flow) ---- */
     var credit_elements = null;
     if (qs.get('buy') === 'credits' && has_plan) { $('#credits_modal').modal('show'); }
-    if (qs.get('add_card') === '1') { $('.btabs__tab[data-tab=payments]').trigger('click'); $('#update_card').trigger('click'); }   // "Add Card" links (no-card trial emails and notice)   // "Buy credits" links from the generate screens; Free lands on the plan tab instead
+    // a no-card trial sent here to buy AI credits (any "Buy AI Credits" link): adding a card is what unlocks them, so that opens instead
+    var no_card_trial = <?php echo BillingService::in_no_card_trial($acct) ? 'true' : 'false'; ?>;
+    if (qs.get('add_card') === '1' || (no_card_trial && (qs.get('tab') === 'credits' || qs.get('buy') === 'credits'))) { $('.btabs__tab[data-tab=payments]').trigger('click'); $('#update_card').trigger('click'); }   // "Add Card" links (no-card trial emails and notice)   // "Buy credits" links from the generate screens; Free lands on the plan tab instead
     $('#credit_packs').on('click', '.pack', function () {
         var dollars = $(this).data('dollars');
         $('#credit_packs .pack').removeClass('is-on'); $(this).addClass('is-on');
@@ -782,12 +784,14 @@ $(function () {
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Update card</h5>
+                <?php $nct = BillingService::in_no_card_trial($acct); ?>
+                <h5 class="modal-title"><?php echo $nct ? 'Add a card' : ($has_card ? 'Update card' : 'Add a card'); ?></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <?php if ($nct): ?><p class="disc__lead">Nothing is charged today. Adding a card unlocks <b><?php echo number_format((int) $acct['trial_credits_held']); ?> more AI credits</b> now and keeps your plan when the trial ends<?php echo !empty($acct['next_charge_at']) ? ' on ' . $e($day(strtotime($acct['next_charge_at'] . ' UTC'))) : ''; ?>.</p><?php endif; ?>
                 <div id="card_element"></div>
-                <p class="disc__terms">This card is charged for your plan, add-ons and monthly pack on each billing date.<?php echo $past_due ? ' Your overdue payment is retried as soon as it is saved.' : ''; ?></p>
+                <p class="disc__terms">This card is charged for your plan, add-ons and monthly pack on each billing date<?php echo $nct ? ', starting when your trial ends. Cancel anytime from Billing before then and you won\'t be charged.' : '.'; ?><?php echo $past_due ? ' Your overdue payment is retried as soon as it is saved.' : ''; ?></p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

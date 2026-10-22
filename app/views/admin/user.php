@@ -101,6 +101,9 @@ $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'
         <div><dt>Creator since</dt><dd><?php echo $e($fmt($u['creator_since'])); ?></dd></div><?php endif; ?>
         <div><dt>Business</dt><dd><?php echo $e($u['business_name'] ?: '—'); ?></dd></div>
         <div><dt>Website</dt><dd><?php echo (string) $u['website_url'] !== '' ? '<a href="' . $e($u['website_url']) . '" target="_blank" rel="noopener nofollow">' . $e(preg_replace('#^https?://#', '', (string) $u['website_url'])) . '</a>' : '—'; ?></dd></div>
+        <?php if ((string) ($u['left_reason'] ?? '') !== '' || (string) ($u['left_note'] ?? '') !== ''): $lr = (string) ($u['left_reason'] ?? ''); ?>
+        <div><dt><?php echo ($u['left_kind'] ?? '') === 'creator' ? 'Stopped being a creator' : 'Why they left'; ?></dt><dd><?php echo $e($lr !== '' ? (UsersModel::LEAVE_REASONS[$lr] ?? $lr) : '—'); ?><?php if ((string) ($u['left_note'] ?? '') !== ''): ?><br><span class="adm-t__muted">“<?php echo $e($u['left_note']); ?>”</span><?php endif; ?><?php if (!empty($u['left_at'])): ?><br><span class="adm-t__muted"><?php echo $e($fmt($u['left_at'])); ?></span><?php endif; ?></dd></div>
+        <?php endif; ?>
     </dl>
     <?php if (BillingService::is_paid($bacct)): ?>
     <h3 class="adm-h3 adm-h3--gap">Creator plan
