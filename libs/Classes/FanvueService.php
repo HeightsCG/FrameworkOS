@@ -272,6 +272,26 @@ class FanvueService {
     }
 
     /**
+     * The caption with every web address taken out (https://..., www..., a bare domain like name.com/page), and a
+     * preposition left hanging in front of one ("at", "on", "visit") with it. Fanvue refuses a post that carries a link
+     * (prod 2026-10-21: "...(and cuter) at lexivaughn.com" came back as prohibited language).
+     */
+    const LINK_RE = '~(?:https?://|www\.)[^\s<>()]+|\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|net|org|io|co|me|app|link|ly|tv|xyz|store|shop|site|online|us|uk|ca|ai|fans|page|bio|club|live|life)\b(?:/[^\s<>()]*)?~i';
+    public static function without_links(string $text): string {
+        $t = preg_replace_callback(self::LINK_RE, function ($m) {
+            $tail = ''; if (preg_match('/[.,!?;:]+$/', $m[0], $p)) { $tail = $p[0]; }   // punctuation after the link stays
+            return "\x01" . $tail;
+        }, $text);
+        // a preposition that only pointed at the link goes with it when the link ended the sentence ("...cuter) at name.com")
+        $t = preg_replace('/\s*\b(?:over at|at|on|via|visit|see|check out)\s*:?\s*\x01(?=[.,!?;]|\s*$|\s*\n)/iu', "\x01", (string) $t);
+        $t = str_replace("\x01", '', (string) $t);
+        $t = preg_replace('/[ \t]+([.,!?;:)])/u', '$1', (string) $t);   // no space left before punctuation
+        $t = preg_replace('/\(\s*\)/u', '', $t);
+        $t = preg_replace('/[ \t]{2,}/u', ' ', $t);
+        return trim((string) $t);
+    }
+
+    /**
      * POST /posts. $audience: 'subscribers' | 'followers-and-subscribers'.
      * $price_cents: 0 for free, else ≥ 300. $publish_at: ISO 8601 or null.
      * Returns the created post (uuid, ...) or throws.
@@ -280,7 +300,7 @@ class FanvueService {
         $body = array(
             'audience' => ($audience === 'subscribers') ? 'subscribers' : 'followers-and-subscribers',
         );
-        $text = trim((string) $text);
+        $text = self::without_links((string) $text);   // Fanvue rejects any web address ("This post contains prohibited language")
         if ($text !== '') { $body['text'] = mb_substr($text, 0, 5000); }
         if (!empty($media_uuids)) { $body['mediaUuids'] = array_values($media_uuids); }
         if ((int) $price_cents >= 300 && !empty($media_uuids)) { $body['price'] = (int) $price_cents; }
