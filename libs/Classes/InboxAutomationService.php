@@ -343,7 +343,7 @@ class InboxAutomationService {
         $system   = self::build_system_prompt($cb, $settings, $owner, $channel, $fan_name, count($turns) === 0);
         $messages = $turns;
         $messages[] = array('role' => 'user', 'content' => (string) $inbound);
-        $res = ClaudeService::chat($system, $messages, 600, 30, 'low');
+        $res = ClaudeService::chat($system, $messages, 600, 30, 'low', true);   // cached: the next reply in this chat reuses the instructions and the history
         if (!$res['ok']) { return array('ok' => false, 'text' => '', 'hold' => false, 'error' => $res['error']); }
         $text = trim($res['text']);
         if ($res['stop_reason'] === 'refusal' || $text === '' || stripos($text, self::HOLD_TOKEN) !== false) {

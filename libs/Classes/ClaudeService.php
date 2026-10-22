@@ -103,9 +103,14 @@ class ClaudeService {
      * @param int    $max_tokens
      * @param int    $timeout    seconds
      * @param string $effort     low | medium | high
-     * @return array ['ok'=>bool, 'text'=>string, 'stop_reason'=>string, 'error'=>string]
+     * @param bool   $cache      prompt caching (platform.claude.com/docs/en/build-with-claude/prompt-caching): true = automatic,
+     *                           the prompt up to the last block is cached for 5 minutes, so a call that repeats it (the next reply in
+     *                           a chat) reads it at a tenth of the price. A message's content may also be a list of text blocks
+     *                           carrying their own 'cache_control' (SeoDrafter: the brief is cached, a retry's feedback is not).
+     *                           Prompts under the model's minimum (512 tokens on current models) are simply not cached.
+     * @return array ['ok'=>bool, 'text'=>string, 'stop_reason'=>string, 'error'=>string, 'cache_read'=>int, 'cache_write'=>int]
      */
-    public static function chat($system, array $messages, $max_tokens = 1024, $timeout = 30, $effort = 'low'): array {
+    public static function chat($system, array $messages, $max_tokens = 1024, $timeout = 30, $effort = 'low', $cache = false): array {
         $key = self::api_key();
         if ($key === '') { return self::fail('Claude API key is not configured'); }
 
@@ -118,6 +123,7 @@ class ClaudeService {
             'output_config' => array('effort' => in_array($effort, array('low', 'medium', 'high'), true) ? $effort : 'low'),
         );
         if (trim((string) $system) !== '') { $body['system'] = (string) $system; }
+        if ($cache) { $body['cache_control'] = array('type' => 'ephemeral'); }
 
         $d = self::post($body, $timeout);
         if (isset($d['ok']) && $d['ok'] === false) { return $d; }
@@ -129,7 +135,10 @@ class ClaudeService {
             'ok'          => true,
             'text'        => trim($text),
             'stop_reason' => (string) ($d['stop_reason'] ?? ''),
+            'input_tokens'  => (int) ($d['usage']['input_tokens'] ?? 0),
             'output_tokens' => (int) ($d['usage']['output_tokens'] ?? 0),
+            'cache_read'    => (int) ($d['usage']['cache_read_input_tokens'] ?? 0),       // prompt tokens served from the cache (a tenth of the price)
+            'cache_write'   => (int) ($d['usage']['cache_creation_input_tokens'] ?? 0),   // prompt tokens written to it (1.25x)
             'error'       => '',
         );
     }
@@ -199,9 +208,16 @@ class ClaudeService {
         $out = array();
         foreach ($messages as $m) {
             $role = (($m['role'] ?? '') === 'assistant') ? 'assistant' : 'user';
+            if (is_array($m['content'] ?? null)) {   // text blocks (with cache_control): kept as they are, never merged
+                $blocks = array_values(array_filter($m['content'], function ($b) { return is_array($b) && trim((string) ($b['text'] ?? '')) !== ''; }));
+                if (empty($blocks)) { continue; }
+                foreach ($blocks as $i => $b) { $blocks[$i]['type'] = 'text'; }
+                $out[] = array('role' => $role, 'content' => $blocks);
+                continue;
+            }
             $text = trim((string) ($m['content'] ?? ''));
             if ($text === '') { continue; }
-            if (!empty($out) && $out[count($out) - 1]['role'] === $role) {
+            if (!empty($out) && $out[count($out) - 1]['role'] === $role && is_string($out[count($out) - 1]['content'])) {
                 $out[count($out) - 1]['content'] .= "\n\n" . $text;
             } else {
                 $out[] = array('role' => $role, 'content' => $text);
