@@ -44,7 +44,9 @@ class SiteAnalyticsModel extends Model {
                         SUM(kind = 'pageview') AS pageviews,
                         SUM(kind = 'pageview' AND is_new = 1) AS new_visitors,
                         SUM(kind = 'event' AND name = 'signup') AS signups,
-                        SUM(kind = 'event' AND name = 'plan_paid') AS plans_paid,
+                        SUM(kind = 'event' AND name = 'plan_paid' AND COALESCE(value_cents, 0) = 0) AS trials,
+                        SUM(kind = 'event' AND name = 'plan_paid' AND COALESCE(value_cents, 0) = 0) AS trials,
+                    SUM(kind = 'event' AND name = 'plan_paid' AND value_cents > 0) AS plans_paid,
                         SUM(kind = 'event' AND name IN ('purchase', 'membership_paid')) AS sales,
                         COALESCE(SUM(CASE WHEN kind = 'event' AND name IN ('purchase', 'membership_paid', 'plan_paid', 'credits_bought') THEN value_cents END), 0) AS value_cents
                  FROM analytics_events WHERE $w$c");
@@ -53,7 +55,7 @@ class SiteAnalyticsModel extends Model {
         return $out;
     }
 
-    /** Per day, oldest first, every day present: visitors, sessions, page views, signups, paid plans, sales. */
+    /** Per day, oldest first, every day present: visitors, sessions, page views, signups, free trials started, paid plans, sales. */
     public function daily($days, $creator_id = 0){
         $days = max(1, min(366, (int) $days)); $c = $creator_id > 0 ? ' AND creator_id = ' . (int) $creator_id : '';
         $rows = parent::select(
@@ -62,12 +64,13 @@ class SiteAnalyticsModel extends Model {
                     COUNT(DISTINCT CASE WHEN kind = 'pageview' THEN session END) AS sessions,
                     SUM(kind = 'pageview') AS pageviews,
                     SUM(kind = 'event' AND name = 'signup') AS signups,
-                    SUM(kind = 'event' AND name = 'plan_paid') AS plans_paid,
+                    SUM(kind = 'event' AND name = 'plan_paid' AND COALESCE(value_cents, 0) = 0) AS trials,
+                    SUM(kind = 'event' AND name = 'plan_paid' AND value_cents > 0) AS plans_paid,
                     SUM(kind = 'event' AND name IN ('purchase', 'membership_paid')) AS sales
              FROM analytics_events WHERE " . $this->window($days) . "$c GROUP BY DATE(ts)");
         $by = array(); foreach ($rows as $r) { $day = (string) $r['day']; $by[$day] = array_map('intval', $r); $by[$day]['day'] = $day; }
         $out = array();
-        for ($i = $days - 1; $i >= 0; $i--) { $d = gmdate('Y-m-d', strtotime("-$i day")); $out[] = $by[$d] ?? array('day' => $d, 'visitors' => 0, 'sessions' => 0, 'pageviews' => 0, 'signups' => 0, 'plans_paid' => 0, 'sales' => 0); }
+        for ($i = $days - 1; $i >= 0; $i--) { $d = gmdate('Y-m-d', strtotime("-$i day")); $out[] = $by[$d] ?? array('day' => $d, 'visitors' => 0, 'sessions' => 0, 'pageviews' => 0, 'signups' => 0, 'trials' => 0, 'plans_paid' => 0, 'sales' => 0); }
         return $out;
     }
 
@@ -88,10 +91,11 @@ class SiteAnalyticsModel extends Model {
             "SELECT COALESCE(NULLIF(l.utm_source, ''), NULLIF(l.referrer_host, ''), 'direct') AS source,
                     CASE WHEN l.utm_source <> '' THEN l.utm_medium WHEN l.referrer_host <> '' THEN 'referral' ELSE '' END AS medium,
                     COUNT(*) AS sessions, COUNT(DISTINCT l.visitor) AS visitors,
-                    COUNT(DISTINCT s.session) AS signups, COUNT(DISTINCT p.session) AS plans_paid
+                    COUNT(DISTINCT s.session) AS signups, COUNT(DISTINCT p.session) AS plans_paid, COUNT(DISTINCT t.session) AS trials
              FROM analytics_events l
              LEFT JOIN analytics_events s ON s.session = l.session AND s.kind = 'event' AND s.name = 'signup'
-             LEFT JOIN analytics_events p ON p.session = l.session AND p.kind = 'event' AND p.name = 'plan_paid'
+             LEFT JOIN analytics_events t ON t.session = l.session AND t.kind = 'event' AND t.name = 'plan_paid' AND COALESCE(t.value_cents, 0) = 0
+             LEFT JOIN analytics_events p ON p.session = l.session AND p.kind = 'event' AND p.name = 'plan_paid' AND p.value_cents > 0
              WHERE l.kind = 'pageview' AND l.is_landing = 1 AND l." . $this->window($days) . "$c
              GROUP BY source, medium ORDER BY sessions DESC LIMIT " . max(1, min(500, (int) $limit)));
     }
@@ -99,10 +103,11 @@ class SiteAnalyticsModel extends Model {
     public function campaigns($days, $limit = 100){
         return parent::select(
             "SELECT l.utm_campaign AS campaign, l.utm_source AS source, l.utm_medium AS medium, COUNT(*) AS sessions,
-                    COUNT(DISTINCT s.session) AS signups, COUNT(DISTINCT p.session) AS plans_paid
+                    COUNT(DISTINCT s.session) AS signups, COUNT(DISTINCT p.session) AS plans_paid, COUNT(DISTINCT t.session) AS trials
              FROM analytics_events l
              LEFT JOIN analytics_events s ON s.session = l.session AND s.kind = 'event' AND s.name = 'signup'
-             LEFT JOIN analytics_events p ON p.session = l.session AND p.kind = 'event' AND p.name = 'plan_paid'
+             LEFT JOIN analytics_events t ON t.session = l.session AND t.kind = 'event' AND t.name = 'plan_paid' AND COALESCE(t.value_cents, 0) = 0
+             LEFT JOIN analytics_events p ON p.session = l.session AND p.kind = 'event' AND p.name = 'plan_paid' AND p.value_cents > 0
              WHERE l.kind = 'pageview' AND l.is_landing = 1 AND l.utm_campaign <> '' AND l." . $this->window($days) . "
              GROUP BY l.utm_campaign, l.utm_source, l.utm_medium ORDER BY sessions DESC LIMIT " . max(1, min(500, (int) $limit)));
     }
@@ -110,10 +115,11 @@ class SiteAnalyticsModel extends Model {
     public function landing_pages($days, $limit = 100, $creator_id = 0){
         $c = $creator_id > 0 ? ' AND l.creator_id = ' . (int) $creator_id : '';
         return parent::select(
-            "SELECT l.path, COUNT(*) AS sessions, COUNT(DISTINCT l.visitor) AS visitors, COUNT(DISTINCT s.session) AS signups, COUNT(DISTINCT p.session) AS plans_paid
+            "SELECT l.path, COUNT(*) AS sessions, COUNT(DISTINCT l.visitor) AS visitors, COUNT(DISTINCT s.session) AS signups, COUNT(DISTINCT p.session) AS plans_paid, COUNT(DISTINCT t.session) AS trials
              FROM analytics_events l
              LEFT JOIN analytics_events s ON s.session = l.session AND s.kind = 'event' AND s.name = 'signup'
-             LEFT JOIN analytics_events p ON p.session = l.session AND p.kind = 'event' AND p.name = 'plan_paid'
+             LEFT JOIN analytics_events t ON t.session = l.session AND t.kind = 'event' AND t.name = 'plan_paid' AND COALESCE(t.value_cents, 0) = 0
+             LEFT JOIN analytics_events p ON p.session = l.session AND p.kind = 'event' AND p.name = 'plan_paid' AND p.value_cents > 0
              WHERE l.kind = 'pageview' AND l.is_landing = 1 AND l." . $this->window($days) . "$c
              GROUP BY l.path ORDER BY sessions DESC LIMIT " . max(1, min(500, (int) $limit)));
     }
@@ -136,13 +142,19 @@ class SiteAnalyticsModel extends Model {
     }
 
     /** Product and money events by name: count, accounts, value, and the same for the previous window. */
+    /**
+     * A plan_paid event worth $0 is a free trial starting (it stays plan_paid for TikTok's StartTrial), not a paid plan:
+     * "Paid plans" counts real payments only (value_cents > 0), and the event list shows trial starts as their own row.
+     */
+    const EVENT_NAME = "CASE WHEN name = 'plan_paid' AND COALESCE(value_cents, 0) = 0 THEN 'trial_started' ELSE name END";
+
     public function events_summary($days, $creator_id = 0){
         $out = array();
         foreach (array('now' => false, 'before' => true) as $k => $prev) {
             $c = $creator_id > 0 ? ' AND creator_id = ' . (int) $creator_id : '';
             $rows = parent::select(
-                "SELECT name, COUNT(*) AS n, COUNT(DISTINCT user_id) AS accounts, COALESCE(SUM(value_cents), 0) AS value_cents
-                 FROM analytics_events WHERE kind = 'event' AND " . $this->window($days, $prev) . "$c GROUP BY name ORDER BY n DESC");
+                "SELECT " . self::EVENT_NAME . " AS name, COUNT(*) AS n, COUNT(DISTINCT user_id) AS accounts, COALESCE(SUM(value_cents), 0) AS value_cents
+                 FROM analytics_events WHERE kind = 'event' AND " . $this->window($days, $prev) . "$c GROUP BY 1 ORDER BY n DESC");
             foreach ($rows as $r) { $out[$r['name']][$k] = array('n' => (int) $r['n'], 'accounts' => (int) $r['accounts'], 'value_cents' => (int) $r['value_cents']); }
         }
         foreach ($out as $name => &$v) { $v += array('now' => array('n' => 0, 'accounts' => 0, 'value_cents' => 0), 'before' => array('n' => 0, 'accounts' => 0, 'value_cents' => 0)); }
@@ -153,7 +165,7 @@ class SiteAnalyticsModel extends Model {
     /** Events per day for one name (sparklines on the Product view). */
     public function events_daily($days, $creator_id = 0){
         $days = max(1, min(366, (int) $days)); $c = $creator_id > 0 ? ' AND creator_id = ' . (int) $creator_id : '';
-        $rows = parent::select("SELECT name, DATE(ts) AS day, COUNT(*) AS n FROM analytics_events WHERE kind = 'event' AND " . $this->window($days) . "$c GROUP BY name, DATE(ts)");
+        $rows = parent::select("SELECT " . self::EVENT_NAME . " AS name, DATE(ts) AS day, COUNT(*) AS n FROM analytics_events WHERE kind = 'event' AND " . $this->window($days) . "$c GROUP BY 1, DATE(ts)");
         $by = array(); foreach ($rows as $r) { $by[$r['name']][$r['day']] = (int) $r['n']; }
         $out = array();
         foreach ($by as $name => $d) { $s = array(); for ($i = $days - 1; $i >= 0; $i--) { $day = gmdate('Y-m-d', strtotime("-$i day")); $s[] = $d[$day] ?? 0; } $out[$name] = $s; }
