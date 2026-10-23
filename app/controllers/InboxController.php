@@ -48,6 +48,9 @@ class InboxController extends Controller {
             'wallet_url'     => '/account/settings?section=wallet',
         ), $init));
         $this->view->is_creator = $is_creator;
+        // Admins: replies to Creator Link Studio are answered in the team inbox, so this page points there when any are unread
+        $this->view->team_unread = 0;
+        if (Permissions::is_admin()) { try { $this->view->team_unread = (new MessagesModel())->total_unread(PlatformAccount::ID); } catch (\Throwable $e) {} }
         $this->view->render();
     }
 

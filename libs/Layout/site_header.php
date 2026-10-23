@@ -73,8 +73,8 @@
             <?php endif; ?>
             <?php endif; ?>
             <a href="/purchases" class="app-nav-item<?php echo ($this->controller === 'purchases' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-bag-shopping"></i> Purchases</a>
-            <?php if (Permissions::is_admin()): ?>
-            <a href="/admin" class="app-nav-item<?php echo ($this->controller === 'admin' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-shield-halved"></i> Admin</a>
+            <?php if (Permissions::is_admin()): $cls_team_unread = 0; try { $cls_team_unread = (new MessagesModel())->total_unread(PlatformAccount::ID); } catch (\Throwable $e) {} ?>
+            <a href="/admin" class="app-nav-item<?php echo ($this->controller === 'admin' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-shield-halved"></i> Admin<?php if ($cls_team_unread > 0): ?> <span class="app-nav__badge" title="Unread replies to Creator Link Studio"><?php echo $cls_team_unread > 99 ? '99+' : (int) $cls_team_unread; ?></span><?php endif; ?></a>
             <?php endif; ?>
         </nav>
         <span class="app-sidebar__spacer"></span>

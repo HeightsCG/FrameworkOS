@@ -1,4 +1,7 @@
 <link rel="stylesheet" href="/css/inbox.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/inbox.css'); ?>">
+<?php if ((int) ($this->team_unread ?? 0) > 0): $tu = (int) $this->team_unread; ?>
+<a class="ibx-team" href="/admin/messages"><i class="fa-solid fa-bullhorn" aria-hidden="true"></i><span><b><?php echo $tu; ?> new <?php echo $tu === 1 ? 'reply' : 'replies'; ?> to Creator Link Studio.</b> Replies to the team are answered in the team inbox.</span><span class="ibx-team__go">Open Team Inbox <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span></a>
+<?php endif; ?>
 <div class="ibx" id="ibx" data-init="<?php echo htmlspecialchars((string) $this->init, ENT_QUOTES, 'UTF-8'); ?>">
 
     <aside class="ibx__list" id="ibxList">
