@@ -119,6 +119,13 @@ class BillingChargesModel extends Model {
         return is_array($r) && count($r) === 1 && (int) $r[0]['trials'] > 0 && (int) $r[0]['paid'] === 0;
     }
 
+    /** No paid subscribe/upgrade/renewal succeeded before this charge: it is the account's first real plan payment (ReferralRewards). */
+    public function first_paid_plan_charge($user_id, $charge_id){
+        $r = parent::select("SELECT COUNT(*) AS n FROM billing_charges WHERE user_id = :u AND status = 'succeeded' AND amount_cents > 0
+             AND kind IN ('subscribe', 'upgrade', 'renewal') AND id < :c", array('u' => (int) $user_id, 'c' => (int) $charge_id));
+        return is_array($r) && count($r) === 1 && (int) $r[0]['n'] === 0;
+    }
+
     /** An unfinished charge that needs the user to authenticate, newest first. */
     public function awaiting_action($user_id){
         $r = parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND status = 'requires_action' ORDER BY id DESC LIMIT 1", array('u' => (int) $user_id));

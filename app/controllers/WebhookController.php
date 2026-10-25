@@ -430,6 +430,7 @@ class WebhookController extends Controller {
         $pi = is_object($obj->payment_intent ?? null) ? (string) $obj->payment_intent->id : (string) ($obj->payment_intent ?? '');
         // a refund takes back its refunded share (amount_refunded is the running total); a dispute its disputed amount
         $taken = ((string) ($obj->object ?? '') === 'dispute') ? (int) ($obj->amount ?? 0) : (isset($obj->amount_refunded) ? (int) $obj->amount_refunded : null);
+        ReferralRewards::on_reverse($pi);   // the referring creator's AI credit reward goes back too (once)
         if (!Affiliates::on_reverse($pi, $taken ?: null)) {
             error_log('[stripe webhook] affiliate reverse: lock busy for ' . $pi . ', asking for a retry');
             http_response_code(500);

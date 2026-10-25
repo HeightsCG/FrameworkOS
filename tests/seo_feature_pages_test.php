@@ -1,12 +1,13 @@
 <?php
-// Feature-template pages (FeaturePages::PAGES under /features, FeaturePages::ROOT at the root) and /compare/eromify:
+// Feature-template pages (FeaturePages::PAGES under /features, FeaturePages::ROOT at the root, NichePages under /for) and /compare/eromify:
 // 200, one H1, title <= 65 and description <= 160 chars, self canonical, FAQPage JSON-LD that parses, no dashes;
 // the renamed page 301s; /features and the sitemap list every page.
 $base = getenv('SEO_TEST_BASE') ?: 'http://framework.contentos.cvk';
 $fail = 0; function check($l, $c) { global $fail; echo ($c ? 'ok   ' : 'FAIL ') . $l . "\n"; if (!$c) { $fail++; } }
 function fetch($u) { $ch = curl_init($u); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 15)); $b = (string) curl_exec($ch); $c = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); $r = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL); curl_close($ch); return array($c, $b, $r); }
 $paths = array('/features/ai-influencer', '/features/dm-agent', '/features/payouts', '/features/memberships', '/features/pay-per-view', '/features/link-in-bio',
-    '/features/publishing', '/features/services-and-events', '/features/custom-domains', '/lora-character-training', '/consistent-ai-model-face', '/ai-ofm-tools', '/compare/eromify');
+    '/features/publishing', '/features/services-and-events', '/features/custom-domains', '/lora-character-training', '/consistent-ai-model-face', '/ai-ofm-tools', '/compare/eromify',
+    '/for/fitness-coaches', '/for/musicians', '/for/coaches', '/for/photographers', '/for/travel-creators');   // NichePages (2026-10-24)
 foreach ($paths as $p) {
     list($c, $b) = fetch($base . $p);
     $title = preg_match('/<title>([^<]*)<\/title>/', $b, $m) ? html_entity_decode($m[1], ENT_QUOTES, 'UTF-8') : '';
@@ -21,7 +22,7 @@ foreach ($paths as $p) {
 }
 list($c, $b, $r) = fetch($base . '/features/character-generation');
 check('/features/character-generation 301 to /features/ai-influencer', $c === 301 && $r === $base . '/features/ai-influencer');
-foreach (array('/lora-character-training/x', '/consistent-ai-model-face/x', '/features/character-generation/x', '/compare/Eromify') as $p) { list($c) = fetch($base . $p); check("$p 404", $c === 404); }
+foreach (array('/lora-character-training/x', '/consistent-ai-model-face/x', '/features/character-generation/x', '/compare/Eromify', '/for', '/for/musicians/x', '/for/Musicians', '/for/nope') as $p) { list($c) = fetch($base . $p); check("$p 404", $c === 404); }
 list($c, $b) = fetch($base . '/features');
 list($sc, $sitemap) = fetch($base . '/sitemap.xml');
 foreach ($paths as $p) {

@@ -35,7 +35,12 @@ class FeaturePages {
 
     /** The visual for one page as trusted HTML, or ''. */
     public static function visual(string $slug): string {
-        $l = self::LOOK[$slug] ?? array(); $v = (string) ($l['visual'] ?? '');
+        return self::visual_from(self::LOOK[$slug] ?? array());
+    }
+
+    /** The visual for one LOOK entry (also NichePages::LOOK). */
+    public static function visual_from(array $l): string {
+        $v = (string) ($l['visual'] ?? '');
         if ($v === '') { return ''; }
         list($kind, $arg) = array_pad(explode(':', $v, 2), 2, '');
         if ($kind === 'ui') { return Sections::ui($arg); }

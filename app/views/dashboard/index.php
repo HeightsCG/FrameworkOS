@@ -361,6 +361,11 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                     <span class="dash__stat-value"><?php echo $fmt_num($ref['signups'] ?? 0); ?></span>
                     <span class="dash__stat-sub"><?php echo $fmt_num($ref['signups'] ?? 0); ?> signed up, <?php echo $fmt_num($ref['paid'] ?? 0); ?> on a paid plan</span>
                 </div>
+                <div class="dash__stat">
+                    <span class="dash__stat-label">AI Credits Earned</span>
+                    <span class="dash__stat-value"><?php echo $fmt_num($ref['credits'] ?? 0); ?></span>
+                    <span class="dash__stat-sub"><?php echo (int) ReferralRewards::CREDITS; ?> for each signup that starts a paid plan</span>
+                </div>
             </div>
         </div>
 

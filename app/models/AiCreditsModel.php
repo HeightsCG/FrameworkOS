@@ -242,6 +242,42 @@ class AiCreditsModel extends Model {
         }
     }
 
+    /** The ledger row written under a key (stored in stripe_payment_intent_id, which is unique), or null. */
+    public function row_by_key($key){
+        $r = parent::select("SELECT * FROM ai_credit_transactions WHERE stripe_payment_intent_id = :k LIMIT 1", array('k' => (string) $key));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** Add $credits once per $key (named lock + the unique key). Returns true when this call added them. */
+    public function grant_once($user_id, $credits, $type, $key, $description){
+        $lock = 'ai_key:' . substr(md5((string) $key), 0, 24);
+        if (!$this->named_lock($lock, 5)) { return false; }
+        try {
+            if ($this->has_payment_intent($key)) { return false; }
+            return $this->apply_delta($user_id, (int) $credits, $type, $description, null, (string) $key) !== false;
+        } finally {
+            $this->named_unlock($lock);
+        }
+    }
+
+    /**
+     * Take back up to $credits once per $key, never below zero: what the balance can cover is taken, and a 0-credit
+     * row marks the key settled when nothing was left. Returns the credits taken, or -1 when the key was already settled.
+     */
+    public function take_back_once($user_id, $credits, $type, $key, $description){
+        $lock = 'ai_key:' . substr(md5((string) $key), 0, 24);
+        if (!$this->named_lock($lock, 5)) { return -1; }
+        try {
+            if ($this->has_payment_intent($key)) { return -1; }
+            $take = min(max(0, (int) $credits), (int) $this->get_balance($user_id));
+            if ($take > 0 && $this->apply_delta($user_id, -$take, $type, $description, null, (string) $key) !== false) { return $take; }
+            $this->ledger($user_id, $type, 0, (int) $this->get_balance($user_id), $description, null, (string) $key);
+            return 0;
+        } finally {
+            $this->named_unlock($lock);
+        }
+    }
+
     /** The two buckets and the rest, for the billing page. */
     public function buckets($user_id){
         $r = parent::select("SELECT ai_credit_balance, ai_credits_plan, ai_credits_pack FROM user_accounts WHERE user_id = :u", array('u' => (int) $user_id));

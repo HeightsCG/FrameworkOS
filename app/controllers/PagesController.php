@@ -18,6 +18,7 @@ class PagesController extends Controller {
         'lora-character-training'             => 'rootFeature',   // keyword pages on the feature template (FeaturePages::ROOT)
         'consistent-ai-model-face'            => 'rootFeature',
         'ai-ofm-tools'                        => 'rootFeature',
+        'for'                                 => 'forNiche',   // /for/<niche> landing pages (NichePages) on the feature template
         'pricing'                             => 'pricing',
         'compare'                              => 'compare',
         'best-creator-monetization-platforms' => 'bestPlatforms',
@@ -301,6 +302,11 @@ class PagesController extends Controller {
         return self::fill_feature_text(FeaturePages::ROOT);
     }
 
+    /** Niche landing pages under /for/<slug> (NichePages::PAGES). */
+    public static function niche_pages(): array {
+        return self::fill_feature_text(NichePages::PAGES);
+    }
+
     /** Said wherever plan prices or credit purchases are mentioned. */
     /** The one description of the Free plan (2026-10-13): the pricing page says it in these words wherever Free is described, and so do the home FAQ and the fee sentence. */
     const FREE_LINE = 'Free is the account everyone starts with: it costs nothing and needs no card. Fans follow, join and buy on it, and creators build their page and drafts on it. Publishing and selling start on Creator or Studio.';
@@ -338,7 +344,7 @@ class PagesController extends Controller {
     }
 
     /** One feature-template page: FAQ + breadcrumb markup, related cards (the page's 'related' slugs, else every other page). */
-    private function render_feature(array $page, string $slug, string $path, array $crumbs){
+    private function render_feature(array $page, string $slug, string $path, array $crumbs, ?array $look = null){
         $all = array();
         foreach (self::feature_pages() as $k => $p) { $p['path'] = '/features/' . $k; $all[$k] = $p; }
         foreach (self::root_feature_pages() as $k => $p) { $p['path'] = '/' . $k; $all[$k] = $p; }
@@ -346,11 +352,25 @@ class PagesController extends Controller {
         foreach ((array) ($page['related'] ?? array_keys($all)) as $k) { if ($k !== $slug && isset($all[$k])) { $siblings[$k] = $all[$k]; } }
         $jsonld = array(SeoMeta::faq((array) ($page['faq'] ?? array())), SeoMeta::breadcrumbs($crumbs));
         $cta = (array) ($page['cta'] ?? array());
-        $look = FeaturePages::LOOK[$slug] ?? array();
+        $look = $look ?? (FeaturePages::LOOK[$slug] ?? array());
         $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld,
                 'hero_photo' => (string) ($look['photo'] ?? ''), 'hero_sizes' => ($look['variant'] ?? 'split') === 'split' ? '(max-width: 760px) 100vw, 52vw' : '100vw'),
-            array('page' => $page, 'slug' => $slug, 'path' => $path, 'siblings' => $siblings,
+            array('page' => $page, 'slug' => $slug, 'path' => $path, 'siblings' => $siblings, 'look' => $look,
                   'cta_title' => $cta['title'] ?? 'Start selling from one page.', 'cta_text' => $cta['text'] ?? ''));
+    }
+
+    /** /for/<niche> (NichePages). There is no /for index: the pages are linked from the footer and the feature pages they name. */
+    public function forNicheAction(){
+        $url = Main::get_url();
+        $raw = (string) ($url[1] ?? '');
+        $slug = strtolower(preg_replace('/[^a-z0-9-]/i', '', $raw));
+        $pages = self::niche_pages();
+        if (count($url) !== 2 || $slug !== $raw || !isset($pages[$slug])) { Errors::page_not_found(); return; }
+        $page = $pages[$slug];
+        $this->render_feature($page, $slug, '/for/' . $slug, array(
+            array('name' => 'Home', 'url' => '/'),
+            array('name' => 'For ' . lcfirst((string) $page['nav_title']), 'url' => '/for/' . $slug),
+        ), NichePages::LOOK[$slug] ?? array());
     }
 
     /** /lora-character-training, /consistent-ai-model-face, /ai-ofm-tools. */

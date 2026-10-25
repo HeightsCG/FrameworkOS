@@ -35,7 +35,7 @@ class ApiRoutes {
         ],
         'ApiCreatorStudioController' => [
             'heartbeat', 'set_timezone', 'save_creator_profile', 'save_directory_listing', 'generate_brand_identity', 'save_brand_identity', 'upload_creator_image',
-            'remove_creator_image', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'tracking_link_save', 'tracking_link_delete', 'save_creator_plan',
+            'remove_creator_image', 'import_page_read', 'import_page_apply', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'tracking_link_save', 'tracking_link_delete', 'save_creator_plan',
             'delete_creator_plan', 'toggle_creator_plan', 'reorder_creator_plans', 'save_promo_code', 'toggle_promo_code', 'delete_promo_code',
             'promo_preview', 'save_bundle', 'toggle_bundle', 'delete_bundle', 'scheduler_list', 'scheduler_save',
             'scheduler_toggle', 'scheduler_delete', 'scheduler_run_now', 'scheduler_run_status', 'post_save', 'post_get', 'post_caption_auto',

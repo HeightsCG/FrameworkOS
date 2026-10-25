@@ -266,6 +266,14 @@
                     </div>
                     <?php endif; ?>
 
+                    <?php if (empty($cp['avatar_url']) || empty($this->creator_links)): /* a new page: offer to bring the old one over */ ?>
+                    <div class="cprofile__verify cprofile__verify--none" id="import_strip">
+                        <span class="cprofile__verify-ic"><i class="fa-solid fa-file-import"></i></span>
+                        <div class="cprofile__verify-txt"><strong>Moving from Linktree, Beacons or Stan?</strong><span>Bring over your photo, name, bio and links in one step.</span></div>
+                        <button type="button" class="btn btn-secondary imp-open">Import Your Page</button>
+                    </div>
+                    <?php endif; ?>
+
                     <div class="cprofile__field">
                         <label>Cover Image</label>
                         <div class="cprofile__cover" id="cover_preview" style="<?php echo !empty($cp['cover_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['cover_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
@@ -312,7 +320,10 @@
 
                     <div class="cprofile__subhead">
                         <h3 class="cprofile__subtitle">Links</h3>
-                        <button type="button" class="btn btn-secondary" id="link_add_btn"><i class="fa-solid fa-plus"></i> Add Link</button>
+                        <div class="cprofile__subhead-actions">
+                            <button type="button" class="btn btn-secondary imp-open"><i class="fa-solid fa-file-import"></i> Import Page</button>
+                            <button type="button" class="btn btn-secondary" id="link_add_btn"><i class="fa-solid fa-plus"></i> Add Link</button>
+                        </div>
                     </div>
                     <div class="links-list" id="links_list">
                         <?php foreach ($this->creator_links as $lnk): ?>
@@ -1252,6 +1263,53 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="link_save">Save Link</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="import_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import Your Page</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="imp-pane" id="imp_pane_url">
+                    <div class="link-field">
+                        <label for="imp_url">Page Address</label>
+                        <input type="text" class="form-control" id="imp_url" placeholder="linktr.ee/yourname" autocomplete="off">
+                    </div>
+                    <p class="imp-sources"><button type="button" class="imp-switch" id="imp_to_paste">Paste Links Instead</button></p>
+                </div>
+                <div class="imp-pane" id="imp_pane_paste" hidden>
+                    <p class="imp-error" id="imp_error" hidden><i class="fa-solid fa-circle-exclamation"></i><span></span></p>
+                    <div class="link-field">
+                        <label for="imp_pasted">Links</label>
+                        <textarea class="form-control" id="imp_pasted" rows="7" placeholder="Instagram https://instagram.com/yourname&#10;https://yourshop.com"></textarea>
+                    </div>
+                    <p class="imp-sources"><button type="button" class="imp-switch" id="imp_to_url">Read a Page Address Instead</button></p>
+                </div>
+                <div class="imp-pane" id="imp_pane_review" hidden>
+                    <p class="imp-from" id="imp_from"></p>
+                    <div class="imp-group" id="imp_profile_group">
+                        <h6 class="imp-group__title">Profile</h6>
+                        <label class="imp-row" id="imp_row_avatar"><input type="checkbox" class="form-check-input" id="imp_take_avatar" checked><span class="imp-row__thumb" id="imp_avatar"></span><span class="imp-row__body"><span class="imp-row__title">Profile Photo</span><span class="imp-row__sub">Replaces your current photo</span></span></label>
+                        <label class="imp-row" id="imp_row_name"><input type="checkbox" class="form-check-input" id="imp_take_name" checked><span class="imp-row__body"><span class="imp-row__title">Display Name</span><span class="imp-row__sub" id="imp_name"></span></span></label>
+                        <label class="imp-row" id="imp_row_bio"><input type="checkbox" class="form-check-input" id="imp_take_bio" checked><span class="imp-row__body"><span class="imp-row__title">Bio</span><span class="imp-row__sub imp-row__sub--wrap" id="imp_bio"></span></span></label>
+                    </div>
+                    <div class="imp-group" id="imp_links_group">
+                        <div class="imp-group__head"><h6 class="imp-group__title">Links <span id="imp_links_count"></span></h6><button type="button" class="imp-switch" id="imp_toggle_links">Clear All</button></div>
+                        <div id="imp_links"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="imp_back" hidden>Back</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="imp_cancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="imp_read">Read Page</button>
+                <button type="button" class="btn btn-primary" id="imp_apply" hidden>Import Selected</button>
             </div>
         </div>
     </div>
@@ -2768,6 +2826,127 @@ $(function () {
             if ($('#links_list .link-row').length === 0) { $('#links_empty').removeAttr('hidden'); }
         });
     });
+
+    /* ---- import your page (Linktree, Beacons, Stan, or pasted links) ---- */
+    var imp_page = null;
+
+    function imp_show(pane) {
+        $('#imp_pane_url').prop('hidden', pane !== 'url');
+        $('#imp_pane_paste').prop('hidden', pane !== 'paste');
+        $('#imp_pane_review').prop('hidden', pane !== 'review');
+        $('#imp_read').prop('hidden', pane === 'review').text(pane === 'paste' ? 'Read Links' : 'Read Page');
+        $('#imp_apply').prop('hidden', pane !== 'review');
+        $('#imp_back').prop('hidden', pane !== 'review');
+        $('#imp_cancel').prop('hidden', pane === 'review');
+    }
+
+    function imp_error(message) {
+        $('#imp_error').prop('hidden', message == '').find('span').text(message);
+    }
+
+    function imp_links_count() {
+        var total = $('#imp_links .imp-link:not(:disabled)').length;
+        var on = $('#imp_links .imp-link:checked:not(:disabled)').length;
+        $('#imp_links_count').text(total > 0 ? '(' + on + ' of ' + total + ')' : '');
+        $('#imp_toggle_links').prop('hidden', total === 0).text(on > 0 ? 'Clear All' : 'Select All');
+    }
+
+    function imp_review(page, existing) {
+        imp_page = page;
+        var names = { linktree: 'Linktree', beacons: 'Beacons', stan: 'Stan', page: '', pasted: '' };
+        $('#imp_from').text(page.source == 'pasted' ? 'From the links you pasted' : 'From ' + (names[page.source] ? names[page.source] + ': ' : '') + page.url);
+        $('#imp_row_avatar').prop('hidden', page.avatar == '');
+        $('#imp_avatar').css('background-image', page.avatar == '' ? 'none' : 'url("' + String(page.avatar).replace(/["\\]/g, '') + '")');
+        $('#imp_row_name').prop('hidden', page.name == '');
+        $('#imp_name').text(page.name);
+        $('#imp_row_bio').prop('hidden', page.bio == '');
+        $('#imp_bio').text(page.bio);
+        $('#imp_take_avatar, #imp_take_name, #imp_take_bio').prop('checked', true);
+        $('#imp_profile_group').prop('hidden', page.avatar == '' && page.name == '' && page.bio == '');
+
+        var html = '';
+        $.each(page.links, function (i, l) {
+            var key = String(l.url).replace(/^https?:\/\/(www\.)?/i, '').replace(/\/+$/, '').toLowerCase();
+            var have = existing.indexOf(key) !== -1;
+            html += '<label class="imp-row' + (have ? ' is-disabled' : '') + '">'
+                + '<input type="checkbox" class="form-check-input imp-link" data-i="' + i + '"' + (have ? ' disabled' : ' checked') + '>'
+                + '<span class="imp-row__body"><span class="imp-row__title">' + escapeHtml(l.title) + '</span>'
+                + '<span class="imp-row__sub">' + escapeHtml(l.url) + '</span></span>'
+                + (have ? '<span class="imp-row__tag">Already Added</span>' : '')
+                + '</label>';
+        });
+        $('#imp_links').html(html);
+        $('#imp_links_group').prop('hidden', page.links.length === 0);
+        imp_links_count();
+        imp_show('review');
+    }
+
+    function imp_open() {
+        imp_page = null;
+        $('#imp_url').val('');
+        $('#imp_pasted').val('');
+        imp_error('');
+        imp_show('url');
+        $('#import_modal').modal('show');
+    }
+
+    $(document).on('click', '.imp-open', imp_open);
+    $('#import_modal').on('shown.bs.modal', function () { if (!$('#imp_pane_url').prop('hidden')) { $('#imp_url').trigger('focus'); } });
+    $('#imp_to_paste').on('click', function () { imp_error(''); imp_show('paste'); $('#imp_pasted').trigger('focus'); });
+    $('#imp_to_url').on('click', function () { imp_show('url'); $('#imp_url').trigger('focus'); });
+    $('#imp_back').on('click', function () { imp_show(imp_page && imp_page.source == 'pasted' ? 'paste' : 'url'); });
+    $('#imp_url').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#imp_read').trigger('click'); } });
+    $('#imp_links').on('change', '.imp-link', imp_links_count);
+    $('#imp_toggle_links').on('click', function () {
+        var on = $('#imp_links .imp-link:checked:not(:disabled)').length > 0;
+        $('#imp_links .imp-link:not(:disabled)').prop('checked', !on);
+        imp_links_count();
+    });
+
+    $('#imp_read').on('click', function () {
+        var pasting = !$('#imp_pane_paste').prop('hidden');
+        var body = {};
+        if (pasting) {
+            if ($('#imp_pasted').val().trim() == '') { toastr.error('Paste at least one link'); return; }
+            body.pasted = $('#imp_pasted').val();
+        } else {
+            if ($('#imp_url').val().trim() == '') { toastr.error('Enter your page address'); return; }
+            body.url = $('#imp_url').val().trim();
+        }
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'import_page_read', body, function (data) {
+            $btn.prop('disabled', false);
+            var o = JSON.parse(data);
+            if (o.success) { imp_review(o.page, o.existing || []); return; }
+            if (pasting) { toastr.error(o.message); return; }
+            // the page could not be read: say why and offer the paste box
+            imp_error(o.message + ' Paste your links below instead.');
+            imp_show('paste');
+            $('#imp_pasted').trigger('focus');
+        });
+    });
+
+    $('#imp_apply').on('click', function () {
+        if (!imp_page) { return; }
+        var links = [];
+        $('#imp_links .imp-link:checked:not(:disabled)').each(function () { links.push(imp_page.links[$(this).data('i')]); });
+        var body = {
+            name: !$('#imp_row_name').prop('hidden') && $('#imp_take_name').prop('checked') ? imp_page.name : '',
+            bio: !$('#imp_row_bio').prop('hidden') && $('#imp_take_bio').prop('checked') ? imp_page.bio : '',
+            avatar: !$('#imp_row_avatar').prop('hidden') && $('#imp_take_avatar').prop('checked') ? imp_page.avatar : '',
+            links_json: JSON.stringify(links)
+        };
+        if (body.name == '' && body.bio == '' && body.avatar == '' && links.length === 0) { toastr.error('Select something to import'); return; }
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'import_page_apply', body, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { $btn.prop('disabled', false); toastr.error(o.message); return; }
+            if (o.photo_error) { toastr.warning(o.message); } else { toastr.success(o.message); }
+            setTimeout(function () { window.location.href = '/account/settings?section=creator'; }, 900);
+        });
+    });
+
+    if (params.get('import') === '1' && $('.imp-open').length) { imp_open(); }
 
     /* ---- membership plans ---- */
     function intervalAbbr(interval) { return interval === 'year' ? 'yr' : (interval === 'week' ? 'wk' : 'mo'); }

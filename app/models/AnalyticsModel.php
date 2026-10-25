@@ -535,7 +535,9 @@ class AnalyticsModel extends Model {
              FROM user_accounts u WHERE u.referred_by_creator_id = :c AND u.deleted = 0 AND u.is_demo = 0",
             array('c' => (int) $creator_id));
         $r = (is_array($r) && count($r)) ? $r[0] : array();
-        return array('signups' => (int) ($r['n'] ?? 0), 'paid' => (int) ($r['paid'] ?? 0));
+        $c = parent::select("SELECT COALESCE(SUM(credits), 0) AS n FROM ai_credit_transactions WHERE user_id = :c AND type IN ('referral_reward', 'referral_reversal')",
+            array('c' => (int) $creator_id));   // ReferralRewards, net of reversals
+        return array('signups' => (int) ($r['n'] ?? 0), 'paid' => (int) ($r['paid'] ?? 0), 'credits' => (is_array($c) && count($c)) ? (int) $c[0]['n'] : 0);
     }
 
     /** Paying-customer metrics across all offerings: distinct buyers, repeat rate, avg spend. */

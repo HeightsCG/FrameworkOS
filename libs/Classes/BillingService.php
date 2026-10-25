@@ -390,6 +390,9 @@ class BillingService {
         // --- affiliates: a paid plan charge of a referred account earns its approved affiliate a commission (Affiliates) ---
         Affiliates::on_charge($row);
         // --- end affiliates ---
+        // --- referral reward: the first paid plan charge of an account referred from a creator's page earns that creator AI credits ---
+        ReferralRewards::on_charge($row);
+        // --- end referral reward ---
         self::mirror($uid);
         if ((string) $row['kind'] === 'subscribe') { DirectoryService::list_on_upgrade($uid); }   // Free to a paid plan: listed in /creators by default
         if (!empty($fx['agreement']['version'])) {   // the Creator Agreement ticked at this checkout: stamp date, version and ip on success

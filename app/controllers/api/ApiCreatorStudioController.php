@@ -192,6 +192,101 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Link saved', 'id' => $id]);
     }
 
+    /** Import Your Page, step 1: read a Linktree/Beacons/Stan (or any) page, or links pasted one per line. Saves nothing. */
+    public function import_page_readAction(){
+        $this->require_creator('content', false);
+        $pasted = (string) ($this->post['pasted'] ?? '');
+        if (trim($pasted) !== '') {
+            $links = ProfileImport::pasted_links($pasted);
+            if (empty($links)) { $this->jsonError('No links found. Put one address on each line.'); }
+            $this->jsonSuccess(['page' => ['source' => 'pasted', 'name' => '', 'bio' => '', 'avatar' => '', 'links' => $links], 'existing' => $this->import_existing_urls()]);
+        }
+        $r = ProfileImport::read((string) ($this->post['url'] ?? ''));
+        if (empty($r['ok'])) {
+            $this->jsonError((string) $r['error'], ['blocked' => !empty($r['blocked'])]);
+        }
+        $this->jsonSuccess(['page' => $r, 'existing' => $this->import_existing_urls()]);
+    }
+
+    /** Import Your Page, step 2: save the pieces the creator ticked (name, bio, photo, links). Links already on the page are skipped. */
+    public function import_page_applyAction(){
+        $this->require_creator('content', false);
+        $user_id = Permissions::creator_id();
+        $plain = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
+        $done = [];
+
+        $profiles = new CreatorProfileModel();
+        $cp = $profiles->get_for_user($user_id);
+        $name = mb_substr($plain('name'), 0, 190);
+        $bio  = mb_substr($plain('bio'), 0, 1000);
+        if ($name !== '' || $bio !== '') {
+            $profiles->save($user_id, [
+                'display_name' => $name !== '' ? $name : html_entity_decode((string) ($cp['display_name'] ?? ''), ENT_QUOTES, 'UTF-8'),
+                'bio'          => $bio !== '' ? $bio : html_entity_decode((string) ($cp['bio'] ?? ''), ENT_QUOTES, 'UTF-8'),
+                'location'     => html_entity_decode((string) ($cp['location'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            ]);
+            if ($name !== '') { $done[] = 'name'; }
+            if ($bio !== '') { $done[] = 'bio'; }
+        }
+
+        $photo_error = '';
+        $avatar = $plain('avatar');
+        if ($avatar !== '') {
+            $tmp = '';
+            try {
+                if (!S3Service::configured()) { throw new RuntimeException('Image uploads are not available right now'); }
+                $img = MediaIngestService::fetch_image($avatar, 5 * 1024 * 1024, 20);
+                $tmp = tempnam(sys_get_temp_dir(), 'imp');
+                file_put_contents($tmp, $img['bytes']);
+                $prep = ProfileImage::prepare($tmp, $img['mime']);   // no EXIF/GPS, and moderated
+                if (!$prep['ok']) { throw new RuntimeException((string) $prep['error']); }
+                $url = S3Service::upload_file('creator/u' . $user_id . '_avatar_' . bin2hex(random_bytes(8)) . '.' . $img['ext'], $prep['path'], $img['mime']);
+                if ($url === '') { throw new RuntimeException('Could not save the photo'); }
+                $old_webp = (string) ($cp['avatar_webp_url'] ?? '');
+                $profiles->set_image($user_id, 'avatar_url', $url);
+                PublicThumbService::profile_image($user_id, 'avatar', $url, $old_webp);
+                $done[] = 'photo';
+            } catch (\Throwable $e) {
+                $photo_error = $e->getMessage();
+            } finally {
+                if ($tmp !== '' && is_file($tmp)) { @unlink($tmp); }
+            }
+        }
+
+        $links = json_decode(html_entity_decode((string) ($this->post['links_json'] ?? ''), ENT_QUOTES, 'UTF-8'), true);
+        $added = 0;
+        if (is_array($links)) {
+            $have = $this->import_existing_urls();
+            $model = new CreatorLinksModel();
+            foreach (array_slice($links, 0, ProfileImport::MAX_LINKS) as $l) {
+                $title = mb_substr(trim((string) ($l['title'] ?? '')), 0, 120);
+                $url = trim((string) ($l['url'] ?? ''));
+                if ($title === '' || !filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) { continue; }
+                $k = self::import_url_key($url);
+                if (in_array($k, $have, true)) { continue; }
+                $model->add($user_id, $title, $url);
+                $have[] = $k;
+                $added++;
+            }
+        }
+        if ($added > 0) { $done[] = $added . ($added === 1 ? ' link' : ' links'); }
+
+        if (!empty($done)) { try { IndexNow::creator((int) $user_id); } catch (\Throwable $e) { error_log('[indexnow] import: ' . $e->getMessage()); } }
+        if (empty($done)) { $this->jsonError($photo_error !== '' ? 'The photo could not be imported: ' . $photo_error : 'Nothing new to import.'); }
+        $this->jsonSuccess(['message' => 'Imported ' . implode(', ', $done) . ($photo_error !== '' ? '. The photo could not be imported: ' . $photo_error : ''), 'photo_error' => $photo_error]);
+    }
+
+    /** Addresses already on this creator's page, normalized for the import duplicate check. */
+    private function import_existing_urls(){
+        $keys = [];
+        foreach ((array) (new CreatorLinksModel())->get_for_user(Permissions::creator_id()) as $l) { $keys[] = self::import_url_key((string) $l['url']); }
+        return $keys;
+    }
+
+    private static function import_url_key($url){
+        return strtolower(rtrim(preg_replace('#^https?://(www\.)?#i', '', trim($url)), '/'));
+    }
+
     public function delete_creator_linkAction(){
         $this->require_creator('content', false);
         $id = (int) ($this->post['id'] ?? 0);

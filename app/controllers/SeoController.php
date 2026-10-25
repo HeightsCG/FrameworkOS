@@ -133,6 +133,9 @@ class SeoController extends Controller {
         foreach (PagesController::root_feature_pages() as $slug => $f) {   // /lora-character-training ... (same template)
             $pages[] = array('path' => '/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
         }
+        foreach (PagesController::niche_pages() as $slug => $f) {   // /for/<niche> (NichePages, same template)
+            $pages[] = array('path' => '/for/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
+        }
         $checked = '';   // the newest "facts checked" date across the compare pages dates the best-of page too
         foreach (PagesController::COMPETITORS as $slug => $c) {
             if (isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? ''])) { $checked = max($checked, (string) ($c['checked'] ?? '')); }   // only competitors listed on the best-of page

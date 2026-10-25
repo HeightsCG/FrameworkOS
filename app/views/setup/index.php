@@ -34,6 +34,9 @@ $n = 0;
                 <span class="setup__name"><?php echo $e($s['title']); ?></span>
                 <span class="setup__text"><?php echo $s['done'] ? 'Done' . ($fmt($s['done_at']) !== '' ? ' · ' . $e($fmt($s['done_at'])) : '') : (!empty($s['skipped']) ? 'Skipped · ' . $e($s['text']) : $e($s['text'])); ?></span>
             </span>
+            <?php if (!$s['done'] && $s['key'] === 'profile'): /* bring an existing Linktree/Beacons/Stan page over (Settings import dialog) */ ?>
+            <a class="btn btn-secondary setup__cta" href="/account/settings?section=creator&amp;import=1">Import From Linktree</a>
+            <?php endif; ?>
             <?php if (!$s['done']): ?>
             <a class="btn <?php echo $is_next ? 'btn-primary' : 'btn-secondary'; ?> setup__cta" href="<?php echo $e($s['url']); ?>"><?php echo $e($s['cta']); ?></a>
             <?php endif; ?>

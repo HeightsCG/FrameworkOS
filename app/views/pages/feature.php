@@ -5,7 +5,7 @@
  */
 $site = Main::site_name();
 $hero = (array) ($page['hero'] ?? array());
-$look = FeaturePages::LOOK[$slug] ?? array();   // photo, hero layout and the row visual (site-wide redesign 2026-10-15)
+$look = isset($look) && is_array($look) ? $look : (FeaturePages::LOOK[$slug] ?? array());   // photo, hero layout and the row visual (site-wide redesign 2026-10-15); /for pages pass NichePages::LOOK
 echo Sections::panel_hero(array(
     'title'   => $hero['title'] ?? $page['title'],
     'lead'    => $hero['lead'] ?? ($page['description'] ?? ''),
@@ -32,9 +32,9 @@ if ($video !== '') {
 }
 
 if (!empty($page['rows'])) {
-    echo Sections::open('white', 'What do you get with ' . (string) ($page['nav_title'] ?? 'it') . '?');   // a question heading: the answer is the first row below
+    echo Sections::open('white', (string) ($page['rows_title'] ?? 'What do you get with ' . (string) ($page['nav_title'] ?? 'it') . '?'));   // a question heading: the answer is the first row below
     $rows = array_values((array) $page['rows']);
-    $visual = FeaturePages::visual($slug);   // a schematic or a photo set (FeaturePages::LOOK): its row is lifted out and shown beside it, full width
+    $visual = FeaturePages::visual_from($look);   // a schematic or a photo set (FeaturePages::LOOK): its row is lifted out and shown beside it, full width
     $vi = (int) ($look['row'] ?? 0);
     if ($visual !== '' && isset($rows[$vi])) {
         $r = $rows[$vi]; array_splice($rows, $vi, 1);
@@ -50,7 +50,7 @@ if (!empty($page['rows'])) {
 // How to set it up, in order; what the fan sees; what each plan includes for this feature (SEO audit 2026-10-12: these pages were thin).
 if (!empty($page['steps'])) {
     $st = (array) $page['steps']; $last = count($st) - 1;
-    echo Sections::open('alt', 'How do you set up ' . (string) ($page['nav_title'] ?? 'it') . '?');
+    echo Sections::open('alt', (string) ($page['steps_title'] ?? 'How do you set up ' . (string) ($page['nav_title'] ?? 'it') . '?'));
     echo '<ol class="fx-steps' . (count($st) === 3 ? ' fx-steps--3' : '') . '">';
     foreach ($st as $si => $s) { echo '<li' . ($si === $last ? ' class="is-last"' : '') . '><h3>' . Sections::e(($si + 1) . '. ' . $s[0]) . '</h3><p>' . Sections::e($s[1]) . '</p></li>'; }
     echo '</ol>' . Sections::close();

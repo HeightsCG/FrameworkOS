@@ -756,3 +756,4 @@ body.ld-auth-open { overflow: hidden; }
 .sf__bottom { padding-bottom: 24px; font-size: .85rem; color: #5b5b60; }
 .sf__bottom > span { display: block; border-top: 1px solid var(--ld-line); padding-top: 20px; }
 @media (max-width: 900px) { .sf__top { grid-template-columns: 1fr; gap: 32px; } .sf__cols { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 24px; } }
+.sf__h--sub { margin-top: 20px; }

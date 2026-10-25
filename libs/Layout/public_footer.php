@@ -23,6 +23,8 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
                 <div class="sf__col">
                     <p class="sf__h">AI</p>
                     <?php foreach (FeaturePages::FOOTER_AI as $f_slug): ?><a href="<?php echo $fb; ?>/features/<?php echo $fl($f_slug); ?>"><?php echo $fl(FeaturePages::PAGES[$f_slug]['nav_title']); ?></a><?php endforeach; ?><?php foreach (FeaturePages::ROOT as $f_slug => $f): ?><a href="<?php echo $fb; ?>/<?php echo $fl($f_slug); ?>"><?php echo $fl($f['nav_title']); ?></a><?php endforeach; ?>
+                    <p class="sf__h sf__h--sub">Who It's For</p>
+                    <?php foreach (NichePages::PAGES as $n_slug => $n): ?><a href="<?php echo $fb; ?>/for/<?php echo $fl($n_slug); ?>"><?php echo $fl($n['nav_title']); ?></a><?php endforeach; ?>
                 </div>
                 <div class="sf__col">
                     <p class="sf__h">Compare</p>
