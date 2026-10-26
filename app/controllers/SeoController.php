@@ -486,7 +486,8 @@ class SeoController extends Controller {
         $html = preg_replace('/<li[^>]*>/i', "\n- ", $html);
         $html = preg_replace('/<\/dt>/i', ": ", $html);
         $html = preg_replace('/<\/dd>/i', "\n", $html);
-        $html = preg_replace('/<\/(p|li|tr|div)>/i', "\n", $html);
+        $html = preg_replace('/<\/p>/i', "\n\n", $html);   // a paragraph ends with a blank line: in Markdown one newline would join it to the next one
+        $html = preg_replace('/<\/(li|tr|div)>/i', "\n", $html);
         $html = preg_replace('/<\/t[dh]>/i', " | ", $html);
         $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         if (strpos($text, '&#') !== false || strpos($text, '&amp;') !== false) { $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'); }   // stored text that was encoded twice
@@ -496,6 +497,7 @@ class SeoController extends Controller {
             $ln = trim($ln);
             if (strpos($ln, '|') !== false) { $ln = rtrim($ln, ' |'); }   // table rows: no trailing separator
             if ($ln === '-') { continue; }   // empty list items
+            if (preg_match('/^\[[^\]]+\]\([^)\s]+\):? /', $ln)) { $ln = '- ' . $ln; }   // a link card ("[Title](url): text") is a list item, so a run of cards is a list, not one long paragraph
             $lines[] = $ln;
         }
         $text = preg_replace('/^(- .*)\n\n+(?=- )/m', "$1\n", implode("\n", $lines));   // list items stay together
