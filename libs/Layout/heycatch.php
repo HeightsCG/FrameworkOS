@@ -47,9 +47,14 @@ if (!HeyCatch::ENABLED) { return; }
 
       // Business outcomes the browser witnesses, read from successful /api/<action> responses.
       var map = {
-        verify_email: function (o) {   // email confirmed = the sign-up is complete; identify first so the event joins that person
-          if (o.user_id) { analytics.setIdentity(String(o.user_id), o.email ? { email: o.email } : {}); }
+        register: function (o) {   // the account exists and is signed in = the sign-up is complete; identify first so the event joins that person
+          if (!o.user_id) { return null; }   // a re-signup of an unverified address only got a fresh link
+          analytics.setIdentity(String(o.user_id), o.email ? { email: o.email } : {});
           return ['signup_completed', { method: 'email' }];
+        },
+        verify_email: function (o) {   // the email link was clicked (sign-up itself completed at register)
+          if (o.user_id) { analytics.setIdentity(String(o.user_id), o.email ? { email: o.email } : {}); }
+          return ['email_verified', {}];
         },
         logout: function () { analytics.resetIdentity(); return null; },
         become_creator: function () { return ['became_creator', {}]; },

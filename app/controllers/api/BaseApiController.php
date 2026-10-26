@@ -67,6 +67,13 @@ class BaseApiController extends Controller {
         return (int) round((int) $credits * (100 - Plan::fee_percent($row)) / 100);
     }
 
+    /** Payouts (bank setup, cash out, affiliate payouts) need a confirmed email; nothing else does. need_verify lets a page offer Resend Email. */
+    protected function require_verified_email(int $user_id): void{
+        $rows = $this->userModel->get_user_by_id($user_id);
+        if (is_array($rows) && count($rows) === 1 && (int) ($rows[0]['email_verified'] ?? 0) === 1) { return; }
+        $this->jsonError('Confirm your email before setting up payouts. Use Resend Email on your dashboard if the link did not arrive.', ['need_verify' => true]);
+    }
+
     protected function seller_suspended(int $creator_id): bool{
         $rows = $this->userModel->get_user_by_id($creator_id);
         if (!is_array($rows) || count($rows) !== 1 || (string) ($rows[0]['user_status'] ?? '') === 'Disabled') { return true; }

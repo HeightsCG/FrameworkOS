@@ -23,6 +23,17 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         <h1 class="dash__title">Analytics</h1>
         <p class="dash__sub"><?php echo $first_word !== '' ? 'Welcome back, ' . htmlspecialchars($first_word, ENT_QUOTES, 'UTF-8') . '.' : 'Welcome back.'; ?></p>
     </header>
+<?php if ((string) ($this->verify_email ?? '') !== ''): $ve = htmlspecialchars((string) $this->verify_email, ENT_QUOTES, 'UTF-8'); ?>
+    <div class="plan-bar verify-bar" role="status" id="verify_bar">
+        <?php if (!empty($this->verify_bounced)): ?>
+        <p class="plan-bar__text"><i class="fa-solid fa-envelope verify-bar__icon" aria-hidden="true"></i><strong>Confirm your email.</strong> We couldn't deliver email to <?php echo $ve; ?>. Payouts need a confirmed email.</p>
+        <a href="/account/settings?section=account" class="btn btn-secondary plan-bar__btn">Change Email</a>
+        <?php else: ?>
+        <p class="plan-bar__text"><i class="fa-solid fa-envelope verify-bar__icon" aria-hidden="true"></i><strong>Confirm your email.</strong> We sent a link to <?php echo $ve; ?>. Payouts need a confirmed email.</p>
+        <button type="button" class="btn btn-secondary plan-bar__btn" id="verify_resend">Resend Email</button>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 <?php if (!empty($this->needs_plan)): ?>
     <div class="plan-bar" role="status">
         <p class="plan-bar__text"><strong>You're on Free.</strong> Your earnings and history are still here. Choose a plan to create, publish and sell.</p>
@@ -706,3 +717,22 @@ $(function () {
     });
 });
 </script>
+<?php if ((string) ($this->verify_email ?? '') !== ''): ?>
+<script>
+$(document).on('click', '#verify_resend', function () {
+    var $b = $(this).prop('disabled', true).text('Sending…');
+    ApiDataSvc.apiCall('post', 'resend_my_verification', {}, function (data) {
+        var o = null; try { o = JSON.parse(data); } catch (e) {}
+        if (o && o.success && o.verified) { $('#verify_bar').remove(); toastr.success(o.message); return; }
+        if (o && o.success) {
+            toastr.success(o.message);
+            $b.text('Email Sent');
+            setTimeout(function () { $b.text('Resend Email').prop('disabled', false); }, 30000);
+            return;
+        }
+        $b.text('Resend Email').prop('disabled', false);
+        toastr.error(o ? o.message : 'Something went wrong.');
+    });
+});
+</script>
+<?php endif; ?>

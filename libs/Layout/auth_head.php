@@ -289,10 +289,10 @@
             }, function(data) {
                 var obj = JSON.parse(data);
                 if (obj.success) {
-                    if (window.CLSTikTokRegistration) { window.CLSTikTokRegistration(obj.tt_registration); }   // TikTok CompleteRegistration: the account exists (server-confirmed, once)
-                    // Account created but not yet usable: the link in the email signs them in. The check-your-email panel meanwhile.
+                    // New account: signed in already, straight in (TikTok CompleteRegistration fires on the page it lands on). Verification waits on the dashboard.
+                    if (obj.redirect) { setTimeout(function () { window.location = obj.redirect; }, 300); return; }   // a beat for the analytics beacons
+                    // An unverified address signing up again: a fresh link went out, the check-your-email panel says so.
                     show_register_done(String($('#register_user_email').val() || '').trim());
-                    if (obj.email_failed) { toastr.warning(obj.message); }   // the email never left: Resend Email is right there
                 } else {
                     toastr.error(obj.message);
                 }

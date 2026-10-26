@@ -469,6 +469,8 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 .plan-bar__text{ margin:0; font-size:14px; line-height:1.5; color:var(--text); }
 .plan-bar__text strong{ font-weight:600; }
 .plan-bar__btn{ flex:none; }
+.verify-bar{ background:var(--surface); border-color:var(--line); }   /* neutral: the plan bar keeps the orange */
+.verify-bar__icon{ margin-right:8px; color:var(--muted); }
 @media (max-width:640px){ .plan-bar{ flex-direction:column; align-items:flex-start; } }
 
 /* ---------- Phones (shell): everything below only applies at the mobile shell breakpoint ---------- */

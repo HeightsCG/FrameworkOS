@@ -419,7 +419,7 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
                 track('signup_completed', { method: 'email', page: '/start' });
                 track('sign_up', { method: 'email' });   // GA's standard sign-up event, as on every other signup
             }
-            if (window.CLSTikTokRegistration) { window.CLSTikTokRegistration(o.tt_registration); }   // TikTok identify + CompleteRegistration, once, with the server's event id
+            if (o.redirect) { btn.disabled = true; setTimeout(function () { window.location = o.redirect; }, 300); return; }   // signed in: straight to /setup (TikTok CompleteRegistration fires there); a beat for the analytics beacons
             done_email = em;
             document.getElementById('st_done_email').textContent = em;
             var warn = document.getElementById('st_done_warn');

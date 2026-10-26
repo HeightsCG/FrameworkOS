@@ -98,23 +98,34 @@ class ApiAuthController extends BaseApiController {
         try { $this->userModel->start_tt_registration($user_id); }   // the account's one TikTok signup event id (TikTokRegistration)
         catch (\Throwable $e) { error_log('[register] tt registration user_id=' . $user_id . ': ' . $e->getMessage()); }
         Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email'));
-        // TikTok: a creator's CompleteRegistration (pixel payload in tt_registration, server copy queued) or a fan's FanSignup, once
-        $tt_registration = TikTokRegistration::settle($user_id);
-
-        // Email verification is required before the account can sign in.
+        // Verification is not a gate: the link goes out and the new account is signed in now. Only payouts wait on it (require_verified_email).
         $fresh = $this->userModel->get_user_by_id($user_id);   // the row carries signup_founding (trial-focused email)
-        $sent  = LifecycleEmails::send_verify_link(is_array($fresh) && count($fresh) === 1 ? $fresh[0] : array('user_id' => $user_id, 'user_email' => $email, 'u_name' => $u_name), $ip, false);
+        $fresh = is_array($fresh) && count($fresh) === 1 ? $fresh[0] : array('user_id' => $user_id, 'user_email' => $email, 'u_name' => $u_name);
+        $sent  = LifecycleEmails::send_verify_link($fresh, $ip, false);
+        $redirect = $this->sign_in_new_account($fresh);
+        // TikTok: a creator's CompleteRegistration or a fan's FanSignup, once, settled on the page they land on (the pixel needs a page that stays open)
+        TikTokRegistration::settle_on_next_page($user_id);
         if (!$sent) {
             // The account exists but the link never left: tell the user (the panel offers Resend) and the admins.
             error_log('[register] verification email failed for user_id=' . $user_id . ' (' . $email . ')');
             try {
                 Notify::many($this->userModel->admin_ids(), 'system', 'Verification email failed', 'The sign-up email to ' . $email . ' (user #' . $user_id . ') could not be sent.', '/admin/user/' . $user_id, 'fa-envelope');
             } catch (\Throwable $e) { error_log('[register] admin notice: ' . $e->getMessage()); }
-            $this->jsonSuccess(['message' => 'Account created, but we couldn\'t send the verification email. Use Resend Verification to try again.', 'email_failed' => true, 'tt_registration' => $tt_registration]);
+            $this->jsonSuccess(['message' => 'Account created, but we couldn\'t send the verification email. Use Resend Email on your dashboard to try again.', 'email_failed' => true, 'redirect' => $redirect, 'user_id' => $user_id, 'email' => $email]);
         }
 
-        // the account exists: for a creator the page fires the pixel's CompleteRegistration from this, once (window.CLSTikTokRegistration)
-        $this->jsonSuccess(['message' => self::SIGNUP_SENT, 'tt_registration' => $tt_registration]);
+        $this->jsonSuccess(['message' => 'Account created', 'redirect' => $redirect, 'user_id' => $user_id, 'email' => $email]);   // user_id + email: analytics identifies the new person (heycatch.php)
+    }
+
+    /** Start the session for an account that was just created and say where it goes first: a creator to /setup (with ?plan=), anyone else back to the page they signed up on. */
+    private function sign_in_new_account(array $user): string{
+        $done = LoginGate::finish($user);   // a brand-new account has no second factor and no seat limit
+        $return = CustomDomains::safe_path((string) Session::get('signup_return'));
+        Session::destroyValue('signup_return');
+        $role = (int) ($user['role_id'] ?? 0) > 0 ? $this->userModel->get_role_name_by_id((int) $user['role_id']) : '';
+        $plan = (string) ($user['signup_plan'] ?? '');
+        if ((int) ($done['reset_pw'] ?? 0) === 1) { return '/account/force_reset'; }
+        return $role === 'Creator' ? '/setup' . ($plan !== '' ? '?plan=' . rawurlencode($plan) : '') : ($return !== '' ? $return : '/');
     }
 
     /**
@@ -170,11 +181,7 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError(LoginGate::message($blocked));
         }
 
-        // Hard gate: an unconfirmed email cannot sign in.
-        if ((int) ($user['email_verified'] ?? 0) === 0) {
-            if (LifecycleEmails::bounced($user)) { $this->jsonError(LifecycleEmails::bounced_message($user)); }   // the link can never arrive
-            $this->jsonError('Please verify your email before signing in. Check your inbox for the verification link.', ['unverified' => true]);
-        }
+        // An unconfirmed email does not stop sign-in (only payouts wait on it); the dashboard offers Resend Email.
 
         // MFA gate (a second factor defers the full login until verified), else the session.
         $done = LoginGate::finish($user);
@@ -299,6 +306,7 @@ class ApiAuthController extends BaseApiController {
 
         // A used link never signs anyone in again: a scanner or an earlier click already confirmed it.
         if ((int) ($user['email_verified'] ?? 0) === 1) {
+            if ((int) Session::get('user_id') === (int) $user['user_id']) { $this->jsonSuccess(['message' => 'Your email is already confirmed.', 'redirect' => '/']); }   // signed in already (sign-up no longer waits on the link)
             $this->jsonError('This link was already used. Sign in to continue.', ['already_used' => true]);
         }
 
@@ -367,6 +375,24 @@ class ApiAuthController extends BaseApiController {
 
         echo json_encode($response);
         exit;
+    }
+
+    /** Resend Email on the dashboard: a fresh link for the signed-in account, at most 3 an hour. */
+    public function resend_my_verificationAction(){
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { $this->jsonError('Not authorized'); }
+        $rows = $this->userModel->get_user_by_id($uid);
+        if (!is_array($rows) || count($rows) !== 1) { $this->jsonError('Not authorized'); }
+        $u = $rows[0];
+        if ((int) ($u['email_verified'] ?? 0) === 1) { $this->jsonSuccess(['message' => 'Your email is already confirmed.', 'verified' => true]); }
+        if (LifecycleEmails::bounced($u)) { $this->jsonError(LifecycleEmails::bounced_message($u)); }
+        if ($this->loginAttemptsModel->count_recent_for('uid:' . $uid, 'verify_sent', 60) >= 3) {
+            $this->jsonError('Three links went out in the last hour. Check your spam folder, or try again later.');
+        }
+        if (!LifecycleEmails::send_verify_link($u, $this->get_ip_address())) {
+            $this->jsonError('The email could not be sent. Try again in a few minutes.');
+        }
+        $this->jsonSuccess(['message' => 'Sent to ' . (string) $u['user_email']]);
     }
 
     public function change_passwordAction(){

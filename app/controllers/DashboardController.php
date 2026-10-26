@@ -22,6 +22,12 @@ class DashboardController extends Controller {
         // render the dashboard, but the view blurs it behind a plan-lock overlay.
         $this->view->needs_plan = !Plan::can_use_creator_features($user);
 
+        // the signed-in person's own email (a collaborator's, not the owner's): unconfirmed shows the Resend Email bar
+        $me = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));
+        $me = (is_array($me) && count($me) === 1) ? $me[0] : null;
+        $this->view->verify_email   = ($me && (int) ($me['email_verified'] ?? 0) === 0) ? (string) $me['user_email'] : '';
+        $this->view->verify_bounced = $me && LifecycleEmails::bounced($me);
+
         $name = $user ? trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) : '';
         $this->view->display_name = $name !== '' ? $name : ('@' . ($user['u_name'] ?? ''));
         $this->view->is_creator   = true;

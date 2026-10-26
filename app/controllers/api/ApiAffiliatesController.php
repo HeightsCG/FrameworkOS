@@ -35,6 +35,7 @@ class ApiAffiliatesController extends BaseApiController {
         $uid = $this->signed_in();
         $a = Affiliates::approved_for_user($uid);
         if (!$a) { $this->jsonError('Affiliates only'); }
+        $this->require_verified_email($uid);
         $r = Affiliates::request_payout($a);
         if (!$r['ok']) { $this->jsonError($r['message']); }
         $this->jsonSuccess(['id' => (int) $r['id'], 'message' => $r['message']]);

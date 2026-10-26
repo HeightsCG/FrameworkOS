@@ -374,6 +374,7 @@ class ApiBillingController extends BaseApiController {
     public function start_payout_onboardingAction(){
         $user = $this->require_creator('owner', false);
         CreatorAgreement::require((int) $user['user_id']);   // payouts need the Creator Agreement
+        $this->require_verified_email((int) $user['user_id']);
 
         $account_id = $user['stripe_connect_account_id'] ?? '';
         if (empty($account_id)) {
@@ -432,6 +433,7 @@ class ApiBillingController extends BaseApiController {
         if ($account_id === '') {
             $this->jsonError('Set up payouts first');
         }
+        $this->require_verified_email($creator_id);
         // Money leaves the platform here: re-check suspension now, not on the once-a-minute session check.
         $fresh = $this->userModel->get_user_by_id($creator_id);
         if (!is_array($fresh) || count($fresh) !== 1 || (string) ($fresh[0]['user_status'] ?? '') !== 'Active') {
