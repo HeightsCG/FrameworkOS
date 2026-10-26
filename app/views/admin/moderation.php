@@ -9,7 +9,7 @@ $av_label = array('pending' => 'Pending', 'verified' => 'Verified', 'failed' => 
 $n = array(
     'moderation'   => count($queue),
     'reports'      => count((array) $this->reports_queue),
-    'verification' => (int) $ac['pending'],   // creator ID checks never wait on staff (Didit decides)
+    'verification' => 0,   // ID and age checks are decided by Didit: pending ones wait on the user, never on staff
     'billing'      => count((array) $this->billing),
 );
 $total = array_sum($n);

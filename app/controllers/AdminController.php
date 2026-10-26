@@ -68,7 +68,7 @@ class AdminController extends Controller {
         $try('moderation',   function () { return (new AdminModel())->moderation_count(); });
         $try('reports',      function () { return (new ReportsModel())->open_count(); });
         // creator ID checks are decided by Didit (IdentityVerification): nothing waits on staff, so no count
-        $try('age',          function () { $c = (new AgeVerificationsModel())->counts(); return $c['pending']; });
+        // age checks are decided by Didit too: a pending one waits on the user, not staff, so no count
         $try('support',      function () { return (new SupportModel())->count_open(); });
         $try('billing',      function () { return (new BillingAccountsModel())->past_due_count(); });
         $try('articles',     function () { return count((new SeoArticlesModel())->by_status(array('review', 'draft'))); });
