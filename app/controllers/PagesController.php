@@ -992,7 +992,8 @@ class PagesController extends Controller {
         $fill = array('{site}' => $site, '{fee_short}' => self::fee_short(), '{payout_min}' => Price::PAYOUT_MIN_LABEL, '{year}' => gmdate('Y'));
         $p = json_decode(strtr(json_encode(AlternativesPages::PAGES[$key], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), array_map(function ($v) { return addcslashes($v, '"\\'); }, $fill)), true);
         $p['path']  = '/' . $key . '-alternatives';
-        $p['title'] = $p['name'] . ' Alternatives for Creators in ' . gmdate('Y');
+        $p['title'] = isset($p['title']) ? strtr((string) $p['title'], array('{n}' => (string) (count((array) ($p['others'] ?? array())) + 1)))   // an own title: {n} = the platforms listed, ours included
+                                         : $p['name'] . ' Alternatives for Creators in ' . gmdate('Y');
         $p['us'] = array(
             'name' => $site, 'kind' => 'One page, every way to sell',
             'text' => (string) ($p['us_text'] ?? 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. A studio publishes every post to ten platforms.'),

@@ -114,7 +114,8 @@ class AlternativesPages {
             'us_best'     => 'a creator who wants the character, the content and the sales in one account.',
             'us_text'     => 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. It trains an AI character, generates its photos and short videos, and sells them from the same page.',   // our own card on this list, worded for the platform being left
             'name'        => 'Fanvue',
-            'description' => 'Fanvue alternatives compared: what kind of platform each one is and who it suits, including options for AI creators. Updated for {year}.',
+            'title'       => '{n} Fanvue Alternatives for Creators and AI Models ({year})',   // 2026-10-26: was the default title, position 16 with no clicks
+            'description' => 'Fanvue alternatives compared: subscription sites, membership platforms and link-in-bio stores, with what each suits and options for AI creators.',
             'intro'       => 'A Fanvue alternative is a platform where a creator sells memberships, posts and services from one page they control. Creators look for one when they want that page, or an audience they can take with them. Here are the main options and what kind of platform each one is, including where AI creators fit.',
             'others' => array(
                 array('name' => 'OnlyFans', 'compare' => 'onlyfans', 'kind' => 'Subscription platform',
