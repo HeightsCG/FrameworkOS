@@ -13,15 +13,16 @@ $n = array(
     'billing'      => count((array) $this->billing),
 );
 $total = array_sum($n);
+$verif = (int) $ac['pending'];   // shown in the Verification panel and chip, but never counted as waiting on staff (Didit decides)
 $show = in_array((string) $this->show, array_keys($n), true) ? (string) $this->show : 'all';
 $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Reports', 'verification' => 'Verification', 'billing' => 'Billing');
 ?>
-<?php $zero = array(); foreach ($chips as $k => $label) { if ($k !== 'all' && $n[$k] === 0) { $zero[] = $label; } } ?>
+<?php $zero = array(); foreach ($chips as $k => $label) { if ($k !== 'all' && $k !== 'verification' && $n[$k] === 0) { $zero[] = $label; } } ?>
 <header class="adm-head">
     <div><h1 class="adm-head__title">Moderation</h1><p class="adm-head__sub"><?php echo $total > 0 ? number_format($total) . ' item' . ($total === 1 ? '' : 's') . ' waiting on staff' : 'Nothing waiting on staff'; ?></p><?php if ($zero && $total > 0): ?><p class="adm-zero" id="admQueueZero"<?php echo $show === 'all' ? '' : ' hidden'; ?>>Nothing waiting in <?php echo $e(implode(', ', array_slice($zero, 0, -1)) . (count($zero) > 1 ? ' and ' : '') . end($zero)); ?>.</p><?php endif; ?></div>
     <div class="adm-head__acts">
         <div class="adm-seg" id="admQueueChips" role="tablist" aria-label="Moderation sections">
-            <?php foreach ($chips as $k => $label): $c = $k === 'all' ? $total : $n[$k]; ?>
+            <?php foreach ($chips as $k => $label): $c = $k === 'all' ? $total : ($k === 'verification' ? $verif : $n[$k]); ?>
             <a class="adm-seg__b adm-chip<?php echo $show === $k ? ' is-on' : ''; ?>" role="tab" aria-selected="<?php echo $show === $k ? 'true' : 'false'; ?>" href="/admin/moderation<?php echo $k === 'all' ? '' : '?show=' . $k; ?>" data-show="<?php echo $k; ?>"><?php echo $e($label); ?> <b><?php echo number_format($c); ?></b></a>
             <?php endforeach; ?>
         </div>
@@ -85,8 +86,8 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
         <?php endif; ?>
     </section>
 
-    <section class="adm-group adm-panel adm-box" data-group="verification" data-panel="verification" data-empty="<?php echo $n['verification'] === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'verification') || ($show === 'all' && $n['verification'] === 0)) ? ' hidden' : ''; ?>>
-        <header class="adm-box__h"><h2 class="adm-box__t">Verification <b class="adm-count" data-count="verification"><?php echo $n['verification']; ?></b></h2></header>
+    <section class="adm-group adm-panel adm-box" data-group="verification" data-panel="verification" data-empty="<?php echo $verif === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'verification') || ($show === 'all' && $verif === 0)) ? ' hidden' : ''; ?>>
+        <header class="adm-box__h"><h2 class="adm-box__t">Verification <b class="adm-count"><?php echo $verif; ?></b></h2></header>
         <?php $age_open = (int) $ac['pending'] + (int) $ac['failed']; /* on the All view a part with nothing waiting stays out of the way; the Verification view shows both */ ?>
         <?php $vlabel = array('approved' => array('Verified', 'ok'), 'rejected' => array('Declined', 'bad'), 'pending' => array('In progress', 'gray'), 'revoked' => array('Badge removed', 'gray')); ?>
         <div class="adm-part" data-part-empty="<?php echo empty($this->verifications) ? '1' : '0'; ?>"<?php echo $show === 'all' ? ' hidden' : ''; ?>>
