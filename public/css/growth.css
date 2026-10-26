@@ -18,6 +18,7 @@
 .gp-copy__head .sx-h3 { margin: 0; }
 .gp-copy__count { font-size: .8125rem; color: var(--sx-muted); }
 .gp-copy__text { flex: 1; margin: 0; font-size: .9375rem; line-height: 1.65; color: var(--sx-t2); }
+.gp-copy__text p { margin: 0 0 12px; } .gp-copy__text p:last-child { margin: 0; }
 
 .gp-logos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .gp-logo { display: flex; flex-direction: column; gap: 8px; }

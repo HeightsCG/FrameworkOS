@@ -10,7 +10,8 @@ $base = SeoMeta::base();
 $host = preg_replace('#^https?://#', '', $base);
 $company = 'Heights Consulting Group LLC';
 $b50  = $site . ' is a creator platform for selling from one public page: memberships, pay-per-view posts, bundles, services and live events. Its studio publishes each post to ten platforms, and its AI tools create consistent AI influencers with photos, video and voice. It is built by ' . $company . '.';
-$b150 = $site . ' is a creator platform that puts everything a creator sells on one public page. Every account starts free. Fans can follow for free, join a membership, unlock single posts, buy bundles, book services and get seats at live events, and creators are paid out to their bank. Fans pay with a credit wallet for single purchases and by card for memberships. From one editor, creators publish each post to their page and to LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue, now or on a schedule. The AI studio creates consistent AI influencers with photos, video and voice, and labels AI content on the platforms that ask for it. An inbox with an AI reply assistant, analytics and custom domains round out the platform. Creators can download their content and data at any time. ' . $site . ' is built by ' . $company . '.';
+$b150 = array($site . ' is a creator platform that puts everything a creator sells on one public page. Every account starts free. Fans can follow for free, join a membership, unlock single posts, buy bundles, book services and get seats at live events, and creators are paid out to their bank. Fans pay with a credit wallet for single purchases and by card for memberships.',   // two paragraphs: none longer than 6 sentences (HeyCatch page clarity)
+    'From one editor, creators publish each post to their page and to LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue, now or on a schedule. The AI studio creates consistent AI influencers with photos, video and voice, and labels AI content on the platforms that ask for it. An inbox with an AI reply assistant, analytics and custom domains round out the platform. Creators can download their content and data at any time. ' . $site . ' is built by ' . $company . '.');
 $platforms = array(); foreach (IntegrationPages::PAGES as $p) { $platforms[] = $p['name']; }
 $trial_open = false; try { $trial_open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[press] founding: ' . $ex->getMessage()); }
 $logos = array(
@@ -43,7 +44,9 @@ echo Sections::open('white', 'About ' . $site, 'Use either description as it is.
     </div>
     <div class="gp-copy__item">
         <div class="gp-copy__head"><h3 class="sx-h3"><?php echo $e(Sections::tc("Long description")); ?></h3><span class="gp-copy__count">150 words</span></div>
-        <p class="gp-copy__text" id="gp_b150"><?php echo $e($b150); ?></p>
+        <div class="gp-copy__text" id="gp_b150"><p><?php echo $e($b150[0]); ?></p>
+
+<p><?php echo $e($b150[1]); ?></p></div><?php /* the blank line between is a text node, so Copy Text keeps the paragraph break */ ?>
         <button class="sx-btn sx-btn--secondary" type="button" data-copy-from="gp_b150">Copy Text</button>
     </div>
 </div>
