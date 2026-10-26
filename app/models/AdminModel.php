@@ -329,7 +329,7 @@ class AdminModel extends Model {
     /** Images awaiting a decision (flagged first, then unscanned), with creator + AI signal. */
     /** Media waiting for a human look (pending scan or flagged), for the admin rail badge; cheaper than overview(). */
     public function moderation_count(){
-        return (int) $this->scalar("SELECT COUNT(*) AS n FROM media_assets WHERE deleted_at IS NULL AND type IN ('image', 'video') AND moderation_status IN ('pending', 'flagged')");
+        return (int) $this->scalar("SELECT COUNT(*) AS n FROM media_assets WHERE deleted_at IS NULL AND status = 'ready' AND type IN ('image', 'video') AND moderation_status IN ('pending', 'flagged')");
     }
 
     public function moderation_queue($limit = 40){
@@ -340,7 +340,7 @@ class AdminModel extends Model {
              FROM media_assets ma
              JOIN user_accounts u ON u.user_id = ma.creator_id
              LEFT JOIN creator_profiles cp ON cp.user_id = ma.creator_id
-             WHERE ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
+             WHERE ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.type IN ('image', 'video')   -- unfinished uploads have no image and are never scanned
                AND ma.moderation_status IN ('pending', 'flagged')
              ORDER BY (ma.moderation_status = 'flagged') DESC, ma.created_at DESC
              LIMIT $limit"
