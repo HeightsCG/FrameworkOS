@@ -129,10 +129,9 @@ class UsersModel extends Model {
 
     /** Live creator handles for the public sitemap: verified, active, not deleted. */
     /**
-     * Creator profiles for the sitemap: active paid creators whose page lives on this host and has something on
-     * it. A creator with an active custom domain is left out (their /@handle here redirects to that domain, which
-     * carries its own sitemap), and so is an empty profile (no published post, membership tier, service or event):
-     * a page of empty states is not worth a crawl slot. last_modified also follows their newest published post.
+     * Creator profiles for the sitemap: active paid creators whose page lives on this host, with or without content
+     * (Daniel 2026-10-26). A creator with an active custom domain is left out (their /@handle here redirects to that
+     * domain, which carries its own sitemap). last_modified also follows their newest published post.
      */
     /**
      * Does this creator's page have anything on it worth indexing: a published post, an active membership tier, a published
@@ -171,12 +170,6 @@ class UsersModel extends Model {
                 AND " . Plan::paid_sql('u') . "
                 AND u.u_name <> ''
                 AND NOT EXISTS (SELECT 1 FROM creator_domains d WHERE d.user_id = u.user_id AND d.deleted = 0 AND d.status = 'active')
-                AND (
-                       EXISTS (SELECT 1 FROM posts ps WHERE ps.creator_id = u.user_id AND ps.state = 'published' AND ps.on_cls = 1)
-                    OR EXISTS (SELECT 1 FROM creator_plans cp WHERE cp.user_id = u.user_id AND cp.is_active = 1)
-                    OR EXISTS (SELECT 1 FROM services sv WHERE sv.creator_id = u.user_id AND sv.status = 'published')
-                    OR EXISTS (SELECT 1 FROM events ev WHERE ev.creator_id = u.user_id AND ev.status = 'published')
-                )
             ORDER BY
                 u.u_name"
         );
