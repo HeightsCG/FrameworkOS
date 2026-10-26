@@ -32,7 +32,7 @@ $e = function ($s) { return Sections::e($s); };
         <div class="sx-plan__cta">
             <?php $trial_card = (!$is_free && $founding_left > 0 && in_array((string) $t['key'], Founding::PLANS, true)); /* while founding spots remain, a paid card starts the trial (the same ?founding=1 flag the claim link sets) */ ?>
             <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator' . ($trial_card ? '&founding=1' : '')); ?>" rel="nofollow" data-auth="register" data-track="pricing_cta_click" data-track-label="<?php echo $e($t['name']); ?>"><?php echo $promo ? 'Claim $' . (int) CreatorPromo::price() . ' Founding Creator Price' . Sections::icon('arrow-right', 18) : ($trial_card ? 'Start ' . (int) Founding::TRIAL_DAYS . '-Day Free Trial' : 'Start Now'); ?></a>
-            <?php if ($promo && $trial_card): ?><p class="pp__trial">Start with a <?php echo (int) Founding::TRIAL_DAYS; ?>-day free trial.</p><?php endif; ?>
+            <?php if ($trial_card): /* every paid card while the trial runs (heycatch D3.4), not only the promo one */ ?><p class="pp__trial">Start with a <?php echo (int) Founding::TRIAL_DAYS; ?>-day free trial. Cancel any time.</p><?php endif; ?>
         </div>
         <div class="sx-plan__body">
         <?php if ($is_free): ?>

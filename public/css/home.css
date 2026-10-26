@@ -79,6 +79,9 @@
 .hm-final__media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5, 5, 5, .92) 0%, rgba(5, 5, 5, .6) 45%, rgba(5, 5, 5, .15) 100%); }
 .hm-final__in { position: relative; z-index: 1; padding-top: 96px; padding-bottom: 96px; }
 .hm-final__t span { display: block; }
+.hm-final__proof { margin: 16px 0 0; font-size: .875rem; color: var(--sx-t2); }
+.hm-final__proof a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.hm-final__proof a:hover { color: var(--sx-ink); }
 .hm-final__t { max-width: 720px; margin: 0; font-size: clamp(2.5rem, 4.6vw, 4.25rem); font-weight: 800; line-height: 1; letter-spacing: -.045em; color: var(--sx-ink); }
 
 /* ---------- Tablet ---------- */

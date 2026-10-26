@@ -407,9 +407,10 @@ class PagesController extends Controller {
         $faq = array(
             array('q' => 'Do I need my own website?', 'a' => 'No. Your public page lives at our domain under your handle and includes your posts, tiers, services, events and links.'),
             array('q' => 'Can I keep posting to my social accounts?', 'a' => 'Yes. The studio publishes each post to your page and to any connected social accounts at the same time, and pulls their engagement back into analytics.'),
-            array('q' => 'Who owns my content and subscriber list?', 'a' => 'You do. Media, posts and your audience list can be exported at any time.'),
+            array('q' => 'Who owns my content?', 'a' => 'You do. Your posts, library files and messages download at any time from Settings, and your sales history exports as a CSV file from Analytics.'),   // was "and subscriber list ... audience list can be exported": there is no audience export (2026-10-26)
             array('q' => 'How do I get paid?', 'a' => 'Payouts go straight to your bank account. Fans pay with a credit wallet for unlocks and by card for memberships.'),
             array('q' => 'Is adult content allowed?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
+            self::FLAGGED_FAQ,
         );
         $jsonld = array(
             self::software_app('/features', Main::site_name(), SeoMeta::brand_description()),
@@ -610,8 +611,15 @@ class PagesController extends Controller {
             array('q' => 'Can people follow me for free?', 'a' => 'Yes. Following is free, and you can also offer a free membership tier.'),
             array('q' => 'What do the plans cost?', 'a' => self::plan_cost_answer()),
             array('q' => 'How is my data and money handled?', 'a' => self::DATA_MONEY_ANSWER),
+            self::FLAGGED_FAQ,
+            self::LEAVE_FAQ,
         );
     }
+
+    /** heycatch D1.4 (2026-10-26): the suspension and exit objection. Facts from the Terms (reports reviewed, removal or suspension)
+     *  and the Creator Terms 6.4 / 11.2 (earned balances paid out, holds for chargebacks, fraud checks and legal holds). */
+    const FLAGGED_FAQ = array('q' => 'What happens if my account is flagged?', 'a' => 'Reported posts and profiles are reviewed by a person. Content that breaks the rules can be removed, and an account that keeps breaking them can be suspended. If you think a decision is wrong, contact support and ask for a review. Your earned balance above the payout minimum is still paid to your bank, except amounts held for chargebacks, a fraud check or a legal hold.');
+    const LEAVE_FAQ   = array('q' => 'Can I take my content and earnings with me if I leave?', 'a' => 'Yes. Download Your Data in Settings gives you your posts, your library files, your messages and your credit history, and Analytics exports your sales history as a CSV file. When you close your account, your earned balance above the payout minimum is paid to your bank on the next payout.');
 
     const DATA_MONEY_ANSWER = 'We store what the product needs. For creators that is your profile, content, prices, sales and the list of who follows, subscribes and buys. For fans it is an email address, purchases, memberships and messages. Creator data is never sold. Card numbers never reach our servers: cards and bank payouts are handled by a secure payment processor, and we keep only a reference to a saved card.';
 

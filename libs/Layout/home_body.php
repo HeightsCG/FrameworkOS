@@ -22,7 +22,8 @@ $btn = function (array $t, $class) use ($e) {   // a trial_link() tuple as a but
     <div class="ld-wrap hm-hero__in">
         <div class="hm-hero__copy">
             <h1 class="hm-hero__title" id="hm_title"><span class="hm-hero__l1">The One Page Creators Sell Memberships and <span class="hm-nw">Pay-Per-View</span> From,</span> <span class="hm-hero__l2">and the Studio That Posts Everywhere.</span></h1>
-            <p class="hm-hero__sub">Create AI-powered photos and videos, publish across <?php echo count(IntegrationPages::PAGES); ?> platforms, automate your content, and monetize your audience&mdash;all from one studio.</p>
+            <?php $keep = array(); foreach (PagesController::selling_tiers() as $kt) { $keep[] = 100 - (int) $kt['limits']['fee_percent']; } sort($keep); /* heycatch D1.1/D1.2: the fee as the share a creator keeps, from the plan config */ ?>
+            <p class="hm-hero__sub">Create AI-powered photos and videos, publish across <?php echo count(IntegrationPages::PAGES); ?> platforms, automate your content, and monetize your audience&mdash;all from one studio<?php if ($keep): ?>, keeping <?php echo $keep[0] === end($keep) ? (int) $keep[0] . '%' : (int) $keep[0] . '% to ' . (int) end($keep) . '%'; ?> of each sale before card processing<?php endif; ?>.</p>
             <ul class="hm-hero__pts">
                 <li><?php echo Sections::icon('image', 22); ?>AI Images &amp; Video</li>
                 <li><?php echo Sections::icon('send', 22); ?>Multi-Platform Publishing</li>
@@ -271,6 +272,7 @@ echo Sections::faq($home_faq, 'white');
     <div class="ld-wrap hm-final__in">
         <h2 class="hm-final__t" id="hm_final"><span>Your Content.</span> <span>Your Audience.</span> <span>Your Business.</span></h2>
         <div class="hm-hero__acts"><?php echo $btn($trial, 'sx-btn--primary sx-btn--lg'); ?></div>
+        <?php if (Proof::launched() && Proof::product_hunt_url() !== ''): /* heycatch D3.5: the dated third-party launch, a fact since PRODUCT_HUNT_LAUNCH */ ?><p class="hm-final__proof"><a href="<?php echo $e(Proof::product_hunt_url()); ?>" rel="noopener" target="_blank"><?php echo $e(Proof::launch_label()); ?> on Product Hunt</a></p><?php endif; ?>
     </div>
 </section>
 
