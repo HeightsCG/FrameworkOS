@@ -16,6 +16,7 @@ class NichePages {
         'coaches'          => array('photo' => 'services', 'variant' => 'split', 'visual' => 'ui:inbox', 'row' => 3),
         'photographers'    => array('photo' => 'ppv', 'variant' => 'split', 'visual' => 'ui:targets', 'row' => 3),
         'travel-creators'  => array('photo' => 'linkinbio', 'variant' => 'split', 'visual' => 'ui:linkpage', 'row' => 0),
+        'brands'           => array('photo' => 'automations', 'variant' => 'split', 'visual' => 'ui:targets', 'row' => 3),
     );
 
     const PAGES = array(
@@ -316,6 +317,106 @@ class NichePages {
                 array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
             ),
             'cta' => array('title' => 'Put your travel links to work', 'text' => 'Links, guides and calls on one page.'),
+        ),
+
+        // 2026-10-26: brands using the tools for content and social, not fan sales. Claims trace to ImageGenService (No Influencer
+        // mode), BrandService (brand kit from a website), PostForMeService/SocialShareService, cron/scheduler.php, IdeasController,
+        // cron/social_metrics.php, TrackingLinks, Permissions::team_allows and McpController. Left out on purpose: the inbox AI
+        // (its prompt is written for fans), Fanvue and the adult character source.
+        'brands' => array(
+            'nav_title'   => 'Brands',
+            'title'       => 'Platform for Brands: AI Content, Scheduling, Analytics',
+            'description' => 'Make on-brand product images and video with AI, write captions in your brand voice, schedule posts to every network and see what works.',
+            'hero' => array(
+                'title' => 'On-Brand Content and Posting from One Place',
+                'lead'  => '{site} is a content and social publishing platform. Brands use it to make product images and video with AI, write captions in their own voice, post to {networks} on a schedule and see which posts work.',
+            ),
+            'rows_title'  => 'What can a brand do with {site}?',
+            'steps_title' => 'How does a brand get started?',
+            'related' => array('publishing', 'automations', 'analytics'),
+            'rows' => array(
+                array(
+                    'title'  => 'Product and lifestyle images without a shoot',
+                    'text'   => 'Describe the shot and get an image back: a product on a stone slab, a flat lay, a street scene. Pick the No Influencer option in Generate Images and choose a size for the feed, a Story or a banner.',
+                    'points' => array(
+                        'Seven sizes, from square to 16:9 and 3:1',
+                        'Edit any image in your library by instruction, and the original is kept',
+                        'Images follow your brand colours and keywords',
+                    ),
+                ),
+                array(
+                    'title'  => 'Video from your product photos',
+                    'text'   => 'Upload a product photo, or use one you made here, and turn it into a short video clip. Join clips and images into one video in the clip editor.',
+                    'points' => array(
+                        'Several video models, from quick drafts to longer cinematic takes',
+                        'The clip editor exports a 1080p MP4',
+                        'Enhance a finished video before you post it',
+                    ),
+                ),
+                array(
+                    'title'  => 'A brand kit that every caption follows',
+                    'text'   => 'Paste your website and the brand kit is drafted for you: name, tagline, description, voice and tone, colours and keywords. Review it once, and AI captions, AI images and automations use it from then on.',
+                    'points' => array(
+                        'Up to six brand colours and ten keywords',
+                    ),
+                ),
+                array(
+                    'title'  => 'Post once to every network',
+                    'text'   => 'Write a post once and send it to {networks}. Publish now or schedule a week of posts in one sitting.',
+                    'points' => array(
+                        'Captions are trimmed to each network\'s limit',
+                        'Instagram and Facebook Stories as well as feed posts',
+                        'AI-made media gets the AI label on TikTok and YouTube automatically',
+                    ),
+                    'link' => array('See publishing', '/features/publishing'),
+                ),
+                array(
+                    'title'  => 'A daily post on autopilot',
+                    'text'   => 'Set an automation to run on the days and at the time you pick. Each run makes a new on-brand image or short video, writes the caption and posts it to the accounts you choose.',
+                    'points' => array(
+                        'A text hook can be set on the image or video',
+                        'Runs in your own time zone',
+                    ),
+                    'link' => array('See automations', '/features/automations'),
+                ),
+                array(
+                    'title'  => 'An AI brand ambassador, if you want one',
+                    'text'   => 'Create an AI person for your brand and keep the same face across photos, carousels and talking videos. It is optional: everything above works without one.',
+                    'points' => array(
+                        'AI influencers per plan: {influencer_plans}',
+                    ),
+                    'link' => array('See AI influencers', '/features/ai-influencer'),
+                ),
+                array(
+                    'title'  => 'See which posts work',
+                    'text'   => 'Views, likes, comments, shares, saves and reach come back from each network for every post. Tracking links show the clicks, signups and sales each campaign link brought in.',
+                    'points' => array(
+                        'Compare the last 7, 30 or 90 days with the period before',
+                        'Export to CSV',
+                    ),
+                    'link' => array('See analytics', '/features/analytics'),
+                ),
+            ),
+            'steps' => array(
+                array('Draft Your Brand Kit', 'Paste your website, check the name, voice, colours and keywords it drafts, and save.'),
+                array('Connect Your Accounts', 'Connect the networks you post to. There is no limit on connected accounts.'),
+                array('Plan a Week of Posts', 'Make the images or videos, let AI write the captions, and schedule each post.'),
+            ),
+            'fan_side_title' => 'What do your followers see?',
+            'fan_side' => 'Your followers see a normal post on each network, written in your voice and sized for that network. AI-made media carries the AI label where the network asks for one.',
+            'limits'   => array('seats', 'ai_credits', 'automations', 'storage_gb', 'custom_domain'),
+            'faq' => array(
+                array('q' => 'Can I make product photos without a photographer?', 'a' => 'Yes. Describe the shot in Generate Images with the No Influencer option and you get an image in the size you pick, in your brand colours.'),
+                array('q' => 'Can I turn my own product photos into video?', 'a' => 'Yes. Upload the photo to your library and turn it into a short clip, then join clips in the clip editor if you want a longer video.'),
+                array('q' => 'Where do post ideas come from?', 'a' => 'Ideas gathers the questions people ask about your topic online and turns each one into a post idea. Draft Post opens it in the editor, ready to finish.'),
+                array('q' => 'Which networks can I post to?', 'a' => '{networks}. You can post to several at once and schedule posts ahead.'),
+                array('q' => 'Can my team work in one account?', 'a' => 'Yes, on {seats_plans}. Each person gets a Viewer, Editor or Manager role and works on the same account.'),
+                array('q' => 'Can I use my own domain?', 'a' => 'Yes, on {domain_plan}. Your page then runs on your own address.'),
+                array('q' => 'Is AI content labelled?', 'a' => 'Yes. Media made with AI gets the AI label on TikTok and YouTube when it is posted.'),
+                array('q' => 'Can I run it from Claude?', 'a' => 'Yes. Add {site} to Claude as a connector and ask it to make images, write posts or schedule them. The connector is included on every plan.'),
+                array('q' => 'Can a brand sell from its page?', 'a' => 'Yes. You can sell services, event tickets and bundles of digital content. {fee_sentence}'),
+            ),
+            'cta' => array('title' => 'Put your brand\'s content on autopilot', 'text' => 'AI images and video, captions in your voice, posts on schedule.'),
         ),
     );
 

@@ -56,7 +56,7 @@ if (!empty($page['steps'])) {
     echo '</ol>' . Sections::close();
 }
 if (!empty($page['fan_side'])) {
-    echo Sections::prose('white', 'What does the fan see?', array((string) $page['fan_side']));
+    echo Sections::prose('white', (string) ($page['fan_side_title'] ?? 'What does the fan see?'), array((string) $page['fan_side']));
 }
 if (!empty($page['limits'])) {
     $tiers = PagesController::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
