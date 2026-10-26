@@ -73,6 +73,24 @@
             $('#register_done').hide(); $('#register_fields').show();
             $('#register_user_email').val(reg_done_email).trigger('focus').trigger('select');
         });
+        // A founding creator sign-up (claim link, trial button: landing.js keeps cls_founding + role=creator in cls_signup): the trial starts
+        // with the account, so the Creator Agreement box shows and the button says so. Any other sign-up looks as before.
+        function reg_founding_sync() {
+            var ck = function (n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; };
+            var q = new URLSearchParams(location.search), role = q.get('role') || '';
+            if (role === '') { try { role = (JSON.parse(ck('cls_signup') || '{}') || {}).role || ''; } catch (e) { role = ''; } }
+            var on = (q.get('founding') === '1' || ck('cls_founding') === '1') && role === 'creator';
+            $('#register_agree_col').prop('hidden', !on);
+            var $h = $('#register_help'); if (!$h.data('plain')) { $h.data('plain', $h.text()); } $h.text(on ? $h.data('trial') : $h.data('plain'));
+            if (!$('#do_register').prop('disabled')) { $('#do_register').text(on ? 'Start Free Trial' : 'Create Account'); }
+        }
+        reg_founding_sync();
+        $(document).on('click', '[data-auth]', function () { setTimeout(reg_founding_sync, 0); });
+        $(document).on('click', '#register_agree_link', function () {   // the Creator Agreement opens in place under the box
+            var $t = $('#register_agree_text'), open = $t.prop('hidden');
+            $t.prop('hidden', !open); $(this).attr('aria-expanded', open ? 'true' : 'false');
+        });
+        $(document).on('change', '#register_agree', function () { $(this).removeClass('is-bad').attr('aria-invalid', 'false'); });
         $(document).on('click', '#register_resend', function () {
             var $b = $(this).prop('disabled', true);
             ApiDataSvc.apiCall('post', 'resend_verification', { u_name: reg_done_email }, function (data) {
@@ -273,6 +291,12 @@
                 return;
             }
 
+            reg_founding_sync();
+            if (!$('#register_agree_col').prop('hidden') && !$('#register_agree').is(':checked')) {   // founding sign-up: the trial starts with the account
+                $('#register_agree').addClass('is-bad').attr('aria-invalid', 'true').trigger('focus');
+                toastr.error('Tick the box to accept the Creator Agreement.');
+                return;
+            }
             var reg_typo = reg_typo_check(), reg_em = String($('#register_user_email').val() || '').trim();
             if (reg_typo && reg_typo_seen !== reg_em) { reg_typo_seen = reg_em; $('#register_typo_fix').trigger('focus'); return; }   // asked once; Create Account again keeps what they typed
 
@@ -282,6 +306,8 @@
                 p_word:     $('#register_p_word').val(),
                 p_word_confirm: $('#register_p_word_confirm').val(),
                 hp_field_x: $('#register_hp').val(),   // honeypot: empty for people
+                founding:   signup_q.get('founding') === '1' ? '1' : '',
+                agree_terms: (!$('#register_agree_col').prop('hidden') && $('#register_agree').is(':checked')) ? '1' : '',
                 plan:       signup_q.get('plan') || '',
                 role:       signup_q.get('role') || '',
                 ref:        signup_q.get('ref') || '',

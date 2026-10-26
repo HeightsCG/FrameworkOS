@@ -140,6 +140,14 @@ a { color: inherit; }
 .st-error { margin: -4px 0 16px; font-size: .9375rem; line-height: 1.45; color: var(--bad); }
 .st-submit { margin-top: 4px; }
 .st-submit.is-busy { cursor: progress; }
+.st-agree { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; font-size: .9375rem; line-height: 1.45; color: var(--ink); }
+.st-agree__box { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--acc); cursor: pointer; }
+.st-agree__box.is-bad { outline: 2px solid var(--bad); outline-offset: 2px; }
+.st-agree__body label { cursor: pointer; }
+.st-agree__link { padding: 0; border: 0; background: none; font: inherit; color: var(--acc); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.st-agree__link:hover { color: var(--acc-h); }
+.st-agree__sum { display: block; margin-top: 4px; font-size: .8125rem; line-height: 1.45; color: var(--muted); }
+.st-agree__text { max-height: 220px; overflow: auto; margin: -4px 0 16px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--grey); font-size: .8125rem; line-height: 1.55; color: var(--t2); }
 .st-legal { margin: 12px 0 0; font-size: .8125rem; line-height: 1.5; color: var(--muted); }
 .st-legal a { color: var(--t2); }
 .st-or { display: flex; align-items: center; gap: 12px; margin: 20px 0 16px; font-size: .8125rem; color: var(--muted); }

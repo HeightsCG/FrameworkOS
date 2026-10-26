@@ -176,8 +176,18 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
             </ul>
             <?php /* honeypot (ApiAuthController::HONEYPOT): a name no autofill knows, never displayed; filled = a bot */ ?>
             <div style="display:none" aria-hidden="true"><input type="text" name="hp_field_x" id="st_hp" tabindex="-1" autocomplete="new-password"></div>
+<?php if ($trial): /* the founding trial starts at sign-up, so the Creator Agreement is accepted here (ApiAuthController::start_founding_trial) */ ?>
+            <div class="st-agree" id="st_agree_wrap">
+                <input type="checkbox" class="st-agree__box" id="st_agree" aria-describedby="st_agree_sum">
+                <div class="st-agree__body">
+                    <label for="st_agree">I Agree to the</label> <button type="button" class="st-agree__link" id="st_agree_link" aria-expanded="false" aria-controls="st_agree_text">Creator Agreement</button>
+                    <small class="st-agree__sum" id="st_agree_sum">You are 18 or older, you have the rights to what you post, and you follow the content rules.</small>
+                </div>
+            </div>
+            <div class="st-agree__text" id="st_agree_text" tabindex="0" role="region" aria-label="Creator Agreement" hidden><?php echo nl2br($e(AccountController::creator_terms(Main::site_name()))); ?></div>
+<?php endif; ?>
             <p class="st-error" id="st_error" role="alert" hidden></p>
-            <button class="st-btn st-btn--primary st-submit" id="st_submit" type="submit">Create Account</button>
+            <button class="st-btn st-btn--primary st-submit" id="st_submit" type="submit"><?php echo $trial ? 'Start Free Trial' : 'Create Account'; ?></button>
             <p class="st-legal">By creating an account you agree to the <a href="/terms" target="_blank" rel="noopener">Terms</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
 
 <?php if (GoogleAuth::configured()): ?>
@@ -303,6 +313,7 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
     var sheet = document.getElementById('st_sheet'), form = document.getElementById('st_form'), done = document.getElementById('st_done');
     var email = document.getElementById('st_email'), pw = document.getElementById('st_pw'), err = document.getElementById('st_error'), btn = document.getElementById('st_submit');
     var opener = null, token = '', started = false, busy = false, done_email = '';
+    var btn_label = btn.textContent;   // Start Free Trial on the founding sheet, else Create Account
 
     // The request token: this page can be served from cache without a session, so it is fetched when the sheet opens.
     var get_token = function () {
@@ -406,14 +417,16 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
         var typo = check_typo();
         if (typo && typo_seen !== em) { typo_seen = em; typo_fix.focus(); return; }   // asked once; submitting again keeps what they typed
         var pp = pw_problem(); if (pp) { fail(pp, pw); return; }
+        var agree = document.getElementById('st_agree');
+        if (agree && !agree.checked) { fail('Tick the box to accept the Creator Agreement.', agree); agree.classList.add('is-bad'); agree.setAttribute('aria-invalid', 'true'); return; }
         err.hidden = true; [email, pw].forEach(function (x) { x.classList.remove('is-bad'); x.setAttribute('aria-invalid', 'false'); });
         if (trial) { set_cookie('cls_founding', '1', 30); }   // the trial offer, read on the billing plan tab in this browser
         busy = true; btn.disabled = true; btn.classList.add('is-busy'); btn.textContent = 'Creating Account…';
         post('register', {
             user_email: em, p_word: p, p_word_confirm: p, hp_field_x: document.getElementById('st_hp').value,
-            plan: 'creator', role: 'creator', ref: '', founding: trial ? '1' : '', 'return': '/setup?plan=creator'
+            plan: 'creator', role: 'creator', ref: '', founding: trial ? '1' : '', agree_terms: (agree && agree.checked) ? '1' : '', 'return': '/setup?plan=creator'
         }).then(function (o) {
-            busy = false; btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = 'Create Account';
+            busy = false; btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = btn_label;
             if (!o || !o.success) { fail((o && o.message) || 'Something went wrong. Try again.', /email/i.test((o && o.message) || '') ? email : null); return; }
             if (!o.resent) {   // a re-signup of an unverified account only got a fresh link: not a new sign-up
                 track('signup_completed', { method: 'email', page: '/start' });
@@ -427,10 +440,20 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
             document.getElementById('st_gmail').hidden = !/@(gmail|googlemail)\.com$/i.test(em);
             form.hidden = true; done.hidden = false; done.focus({ preventScroll: true });
         }).catch(function () {
-            busy = false; btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = 'Create Account';
+            busy = false; btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = btn_label;
             fail('Could not reach the server. Check your connection and try again.', null);
         });
     });
+
+    // The Creator Agreement opens in place under the box (no page to leave to).
+    var agree_link = document.getElementById('st_agree_link');
+    if (agree_link) {
+        agree_link.addEventListener('click', function () {
+            var box = document.getElementById('st_agree_text'), open = box.hidden;
+            box.hidden = !open; agree_link.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        document.getElementById('st_agree').addEventListener('change', function () { this.classList.remove('is-bad'); this.setAttribute('aria-invalid', 'false'); if (!err.hidden && /Creator Agreement/.test(err.textContent)) { err.hidden = true; } });
+    }
 
     // Wrong address: back to the form with it filled in, ready to fix.
     document.getElementById('st_change').addEventListener('click', function () {

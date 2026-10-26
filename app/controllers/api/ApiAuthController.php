@@ -103,6 +103,8 @@ class ApiAuthController extends BaseApiController {
         $fresh = is_array($fresh) && count($fresh) === 1 ? $fresh[0] : array('user_id' => $user_id, 'user_email' => $email, 'u_name' => $u_name);
         $sent  = LifecycleEmails::send_verify_link($fresh, $ip, false);
         $redirect = $this->sign_in_new_account($fresh);
+        $trial = $this->start_founding_trial($fresh);   // a founding creator who ticked the Creator Agreement starts the trial now, not in a checkout box after
+        if ($trial !== '') { $redirect = '/setup'; }
         // TikTok: a creator's CompleteRegistration or a fan's FanSignup, once, settled on the page they land on (the pixel needs a page that stays open)
         TikTokRegistration::settle_on_next_page($user_id);
         if (!$sent) {
@@ -111,10 +113,36 @@ class ApiAuthController extends BaseApiController {
             try {
                 Notify::many($this->userModel->admin_ids(), 'system', 'Verification email failed', 'The sign-up email to ' . $email . ' (user #' . $user_id . ') could not be sent.', '/admin/user/' . $user_id, 'fa-envelope');
             } catch (\Throwable $e) { error_log('[register] admin notice: ' . $e->getMessage()); }
-            $this->jsonSuccess(['message' => 'Account created, but we couldn\'t send the verification email. Use Resend Email on your dashboard to try again.', 'email_failed' => true, 'redirect' => $redirect, 'user_id' => $user_id, 'email' => $email]);
+            $this->jsonSuccess(['message' => 'Account created, but we couldn\'t send the verification email. Use Resend Email on your dashboard to try again.', 'email_failed' => true, 'redirect' => $redirect, 'trial' => $trial, 'user_id' => $user_id, 'email' => $email]);
         }
 
-        $this->jsonSuccess(['message' => 'Account created', 'redirect' => $redirect, 'user_id' => $user_id, 'email' => $email]);   // user_id + email: analytics identifies the new person (heycatch.php)
+        $this->jsonSuccess(['message' => 'Account created', 'redirect' => $redirect, 'trial' => $trial, 'user_id' => $user_id, 'email' => $email]);   // user_id + email: analytics identifies the new person (heycatch.php)
+    }
+
+    /**
+     * The founding trial started at sign-up (2026-10-26): a creator sign-up with the founding flag (/start, a claim link) that ticked the
+     * Creator Agreement on the form gets the no-card trial straight away, through the same BillingService::change_plan as the billing
+     * checkout. Returns the plan key started, or '' when it did not apply or failed (then the plan checkout opens as before).
+     */
+    private function start_founding_trial(array $user): string{
+        $uid = (int) ($user['user_id'] ?? 0);
+        $founding = (string) ($this->post['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1';
+        if ($uid <= 0 || !$founding || (string) ($this->post['agree_terms'] ?? '') !== '1') { return ''; }
+        $role = (int) ($user['role_id'] ?? 0) > 0 ? $this->userModel->get_role_name_by_id((int) $user['role_id']) : '';
+        if ($role !== 'Creator') { return ''; }
+        $plan = (string) ($user['signup_plan'] ?? '');
+        if (!Founding::covers($plan)) { $plan = Founding::PLAN; }
+        try {
+            if (!Founding::eligible($uid)) { return ''; }
+            Founding::present(true);
+            CheckoutAttempts::opened($uid, 'plan', $plan, 'subscribe', 0, (int) BillingService::plan_cents($plan), true);   // Admin > Billing > Checkout attempts: "Creator (trial)", like the billing checkout
+            $r = BillingService::change_plan($uid, $plan, Founding::CODE, array('version' => CreatorAgreement::VERSION, 'ip' => $this->get_ip_address()));
+            if (($r['status'] ?? '') === 'succeeded') { return $plan; }
+            error_log('[register] founding trial for user_id=' . $uid . ' not started: ' . (string) ($r['message'] ?? ($r['status'] ?? '')));
+        } catch (\Throwable $e) {
+            error_log('[register] founding trial for user_id=' . $uid . ': ' . $e->getMessage());
+        }
+        return '';
     }
 
     /** Start the session for an account that was just created and say where it goes first: a creator to /setup (with ?plan=), anyone else back to the page they signed up on. */
