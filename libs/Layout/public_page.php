@@ -25,7 +25,7 @@
 <?php if (!empty($public_meta['sections'])): ?>
     <main class="sx-main" id="pub_main">
 <?php require $public_view_file; ?><?php /* body sits directly in <main>: no <article> outside blog posts (Daniel, 2026-10-12) */ ?>
-<?php if (empty($public_meta['no_band'])) { echo Sections::cta(isset($cta_title) ? (string) $cta_title : 'Start selling from one page.', isset($cta_text) ? (string) $cta_text : 'Memberships, pay-per-view, services and events, with payouts to your bank.', empty($cta_no_pricing), isset($cta_signup) ? (string) $cta_signup : '/?auth=register', isset($cta_photo) ? (string) $cta_photo : ''); } ?>
+<?php if (empty($public_meta['no_band'])) { echo Sections::cta(isset($cta_title) ? (string) $cta_title : 'Start selling from one page.', isset($cta_text) ? (string) $cta_text : 'Memberships, pay-per-view, services and events, with payouts to your bank.', empty($cta_no_pricing), isset($cta_signup) ? (string) $cta_signup : '/?auth=register', isset($cta_photo) ? (string) $cta_photo : '', isset($cta_note) ? (string) $cta_note : ''); } ?>
     </main>
 <?php else: ?>
     <main class="pub-main" id="pub_main">

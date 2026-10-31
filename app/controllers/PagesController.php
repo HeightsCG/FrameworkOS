@@ -254,6 +254,157 @@ class PagesController extends Controller {
                 array('q' => 'How is Eromify priced?', 'a' => 'Monthly plans, each with a monthly credit allowance, and each model costs a set number of credits per image or clip. Prices are on its pricing page.'),
             ),
         ),
+
+        // ------------------------------------------------------------------ photographer comparisons (type 'photo', 2026-10-31)
+        // Pages for photographers choosing between a photo tool and us (linked from /for/photographers). Every competitor row
+        // is taken from the competitor's own site and checked on the 'checked' date; each row names its source, and rows with
+        // more than one source list the others in a comment. Nothing their site doesn't say is claimed, and a row with no
+        // confirmed fact is left out of the table (compare.php). Our side: PagesController::photo_facts(). Placeholders
+        // ({site}, {fee_sentence}, {payout_min}) are filled in compareAction.
+        // Pixieset: pixieset.com pages plus its official help center at website-help.pixieset.com (help.pixieset.com blocks automated reads).
+        'pixieset' => array(
+            'name' => 'Pixieset', 'sells' => 'client galleries, prints, downloads and bookings', 'url' => 'https://pixieset.com', 'checked' => '2026-10-31', 'type' => 'photo',
+            'meta_title' => '{site} vs Pixieset for Photographers',
+            'meta_desc'  => 'Pixieset or {site}? Client galleries, prints, bookings, memberships and payouts compared for photographers, with Pixieset facts from its own pages.',
+            'fee_short' => 'Client Gallery plans $0 to $50/mo; 15% store commission on Free only',   // https://pixieset.com/pricing/
+            'summary' => 'Pixieset is a platform for client photographers: galleries, a print and download store, a website, and booking, contracts and invoices in its separately priced Studio Manager.',
+            // "Free accounts are subject to a 15% commission fee on store sales." / "There are no commission fees for all upgraded accounts." ($8/mo billed annually or $10/month, and so on)
+            // Studio Manager prices: https://pixieset.com/pricing-studio-manager/ ; card fees 2.9% + 30 cents: website-help.pixieset.com/en/articles/10041458-pixieset-payments-processing-times-and-fees
+            'fee'       => array('value' => 'Client Gallery plans: Free, then Basic $10, Plus $20, Pro $30 and Ultimate $50 a month, less when billed yearly. Free accounts pay a 15% commission on store sales; paid plans pay none. Studio Manager for booking, contracts and invoices is priced separately', 'source' => 'https://pixieset.com/pricing/'),
+            // also https://pixieset.com/studio-manager/ ("book their own sessions and pay online—all during booking"; contracts and questionnaires)
+            'content'   => array('value' => 'Prints and print products, digital downloads delivered automatically, packages of prints and downloads at one price, gift cards, and booked sessions with payment taken at booking', 'source' => 'https://pixieset.com/online-store/'),
+            'prints'    => array('value' => 'Yes. Partner labs print and ship orders automatically, or you can fulfil them yourself with your own lab', 'source' => 'https://pixieset.com/online-store/'),   // self-fulfilment also in website-help.pixieset.com/en/articles/4064186-introduction-to-pixieset-store
+            'delivery'  => array('value' => 'Branded email invites lead clients to their gallery, where they download the whole gallery or single photos in sizes from web-ready to high-res. Passwords, download PINs and favourites for proofing', 'source' => 'https://pixieset.com/client-gallery/'),
+            'watermark' => array('value' => 'Custom watermarks on every image clients view in a gallery', 'source' => 'https://pixieset.com/client-gallery/'),
+            'payout'    => array('value' => 'Store sales are paid through Stripe or PayPal, or offline. With Stripe, US payouts typically arrive two business days after the order payment; PayPal deposits right away', 'source' => 'https://website-help.pixieset.com/en/articles/4064189-getting-paid-for-your-store-orders'),
+            'best_for'  => 'Client photographers who deliver galleries, sell prints and downloads through a lab, and want booking, contracts and invoices from the same company.',
+            'strengths' => array(
+                'Client galleries with downloads in several sizes, proofing, passwords and download PINs',   // /client-gallery/
+                'Partner labs print and ship orders, with no store commission on paid plans',   // /online-store/, /pricing/
+                'Booking with payment at the time of booking, contracts and invoices in Studio Manager',   // /studio-manager/
+            ),
+            'us_text'   => 'You sell to fans as well as clients: memberships, single shots and sets, from one page your followers keep coming back to.',
+            'us_points' => array(
+                'You want memberships with tiers and free trials for your regulars',
+                'You want pay-per-view posts and paid messages for single shots',
+                'You want a watermark you switch on for each image',
+                'You want one post sent to your page and all ten platforms you connect',
+            ),
+            'faq'       => array(
+                array('q' => 'Can I sell prints on {site}?', 'a' => 'No. Sales on {site} are digital: images, video, sessions and memberships. If prints are a big part of your income, Pixieset is the better fit for that part: partner labs print and ship each order, or you use your own lab.'),
+                array('q' => 'Does Pixieset take a commission on sales?', 'a' => 'Only on the Free plan, which pays 15% on store sales. Paid Client Gallery plans, from $10 a month, pay no store commission. Card processing is charged separately.'),
+                array('q' => 'Can clients book sessions on Pixieset?', 'a' => 'Yes, through Studio Manager, which is priced separately. Clients see your availability, book their own session and pay in full or a retainer while booking.'),
+                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
+            ),
+        ),
+        // ShootProof: www.shootproof.com pages only (its help center blocks automated reads, so nothing here comes from it).
+        'shootproof' => array(
+            'name' => 'ShootProof', 'sells' => 'client galleries, prints, downloads and bookings', 'url' => 'https://www.shootproof.com', 'checked' => '2026-10-31', 'type' => 'photo',
+            'meta_title' => '{site} vs ShootProof for Photographers',
+            'meta_desc'  => 'ShootProof or {site}? Client galleries, prints, bookings, memberships and payouts compared for photographers, with ShootProof facts from its own pages.',
+            'fee_short' => 'Plans from $0 to $60/mo; no commission on sales',   // https://www.shootproof.com/plans/: "ShootProof will never take a commission."
+            'summary' => 'ShootProof is a studio tool for client photographers: galleries, a print and download store, booking, contracts and invoices in one account. It takes no commission on sales.',
+            // plan prices billed monthly ($8.33 / $16.67 / $26.67 / $50 a month billed yearly), "Free 14-day trial", "Commission-free sales" on every plan
+            'fee'       => array('value' => 'Free $0, Starter $9.99, Standard $19.99, Professional $31.99 and Premium $60 a month, less when billed yearly, with a 14-day free trial. No commission on sales on any plan. Card processing fees apply. Online booking is an add-on at $6.99 a month', 'source' => 'https://www.shootproof.com/plans/'),
+            // also https://www.shootproof.com/features/booking/ ("sign a contract and pay for their session (or a retainer) during the booking process"),
+            // https://www.shootproof.com/feature-index/ ("sell single images, individual albums, or full galleries"; "curated packages and product bundles")
+            'content'   => array('value' => 'Prints, lab products and photo and video downloads from your galleries, single images, albums or full galleries, packages, session bookings with a contract and payment, and invoices with installments and tips', 'source' => 'https://www.shootproof.com/features/online-photo-store/'),
+            'prints'    => array('value' => 'Yes. Orders go to a partner lab, or you print them yourself, or a mix of both, at prices and markups you set', 'source' => 'https://www.shootproof.com/feature-index/'),
+            'delivery'  => array('value' => 'Full-resolution photo and video galleries where clients proof and pick favourites, with you controlling free and paid downloads', 'source' => 'https://www.shootproof.com/online-photo-galleries/'),
+            'watermark' => array('value' => 'Watermarks added automatically as photos upload, with an AI-resistant option, on every plan', 'source' => 'https://www.shootproof.com/feature-index/'),   // AI-resistant: https://www.shootproof.com/features/; every plan: /plans/
+            'payout'    => array('value' => 'ShootProof Pay takes cards, Apple Pay and Google Pay with no separate processor and no monthly fee, and its users can get Instant Payouts to their bank', 'source' => 'https://www.shootproof.com/features/invoices-for-photographers/'),
+            'socials'   => array('value' => 'Clients can share your photos on Facebook, Twitter and more', 'source' => 'https://www.shootproof.com/feature-index/'),
+            'best_for'  => 'Session, wedding and event photographers who deliver client galleries and sell prints and downloads from them, with booking, contracts and invoices in the same tool.',
+            'strengths' => array(
+                'No commission on sales on any plan',   // /plans/
+                'Prints through partner labs, your own fulfilment or both, at the markup you set',   // /feature-index/, /features/online-photo-store/
+                'Booking, e-sign contracts, installment invoices and gallery delivery in one place on paid plans',   // /features/booking/, /features/contracts-for-photographers/, /plans/
+            ),
+            'us_text'   => 'You sell to fans as well as clients: memberships, single shots and sets, from one page your followers keep coming back to.',
+            'us_points' => array(
+                'You want memberships with tiers and free trials for your regulars',
+                'You want pay-per-view posts and paid messages for single shots',
+                'You want a whole shoot sold as one bundle that buyers download',
+                'You want one post sent to your page and all ten platforms you connect',
+            ),
+            'faq'       => array(
+                array('q' => 'Can I sell prints on {site}?', 'a' => 'No. Sales on {site} are digital: images, video, sessions and memberships. If prints are a big part of your income, ShootProof is the better fit for that part: orders go to a partner lab or you fulfil them yourself.'),
+                array('q' => 'Does ShootProof take a commission?', 'a' => 'No. ShootProof says it never takes a commission on sales, on any plan. You pay the plan price, from free to $60 a month, and card processing.'),
+                array('q' => 'Can clients book and pay for a session on ShootProof?', 'a' => 'Yes, with the booking add-on at $6.99 a month. Clients sign a contract and pay for the session or a retainer while booking.'),
+                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
+            ),
+        ),
+        // SmugMug: help center lives at smugmughelp.com (smugmug.com/help redirects there); every source is SmugMug's own.
+        'smugmug' => array(
+            'name' => 'SmugMug', 'sells' => 'portfolio sites, client galleries, prints and downloads', 'url' => 'https://www.smugmug.com', 'checked' => '2026-10-31', 'type' => 'photo',
+            'meta_title' => '{site} vs SmugMug for Photographers',
+            'meta_desc'  => 'SmugMug or {site}? Prints, downloads, galleries, memberships and payouts compared for photographers, with SmugMug facts from its own pages.',
+            'fee_short' => 'Plans from $20/mo (billed yearly); keeps 15% of your markup on sales',   // https://www.smugmug.com/plans + Get-paid-my-profits (below)
+            'summary' => 'SmugMug is a photo hosting and portfolio service with client galleries, unlimited storage and print and download sales on its Portfolio and Pro plans. Partner labs print and ship the orders.',
+            // plans and prices: https://www.smugmug.com/plans ("$20.00/MO ... $23.50/MO ... $37.00/MO", "billed annually", 14-day free trial);
+            // selling needs Portfolio or Pro and the 15% share: Get-paid-my-profits ("Your profit is calculated as 85% of the difference between the price you set and SmugMug's default print prices.")
+            'fee'       => array('value' => 'Direct $20, Portfolio $23.50 and Pro $37 a month, billed yearly, with a 14-day free trial. Selling needs Portfolio or Pro. SmugMug keeps 15% of your markup over its base price on each print and download sale, card fees included', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212462590868-Get-paid-my-profits'),
+            // also /articles/18212586509716-Sell-digital-downloads, /articles/18212357788820-Sell-print-or-digital-packages ("available for Pro accounts only")
+            'content'   => array('value' => 'Prints and keepsakes, digital downloads of photos and videos up to the original size, whole-gallery downloads, and print or download packages on Pro', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212586509716-Sell-digital-downloads'),
+            'prints'    => array('value' => 'Yes. Bay Photo, Loxley, Fujifilm or WHCC print and ship your orders, and SmugMug handles order fulfilment', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212621501588-Print-labs-available-with-SmugMug'),   // "Full-service customer order fulfillment.": smugmug.com/plans
+            'delivery'  => array('value' => 'Client galleries on every plan, set to public, unlisted or private, and locked with a password or to people you choose', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212691894420-Gallery-Page-and-Folder-privacy-settings'),
+            'watermark' => array('value' => 'Custom watermarks on Portfolio and Pro. They don\'t appear on prints ordered through SmugMug', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212632250644-Watermark-photos'),
+            'payout'    => array('value' => 'Paid automatically the next month once unpaid profit reaches $500, or on request from $5 ($10 outside the US). Bank deposit in the US, PayPal elsewhere, with SmugMug paying the transfer fees', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212462590868-Get-paid-my-profits'),
+            'socials'   => array('value' => 'You can publish your SmugMug photos to your social media channels and share buy links', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212716776340-Share-my-photos'),
+            'best_for'  => 'Photographers who sell prints and downloads from a portfolio site and want a lab to print and ship every order.',
+            'strengths' => array(
+                'Partner labs print and ship orders, so you never handle fulfilment',   // Print-labs article + smugmug.com/plans
+                'Galleries can be private, password-protected or limited to people you choose',   // Gallery privacy article
+                'Unlimited photo storage with delivery on every plan',   // smugmug.com/plans: "Unlimited storage—never delete another photo."
+            ),
+            'us_text'   => 'You sell digital work to fans: memberships, single shots and sets, plus booked sessions, from one page.',
+            'us_points' => array(
+                'You want memberships with tiers and free trials for your regulars',
+                'You want pay-per-view posts and paid messages for single shots',
+                'You want booked sessions with a price on the same page',
+                'You want one post sent to your page and all ten platforms you connect',
+            ),
+            'faq'       => array(
+                array('q' => 'Can I sell prints on {site}?', 'a' => 'No. Sales on {site} are digital: images, video, sessions and memberships. If prints are a big part of your income, SmugMug is the better fit for that part: partner labs print and ship each order for you.'),
+                array('q' => 'How much does SmugMug keep from a sale?', 'a' => 'SmugMug keeps 15% of your markup over its base price on each print and download sale, which covers card fees. Selling needs the Portfolio or Pro plan, from $23.50 a month billed yearly.'),
+                array('q' => 'When does SmugMug pay out?', 'a' => 'Automatically the following month once your unpaid profit reaches $500, or on request from $5 ($10 outside the US). US photographers are paid by bank deposit and others by PayPal.'),
+                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
+            ),
+        ),
+        'gumroad' => array(
+            'name' => 'Gumroad', 'sells' => 'digital downloads, memberships and calls', 'url' => 'https://gumroad.com', 'checked' => '2026-10-31', 'type' => 'photo',
+            'meta_title' => '{site} vs Gumroad for Photographers',
+            'meta_desc'  => 'Gumroad or {site} for selling your photos? Fees, memberships, set bundles, sessions and payouts compared for photographers, with sources.',
+            'fee_short' => '10% + $0.50 per direct sale, no monthly fee',   // https://gumroad.com/pricing: "10% + $0.50 Per transaction for all sales through your profile or direct links"
+            // 'Gumroad's marketplace lists stock photos, reference photos and LUTs': https://gumroad.com homepage categories, checked 2026-10-31
+            'summary' => 'Gumroad is a store for digital products with no monthly fee. Its marketplace lists categories such as stock photos, reference photos and LUTs, and creators also sell memberships, bundles and booked calls there.',
+            // also https://gumroad.com/pricing ("Gumroad doesn't charge you a monthly fee.") and the 5% + $0.50 tier in the same 66 article
+            'fee'       => array('value' => '10% + $0.50 per sale through your profile or your own links, plus card processing (2.9% + $0.30). Sales that come through its Discover marketplace cost a flat 30%, processing included. Direct sales drop to 5% + $0.50 after $20,000 of sales in a month. No monthly fee', 'source' => 'https://gumroad.com/help/article/66-gumroads-fees'),
+            // also https://gumroad.com/help/article/82-membership-products (tiers; free trial of a week or a month), /help/article/339-product-bundles,
+            // /help/article/133-pay-what-you-want-pricing, /help/article/70-can-i-sell-services (calls and commissions once the account is 30 days old)
+            'content'   => array('value' => 'Digital downloads, courses and e-books, memberships with tiers and an optional free trial, bundles, pay what you want, and booked calls or commissions once your account is 30 days old', 'source' => 'https://gumroad.com/help/article/149-adding-a-product'),
+            'delivery'  => array('value' => 'Buyers get an emailed receipt with a download link, and buyers with an account also find purchases in their Gumroad Library', 'source' => 'https://gumroad.com/help/article/282-how-do-purchases-work-for-my-customers'),   // library: /help/article/198-your-gumroad-library
+            'payout'    => array('value' => 'Bank deposit in most countries, PayPal where banks aren\'t available. A $100 minimum balance, paid daily, weekly, monthly or quarterly, with a 7-day hold on sales on most schedules. US creators can take instant payouts for a 3% fee', 'source' => 'https://gumroad.com/help/article/13-getting-paid'),
+            'best_for'  => 'Photographers who mainly sell digital downloads, such as photo packs, presets and LUTs, and want no monthly cost and a marketplace that can bring new buyers.',
+            'strengths' => array(
+                'No monthly fee, and Gumroad handles sales tax as merchant of record',   // https://gumroad.com/pricing: "We're a Merchant of Record ... Gumroad handles ALL your tax obligations."
+                'Its Discover marketplace recommends your products to new buyers, at a 30% fee',   // https://gumroad.com/help/article/79-gumroad-discover
+                'Automated email workflows to your customers and subscribers',   // https://gumroad.com/help/article/170-audience: workflows are "a series of automated emails"
+            ),
+            'us_text'   => 'You want fans to pay you on your own page, by the month or by the set, and your posts to reach every network you use.',
+            'us_points' => array(
+                'You want pay-per-view posts and paid messages beside your memberships and bundles',
+                'You want a watermark you switch on for each image',
+                'You want one post sent to your page and all ten platforms you connect',
+                'You want to cash out to your bank from {payout_min}',
+            ),
+            'faq'       => array(
+                array('q' => 'How much does Gumroad take on a sale?', 'a' => 'Gumroad charges 10% + $0.50 on sales through your own profile or links, plus card processing. Sales that come through its Discover marketplace cost a flat 30%, processing included. It has no monthly fee.'),
+                array('q' => 'Can I sell photo memberships on Gumroad?', 'a' => 'Yes. Gumroad memberships can have tiers and a free trial of a week or a month, and bill monthly, quarterly, every six months or yearly.'),   // /help/article/82-membership-products, /help/article/278-guide-to-memberships
+                array('q' => 'When does Gumroad pay out?', 'a' => 'Once your balance reaches $100, on a daily, weekly, monthly or quarterly schedule, with a 7-day hold on sales on most schedules. US creators can also take instant payouts for a 3% fee.'),
+                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
+            ),
+        ),
     );
 
     public function __construct(){
@@ -859,6 +1010,24 @@ class PagesController extends Controller {
         );
     }
 
+    /**
+     * Our side of a photographer comparison (COMPETITORS type 'photo'): one cell per table row, each a shipped feature.
+     * Bundles, pay-per-view and the watermark toggle: NichePages 'photographers' (MediaService watermark per file, media_watermark API);
+     * fees from PlanTiers, credits and payout minimum from Price, the platform count from IntegrationPages::PAGES.
+     */
+    public static function photo_facts(): array {
+        $n = count(IntegrationPages::PAGES); $words = array(9 => 'nine', 10 => 'ten', 11 => 'eleven', 12 => 'twelve');
+        return array(
+            'fee'       => 'Platform fee of ' . self::fee_short() . ', with plan prices on the pricing page. Free accounts can browse and buy but can\'t publish or sell',
+            'content'   => 'Memberships with tiers and free trials, pay-per-view posts and paid messages, sets as downloadable bundles and booked sessions',
+            'prints'    => 'No. Sales are digital: images, video, sessions and memberships',
+            'delivery'  => 'A bought set sits in the buyer\'s purchases, ready to download. Pay-per-view images unlock on your page',
+            'watermark' => 'A watermark you switch on for each image in your library',
+            'payout'    => 'Fans pay with credits (' . Price::CREDITS_PER_DOLLAR . ' credits for every $1) or by card for memberships. You cash out to your bank on request from ' . Price::PAYOUT_MIN_LABEL,
+            'socials'   => 'One post goes to your page and all ' . ($words[$n] ?? (string) $n) . ' platforms you connect, now or on a schedule',
+        );
+    }
+
     /** Competitor groups on the best-of page, in page order. */
     const COMPETITOR_GROUPS = array(
         'fan'        => array('Subscription platforms', 'Paid subscriptions, pay-per-view and messages inside the platform\'s own app.'),
@@ -1144,10 +1313,17 @@ class PagesController extends Controller {
         $faq[] = array('q' => 'Can I use ' . Main::site_name() . ' and ' . $c['name'] . ' at the same time?',
             'a' => (($c['type'] ?? '') === 'ai')   // a generation tool has no fan page to keep live or publish to
                 ? 'Yes. Keep generating in ' . $c['name'] . ' while you build your page here. Download your images, upload them to your Library, and publish or sell them from the Studio.'
-                : 'Yes. Keep your ' . $c['name'] . ' page live while you set up, and publish to both from the studio. Put your new page in every bio so fans can move at their own pace.');
+                : ((($c['type'] ?? '') === 'photo')   // a photography tool: we don't publish to it, so nothing about publishing to both
+                    ? 'Yes. Keep your ' . $c['name'] . ' account as it is and set up your page here alongside it. Put your page link in your bio so fans can find your sets, memberships and sessions.'
+                    : 'Yes. Keep your ' . $c['name'] . ' page live while you set up, and publish to both from the studio. Put your new page in every bio so fans can move at their own pace.'));
         $slug = array_search($c, self::COMPETITORS, true);
         if ($slug !== false && CompareProse::voice((string) $slug, 'both') !== '') { $faq[count($faq) - 1]['a'] = str_replace('{site}', Main::site_name(), CompareProse::voice((string) $slug, 'both')); }
         return $faq;
+    }
+
+    /** {site} and {fee_short} in a competitor's own meta title or description. */
+    public static function fill_compare_meta(string $s): string {
+        return strtr($s, array('{site}' => Main::site_name(), '{fee_short}' => self::fee_short()));
     }
 
     public function compareAction(){
@@ -1157,14 +1333,20 @@ class PagesController extends Controller {
         $slug = strtolower(preg_replace('/[^a-z0-9-]/i', '', $raw));
         if ($slug === '' || $slug !== $raw || !isset(self::COMPETITORS[$slug])) { Errors::page_not_found(); return; }
         $c = self::COMPETITORS[$slug];
+        if (($c['type'] ?? '') === 'photo') {   // the photographer pages carry {site}, {fee_sentence} and {payout_min}, filled from config here
+            $map = array_map(function ($v) { return addcslashes((string) $v, '"\\/'); }, array('{site}' => Main::site_name(), '{fee_sentence}' => self::fee_sentence(), '{payout_min}' => Price::PAYOUT_MIN_LABEL));
+            $c = json_decode(strtr(json_encode($c, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $map), true);
+        }
         $path = '/compare/' . $slug; $title = Main::site_name() . ' vs ' . $c['name'];
-        $desc = self::compare_description($c);   // leads with what each platform lets you sell and run, 110-160 chars for every competitor name
+        $desc = (string) ($c['meta_desc'] ?? '') !== '' ? self::fill_compare_meta((string) $c['meta_desc']) : self::compare_description($c);   // leads with what each platform lets you sell and run, 110-160 chars for every competitor name
         $faq = self::compare_faq($c);
         $jsonld = array(
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $c['name'], 'url' => $path))),
         );
-        $this->page('compare', array('hero_photo' => 'compare', 'path' => $path, 'title' => mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
+        $meta_title = (string) ($c['meta_title'] ?? '') !== '' ? self::fill_compare_meta((string) $c['meta_title'])
+            : (mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared');
+        $this->page('compare', array('hero_photo' => 'compare', 'path' => $path, 'title' => $meta_title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
     }
 
     /**

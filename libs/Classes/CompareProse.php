@@ -26,7 +26,8 @@ class CompareProse {
         $c = PagesController::COMPETITORS[$slug] ?? null; if (!$c) { return ''; }
         $sib = array();
         foreach (PagesController::COMPETITORS as $k => $o) { if ($k !== $slug && ($o['type'] ?? '') === ($c['type'] ?? '')) { $sib[] = '[' . Main::site_name() . ' vs ' . $o['name'] . '](/compare/' . $k . ')'; } }
-        $up = isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? '']) ? 'Every platform sits side by side in [best creator monetization platforms](/best-creator-monetization-platforms).' : 'The tools around a generated character are set out in [AI OFM tools](/ai-ofm-tools).';
+        $up = isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? '']) ? 'Every platform sits side by side in [best creator monetization platforms](/best-creator-monetization-platforms).'
+            : ((($c['type'] ?? '') === 'photo') ? 'What photographers sell here, and how, is set out in [Creator Link Studio for photographers](/for/photographers).' : 'The tools around a generated character are set out in [AI OFM tools](/ai-ofm-tools).');
         return Sections::prose('alt', 'Which other comparisons are worth reading?', array((empty($sib) ? '' : 'Platforms of the same kind are compared in ' . implode(', ', $sib) . '. ') . $up));
     }
 

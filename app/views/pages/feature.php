@@ -51,9 +51,11 @@ if (!empty($page['rows'])) {
 // "How we compare" (NichePages 'compare'): what the creator gets here, for visitors weighing other tools
 if (!empty($page['compare']['points'])) {
     $cmp = (array) $page['compare'];
-    echo Sections::open('alt', (string) ($cmp['title'] ?? ''), (string) ($cmp['lead'] ?? ''));
+    // the lead may carry [Name](/compare/slug) links: escaped first, then only site-relative links become anchors
+    $cmp_lead = preg_replace('/\[([^\]]+)\]\((\/[^)\s]*)\)/', '<a href="$2">$1</a>', Sections::e((string) ($cmp['lead'] ?? '')));
+    echo Sections::open('alt') . '<div class="sx-head"><h2 class="sx-h2">' . Sections::e(Sections::tc((string) ($cmp['title'] ?? ''))) . '</h2>'
+        . ($cmp_lead !== '' ? '<p class="sx-lead">' . $cmp_lead . '</p>' : '') . '</div>';
     echo Sections::checks((array) $cmp['points'], 2);
-    foreach ((array) ($cmp['links'] ?? array()) as $cl) { echo '<a class="sx-more" href="' . Sections::e($cl[1]) . '">' . Sections::e($cl[0]) . '</a> '; }
     echo Sections::close();
 }
 
@@ -104,3 +106,4 @@ if (!empty($siblings)) {
 
 echo Sections::related_guides((string) ($path ?? ''), 'white');   // the articles that belong under this page
 if (!empty($page['faq'])) { echo Sections::faq((array) $page['faq']); }
+if (!empty($page['plan_note'])) { $cta_note = Sections::plan_note(); }   // the Free-plan line under the closing band's buttons too

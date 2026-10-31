@@ -139,7 +139,8 @@ class SeoController extends Controller {
         $checked = '';   // the newest "facts checked" date across the compare pages dates the best-of page too
         foreach (PagesController::COMPETITORS as $slug => $c) {
             if (isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? ''])) { $checked = max($checked, (string) ($c['checked'] ?? '')); }   // only competitors listed on the best-of page
-            $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => (string) ($c['checked'] ?? ''));
+            $pages[] = array('path' => '/compare/' . $slug, 'title' => (string) ($c['meta_title'] ?? '') !== '' ? PagesController::fill_compare_meta((string) $c['meta_title']) : Main::site_name() . ' vs ' . $c['name'],
+                'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for ' . ((($c['type'] ?? '') === 'photo') ? 'photographers' : 'creators') . ', compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => (string) ($c['checked'] ?? ''));
         }
         $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => $checked);
         foreach (array_keys(AlternativesPages::PAGES) as $k) {   // /onlyfans-alternatives, /fanvue-alternatives

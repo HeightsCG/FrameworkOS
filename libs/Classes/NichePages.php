@@ -253,10 +253,10 @@ class NichePages {
                 ),
             ),
             // shown right after the rows (feature.php). Our features only: competitors are named as context, never described.
-            // No /compare page exists for these four yet; add 'links' => array(array(label, href), ...) when one does.
+            // each name links to its /compare page (PagesController::COMPETITORS, type 'photo')
             'compare' => array(
                 'title'  => 'How {site} compares',
-                'lead'   => 'If you\'re comparing us to Pixieset, ShootProof, SmugMug or Gumroad, this is what you get here.',
+                'lead'   => 'If you\'re comparing us to [Pixieset](/compare/pixieset), [ShootProof](/compare/shootproof), [SmugMug](/compare/smugmug) or [Gumroad](/compare/gumroad), this is what you get here.',
                 'points' => array(
                     'Memberships with as many tiers as you want, each with its own price and an optional free trial',
                     'Pay-per-view posts and paid messages that fans unlock with credits',

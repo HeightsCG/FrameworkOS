@@ -787,12 +787,13 @@ class Sections {
      * Closing band (2026-10-15, from the home's final band): a big headline, one line of text and one orange button that follows the
      * trial offer. $photo (SitePhotos key) puts a darkened photo behind it. Used by trial_cta() and cta().
      */
-    public static function band(string $title, string $text, array $btn, string $second = '', string $photo = ''): string {
+    public static function band(string $title, string $text, array $btn, string $second = '', string $photo = '', string $note = ''): string {
         $img = $photo !== '' ? self::photo($photo, '100vw', 'sx-band__img') : '';
         return '<section class="sx sx--cta sx-band' . ($img !== '' ? ' sx-band--photo' : '') . '">' . ($img !== '' ? '<div class="sx-band__media">' . $img . '</div>' : '')
             . '<div class="ld-wrap sx__in sx-band__in"><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
             . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '')
-            . '<div class="sx-acts"><a class="sx-btn sx-btn--primary sx-btn--lg" href="' . self::e($btn[1]) . '" rel="nofollow"' . ($btn[2] !== '' ? ' data-auth="' . self::e($btn[2]) . '"' : '') . '>' . self::e($btn[0]) . self::icon('arrow-right', 18) . '</a>' . $second . '</div></div></section>';
+            . '<div class="sx-acts"><a class="sx-btn sx-btn--primary sx-btn--lg" href="' . self::e($btn[1]) . '" rel="nofollow"' . ($btn[2] !== '' ? ' data-auth="' . self::e($btn[2]) . '"' : '') . '>' . self::e($btn[0]) . self::icon('arrow-right', 18) . '</a>' . $second . '</div>'
+            . ($note !== '' ? '<p class="sx-band__note">' . self::e($note) . '</p>' : '') . '</div></section>';   // $note: a short line under the buttons (Sections::plan_note)
     }
 
     /** Closing band with the trial button (integrations, free tools, press, /alternatives). */
@@ -801,8 +802,8 @@ class Sections {
     }
 
     /** Closing call to action. The button follows the trial offer unless the page passes its own sign-up link (?ref=, ?plan=). */
-    public static function cta(string $title, string $text = '', bool $pricing_link = true, string $signup = '/?auth=register', string $photo = ''): string {
+    public static function cta(string $title, string $text = '', bool $pricing_link = true, string $signup = '/?auth=register', string $photo = '', string $note = ''): string {
         $btn = $signup === '/?auth=register' ? self::trial_link() : array('Start Free', $signup, 'register');
-        return self::band($title, $text, $btn, $pricing_link ? '<a class="sx-btn sx-btn--secondary sx-btn--lg" href="/pricing">See Pricing</a>' : '', $photo);
+        return self::band($title, $text, $btn, $pricing_link ? '<a class="sx-btn sx-btn--secondary sx-btn--lg" href="/pricing">See Pricing</a>' : '', $photo, $note);
     }
 }
