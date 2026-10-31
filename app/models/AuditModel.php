@@ -39,6 +39,7 @@ class AuditModel extends Model {
         'admin_set_cross_promo_plans' => 'Changed the cross-promotion plans',
         'admin_set_creator_promo' => 'Changed the Founding Creator price',
         'admin_set_demo'              => 'Changed the demo flag',
+        'admin_feedback_status'       => 'Marked feedback reviewed or new',
         'support_reply'              => 'Replied to a support request',
         'support_close'              => 'Closed or reopened a support request',
         'seo_keyword_add'            => 'Added a blog keyword',

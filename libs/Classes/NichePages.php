@@ -215,6 +215,7 @@ class NichePages {
                 'title' => 'Sell Your Photo Sets Directly to Fans',
                 'lead'  => 'Photographers on {site} sell full sets as downloadable bundles, single shots as pay-per-view, a membership for behind-the-scenes work and booked sessions, all from one page.',
             ),
+            'plan_note'  => true,   // the Free-plan limit under the hero buttons (Sections::plan_note)
             'rows_title' => 'What can a photographer sell here?',
             'steps_title' => 'How do you start as a photographer?',
             'related' => array('pay-per-view', 'memberships', 'publishing'),
@@ -224,6 +225,7 @@ class NichePages {
                     'text'   => 'Group a shoot into one bundle with one price. Buyers find it in their purchases and download the full set.',
                     'points' => array(
                         'Prices from ' . Price::MIN_CREDITS . ' to ' . Price::MAX_CREDITS . ' credits',
+                        'Fans buy credits by card, ' . Price::CREDITS_PER_DOLLAR . ' credits for every $1, and you cash out your earnings to your bank once they reach {payout_min}',
                     ),
                 ),
                 array(
@@ -241,13 +243,27 @@ class NichePages {
                 ),
                 array(
                     'title'  => 'Previews on every network',
-                    'text'   => 'Post once and send the public version to {networks}. Paid posts go out as a blurred preview, so the full image stays on your page.',
+                    'text'   => 'Post once and send it to all ten platforms you connect: X, Instagram, TikTok, Facebook, LinkedIn, Pinterest, YouTube, Threads, Bluesky and Fanvue. On the social networks, paid posts go out as a blurred preview, so the full image stays on your page. Fanvue gets the whole post with its price.',
                     'link'   => array('See publishing', '/features/publishing'),
                 ),
                 array(
                     'title'  => 'Booked sessions',
                     'text'   => 'List a portrait session, a portfolio review or a lesson as a service with a price. Details are shared after booking.',
                     'link'   => array('See services and events', '/features/services-and-events'),
+                ),
+            ),
+            // shown right after the rows (feature.php). Our features only: competitors are named as context, never described.
+            // No /compare page exists for these four yet; add 'links' => array(array(label, href), ...) when one does.
+            'compare' => array(
+                'title'  => 'How {site} compares',
+                'lead'   => 'If you\'re comparing us to Pixieset, ShootProof, SmugMug or Gumroad, this is what you get here.',
+                'points' => array(
+                    'Memberships with as many tiers as you want, each with its own price and an optional free trial',
+                    'Pay-per-view posts and paid messages that fans unlock with credits',
+                    'A whole shoot sold as one bundle that buyers download from their purchases',
+                    'Booked sessions, from portrait shoots to portfolio reviews, each with its own price',
+                    'A watermark you switch on for each image',
+                    'One post sent to your page and all ten platforms you connect',
                 ),
             ),
             'steps' => array(

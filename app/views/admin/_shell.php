@@ -9,6 +9,7 @@ $adm_sections = array(
     array('today', 'Today', '/admin', 0),
     array('moderation', 'Moderation', '/admin/moderation', (int) ($nav['queue'] ?? 0)),
     array('support', 'Support', '/admin/support', (int) ($nav['support'] ?? 0)),
+    array('feedback', 'Feedback', '/admin/feedback', (int) ($nav['feedback'] ?? 0)),
     array('users', 'Users', '/admin/users', (int) ($nav['messages'] ?? 0)),
     array('financials', 'Financials', '/admin/financials', 0), array('sales', 'Sales', '/admin/sales', 0),
     array('billing', 'Billing', '/admin/billing', 0),

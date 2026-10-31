@@ -91,6 +91,8 @@
                 <div class="app-search__panel" id="appSearchPanel" hidden></div>
             </div>
             <span class="app-topbar__spacer"></span>
+            <?php /* Feedback: opens the feedback dialog (site_footer.php + public/js/feedback.js). Any [data-feedback] element does the same. */ ?>
+            <button type="button" class="app-feedback" data-feedback aria-haspopup="dialog" aria-label="Send feedback"><i class="fa-regular fa-message" aria-hidden="true"></i><span class="app-feedback__label">Feedback</span></button>
             <div class="app-notif" id="appNotif">
                 <button type="button" class="app-notif__btn" id="notifBtn" aria-label="Notifications" aria-haspopup="true">
                     <i class="fa-regular fa-bell"></i>

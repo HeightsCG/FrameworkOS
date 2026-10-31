@@ -11,6 +11,7 @@ echo Sections::panel_hero(array(
     'lead'    => $hero['lead'] ?? ($page['description'] ?? ''),
     'photo'   => (string) ($look['photo'] ?? ''),
     'variant' => (string) ($look['variant'] ?? 'split'),
+    'note'    => !empty($page['plan_note']) ? Sections::plan_note() : '',
     'buttons' => array(
         array('Start Free', '/?auth=register', 'primary', 'register'),   // becomes the trial offer in Sections::buttons()
         array('See Pricing', '/pricing', 'secondary'),
@@ -44,6 +45,15 @@ if (!empty($page['rows'])) {
     }
     if (!empty($rows)) { echo Sections::rows($rows); }
     echo Sections::tool_line((string) ($path ?? ''));   // the free tool that goes with this feature, when there is one
+    echo Sections::close();
+}
+
+// "How we compare" (NichePages 'compare'): what the creator gets here, for visitors weighing other tools
+if (!empty($page['compare']['points'])) {
+    $cmp = (array) $page['compare'];
+    echo Sections::open('alt', (string) ($cmp['title'] ?? ''), (string) ($cmp['lead'] ?? ''));
+    echo Sections::checks((array) $cmp['points'], 2);
+    foreach ((array) ($cmp['links'] ?? array()) as $cl) { echo '<a class="sx-more" href="' . Sections::e($cl[1]) . '">' . Sections::e($cl[0]) . '</a> '; }
     echo Sections::close();
 }
 

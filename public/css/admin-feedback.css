@@ -1,0 +1,16 @@
+/* /admin/feedback: the message column and the note dialog. */
+.adm-fbrow__msg{ max-width:0; width:42%; }
+.adm-fbrow__text{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; font-size:14px; line-height:1.45; color:var(--text); }
+
+.adm-fb-meta{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px; margin:0 0 20px; padding:0 0 16px; border-bottom:1px solid var(--line); }
+.adm-fb-meta dt{ font-size:12px; font-weight:500; color:var(--muted); margin:0 0 4px; }
+.adm-fb-meta dd{ margin:0; font-size:14px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.adm-fb-meta a{ color:var(--acc-ink); text-decoration:none; }
+.adm-fb-meta a:hover{ text-decoration:underline; }
+.adm-fb-text{ margin:0; font-size:15px; line-height:1.6; color:var(--text); white-space:pre-wrap; overflow-wrap:anywhere; max-height:50vh; overflow-y:auto; }
+.adm-fb-agent{ margin:16px 0 0; font-size:12px; color:var(--muted2); overflow-wrap:anywhere; }
+
+@media (max-width:720px){
+    .adm-fb-meta{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .adm-fbrow__msg{ width:auto; max-width:none; min-width:220px; }
+}

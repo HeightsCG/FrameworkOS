@@ -8,7 +8,7 @@
 class ApiSupportController extends BaseApiController {
 
     use AuditTrail;
-    protected $audit_skip = array('support_create', 'support_assist', 'contact_send');   // assist only drafts text; nothing changes
+    protected $audit_skip = array('support_create', 'support_assist', 'contact_send', 'feedback_send');   // assist only drafts text; nothing changes
 
     /** Only audit staff acting on someone else's request (a staff member's own request is not a staff action). */
     protected function audit_applies(string $action): bool {
@@ -82,6 +82,39 @@ class ApiSupportController extends BaseApiController {
         $close = (string) ($this->post['closed'] ?? '1') === '1';
         $model->set_closed((int) $t['id'], $close);
         $this->jsonSuccess(['message' => $close ? 'Request closed' : 'Request reopened']);
+    }
+
+    /**
+     * The "Feedback" modal (top bar of every signed-in page): stores the note with the page it came from and tells staff.
+     * 10 per user per hour.
+     */
+    public function feedback_sendAction(){
+        $me = $this->me();
+        $model   = new FeedbackModel();
+        $kind    = (string) ($this->post['kind'] ?? '');
+        $message = $this->text('message', 20000);
+        if (!isset(FeedbackModel::KINDS[$kind])) { $this->jsonError('Choose a type of feedback'); }
+        if ($message === '') { $this->jsonError('Write your feedback first'); }
+        if ($model->recent_count($me) >= 10) { $this->jsonError('You have sent a lot of feedback in the last hour. Try again later.'); }
+
+        $page = $this->text('page_url', 500);
+        if ($page !== '' && $page[0] !== '/') { $page = ''; }   // a path on this site only
+        $id = $model->create(array(
+            'user_id'    => $me,
+            'kind'       => $kind,
+            'message'    => $message,
+            'page_url'   => $page,
+            'page_title' => $this->text('page_title', 190),
+            'user_agent' => mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+            'viewport'   => preg_replace('/[^0-9x]/', '', $this->text('viewport', 20)),
+        ));
+        if ($id <= 0) { $this->jsonError('Could not send your feedback'); }
+        $label = FeedbackModel::KINDS[$kind];
+        foreach ((new SupportModel())->staff_ids() as $sid) {
+            if ($sid === $me) { continue; }
+            Notify::send($sid, 'system', 'New feedback: ' . $label, mb_substr($message, 0, 140), '/admin/feedback', 'fa-message');
+        }
+        $this->jsonSuccess(['message' => 'Feedback sent. Thank you.']);
     }
 
     /**

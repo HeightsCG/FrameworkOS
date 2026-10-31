@@ -6,6 +6,7 @@
  *   /admin             Today: key numbers, what needs a person, one activity table (signups, sales, payouts, staff actions)
  *   /admin/moderation  moderation, reports, verification + age checks, past-due billing (?show=<section>)
  *   /admin/support     support requests (its own tab since 2026-10-21; ?show=support on moderation redirects here)
+ *   /admin/feedback    notes sent from the Feedback link in the top bar (New / Reviewed)
  *   /admin/users       accounts                      /admin/user/<id>  one account (single scroll)
  *   /admin/financials  ledgers and the revenue chart  /admin/sales  sales + chargebacks   /admin/billing  plan billing
  *   /admin/growth      funnel; /leads /founding /affiliates sit under the same sidebar item
@@ -35,7 +36,7 @@ class AdminController extends Controller {
 
     /** Sidebar item → the pages it covers (the page key the shell highlights). */
     const SECTIONS = array(
-        'today' => array('today'), 'moderation' => array('moderation'), 'support' => array('support'), 'users' => array('users', 'messages', 'announcements'), 'financials' => array('financials'),
+        'today' => array('today'), 'moderation' => array('moderation'), 'support' => array('support'), 'feedback' => array('feedback'), 'users' => array('users', 'messages', 'announcements'), 'financials' => array('financials'),
         'sales' => array('sales'), 'billing' => array('billing'),
         'growth' => array('growth', 'leads', 'founding', 'affiliates'), 'content' => array('content', 'scenes', 'niches'), 'system' => array('system', 'jobs', 'generations'),
         'analytics' => array('analytics', 'analytics_pages', 'analytics_sources', 'analytics_conversions', 'analytics_product', 'analytics_creators'),
@@ -63,13 +64,14 @@ class AdminController extends Controller {
 
     /** What is waiting on staff, per group, for the rail badges and the queue chips. Every source is optional (a missing table never breaks /admin). */
     public static function rail_counts(): array {
-        $n = array('moderation' => 0, 'reports' => 0, 'verification' => 0, 'age' => 0, 'support' => 0, 'billing' => 0, 'articles' => 0, 'affiliates' => 0, 'messages' => 0);
+        $n = array('moderation' => 0, 'reports' => 0, 'verification' => 0, 'age' => 0, 'support' => 0, 'feedback' => 0, 'billing' => 0, 'articles' => 0, 'affiliates' => 0, 'messages' => 0);
         $try = function ($key, $fn) use (&$n) { try { $n[$key] = (int) $fn(); } catch (\Throwable $e) { error_log('[admin] count ' . $key . ': ' . $e->getMessage()); } };
         $try('moderation',   function () { return (new AdminModel())->moderation_count(); });
         $try('reports',      function () { return (new ReportsModel())->open_count(); });
         // creator ID checks are decided by Didit (IdentityVerification): nothing waits on staff, so no count
         // age checks are decided by Didit too: a pending one waits on the user, not staff, so no count
         $try('support',      function () { return (new SupportModel())->count_open(); });
+        $try('feedback',     function () { return (new FeedbackModel())->count_new(); });
         $try('billing',      function () { return (new BillingAccountsModel())->past_due_count(); });
         $try('articles',     function () { return count((new SeoArticlesModel())->by_status(array('review', 'draft'))); });
         $try('affiliates',   function () { return (new AffiliatesModel())->pending_count() + (new AffiliatePayoutsModel())->requested_count(); });
@@ -145,6 +147,14 @@ class AdminController extends Controller {
         $this->shell('support');
         $this->view->support = array();
         try { $this->view->support = (new SupportModel())->for_staff('', 300); } catch (\Throwable $e) { error_log('[admin] support: ' . $e->getMessage()); }
+        $this->view->render();
+    }
+
+    /** /admin/feedback — notes sent from the Feedback link on every signed-in page, newest first. */
+    public function feedbackAction(){
+        $this->shell('feedback');
+        $this->view->feedback = array();
+        try { $this->view->feedback = (new FeedbackModel())->for_staff(500); } catch (\Throwable $e) { error_log('[admin] feedback: ' . $e->getMessage()); }
         $this->view->render();
     }
 

@@ -94,6 +94,18 @@ class ApiAdminController extends BaseApiController {
         exit;
     }
 
+    /** /admin/feedback: mark a note reviewed, or back to new. */
+    public function admin_feedback_statusAction(){
+        $this->admin_guard();
+        $model  = new FeedbackModel();
+        $id     = (int) ($this->post['feedback_id'] ?? 0);
+        $status = (string) ($this->post['status'] ?? '');
+        if (!in_array($status, ['new', 'reviewed'], true)) { $this->jsonError('Invalid request'); }
+        if (!$model->get($id)) { $this->jsonError('Feedback not found'); }
+        $model->set_status($id, $status, (int) Session::get('user_id'));
+        $this->jsonSuccess(['status' => $status, 'message' => $status === 'reviewed' ? 'Marked reviewed' : 'Marked new']);
+    }
+
     /** Mark / unmark a demo account so it never reads as a real creator in public listings. */
     public function admin_set_demoAction(){
         $this->admin_guard();

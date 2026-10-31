@@ -48,7 +48,7 @@ class ApiRoutes {
             'fanvue_disconnect', 'eromify_connect', 'eromify_disconnect', 'eromify_characters',
         ],
         'ApiSupportController' => [
-            'support_create', 'support_reply', 'support_close', 'support_assist', 'contact_send',
+            'support_create', 'support_reply', 'support_close', 'support_assist', 'contact_send', 'feedback_send',
         ],
         'ApiSetupController' => [
             'setup_progress', 'setup_dismiss', 'setup_skip_step',
@@ -81,6 +81,7 @@ class ApiRoutes {
             'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_billing_retry', 'admin_set_plan_cancel', 'admin_set_demo',
             'admin_set_cross_promo_plans', 'admin_set_creator_promo', 'admin_niche_save', 'admin_niche_set_active', 'admin_niche_move',
             'admin_founding_testimonial', 'admin_founding_refuse', 'admin_testimonial_add', 'admin_testimonial_status', 'admin_testimonial_remove',
+            'admin_feedback_status',
         ],
         'ApiAdminMessagesController' => [
             'admin_message_send', 'admin_user_lookup', 'admin_message_inbox', 'admin_message_thread', 'admin_announce_count', 'admin_announce_send',

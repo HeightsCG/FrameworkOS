@@ -268,7 +268,9 @@ class Sections {
         $o .= '<h1 class="ph__title">' . self::e(self::tc($h['title'])) . '</h1>';
         if (!empty($h['below'])) { $o .= '<div class="hx__below">' . $h['below'] . '</div>'; }
         if (!empty($h['lead'])) { $o .= self::paragraphs((string) $h['lead'], 'ph__lead'); }
-        $o .= self::buttons((array) ($h['buttons'] ?? array()), 'sx-acts ph__acts') . '</div>';
+        $o .= self::buttons((array) ($h['buttons'] ?? array()), 'sx-acts ph__acts');
+        if (!empty($h['note'])) { $o .= '<p class="ph__note">' . self::e((string) $h['note']) . '</p>'; }
+        $o .= '</div>';
         if ($v === 'editorial' && $img !== '') { $o .= '<figure class="ph__band">' . $img . '</figure>'; $img = ''; }
         if ($panel !== '') { $o .= '<div class="hx__mod ph__panel">' . $panel . '</div>'; }
         $o .= '</div>';
@@ -765,6 +767,14 @@ class Sections {
      * The trial button: while founding spots remain it starts the free first Founding::TRIAL_DAYS (the claim link),
      * after that it is the plain sign-up. Returns array(label, href, data-auth). The number always comes from Founding.
      */
+    /** One line on what Free can't do and what unlocks selling; names the trial only while the founding offer is open (as trial_link). */
+    public static function plan_note(): string {
+        $open = false;
+        try { $open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[sections] founding: ' . $ex->getMessage()); }
+        $unlock = $open ? 'A ' . (int) Founding::TRIAL_DAYS . '-day trial on ' . Founding::plan_names() . ' unlocks selling.' : 'The ' . Founding::plan_names() . ' plan unlocks selling.';
+        return 'Free accounts can browse and buy, but can\'t publish or sell. ' . $unlock;
+    }
+
     public static function trial_link(): array {
         $open = false;
         try { $open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[sections] founding: ' . $ex->getMessage()); }

@@ -1208,6 +1208,8 @@ p.sf__h, p.cos-form-title { display: block; }
 .ph__lead + .ph__lead { margin-top: 12px; }
 .ph__acts { margin-top: 36px; }
 .ph__acts .sx-btn { height: 56px; padding: 0 28px; font-size: 1.0625rem; }
+.ph__note { margin: 16px 0 0; max-width: 560px; font-size: .875rem; line-height: 1.5; color: #a1a1a6; }
+.ph--editorial .ph__note { grid-column: 2; }
 .ph__img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ph__after { position: relative; z-index: 1; padding-bottom: 72px; }
 .ph__after .sx-jump { margin-top: 0; }
