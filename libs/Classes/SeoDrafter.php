@@ -870,7 +870,11 @@ class SeoDrafter {
         foreach (array_keys($live) as $name) {
             $n = preg_quote($name, '/');
             $per = '(?=\s*(?:a|per)\s+month\b|\s*\/\s*(?:month|mo)\b|\s+monthly\b)';   // a plan PRICE says per month
-            $text = preg_replace_callback('/\b(' . $n . ')(\s+plan)?(\s*(?:is|costs?|runs|at|for|=|\()\s*(?:only\s+|just\s+|about\s+)?)\$(\d[\d,]*(?:\.\d+)?)' . $per . '/', function ($m) use ($fn, $skip) {
+            $text = preg_replace_callback('/\b(' . $n . ')(\s+plan)?(\s*(?:is|costs?|runs|at|for|=|\(|\*{0,2},|,?\s*priced\s+at)\s*(?:only\s+|just\s+|about\s+)?)\$(\d[\d,]*(?:\.\d+)?)' . $per . '/', function ($m) use ($fn, $skip) {   // "**Creator**, $99 a month" (a plan list) and "the Creator plan, priced at $99 a month" too
+                return $m[1] . $m[2] . $m[3] . '$' . ($skip($m[4]) ? $m[4] : $fn($m[1], $m[4]));
+            }, $text);
+            // "10% on Creator at $99, and 3% on Studio at $199": "<plan> at $N" ends the clause, so no "a month" is needed
+            $text = preg_replace_callback('/\b(' . $n . ')(\s+plan)?(\s+at\s+)\$(\d{1,3}(?:,\d{3})*(?:\.\d+)?)(?=\s*[,;.)]|\s+(?:and|with)\b|\s*$)/m', function ($m) use ($fn, $skip) {
                 return $m[1] . $m[2] . $m[3] . '$' . ($skip($m[4]) ? $m[4] : $fn($m[1], $m[4]));
             }, $text);
             $text = preg_replace_callback('/\$(\d[\d,]*(?:\.\d+)?)(\s*(?:(?:a|per)\s+month|\/\s*(?:month|mo)|monthly)\b\s+(?:for|on)\s+(?:the\s+)?)(' . $n . ')\b/', function ($m) use ($fn, $skip) {

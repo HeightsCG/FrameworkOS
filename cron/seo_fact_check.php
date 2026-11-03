@@ -15,7 +15,9 @@
  *                     sentences the old publisher injected are removed with the fragments they left (", with card
  *                     processing separate.", ". Free accounts ..."), paragraphs over six sentences are split at a
  *                     sentence boundary (SeoDrafter::clean_boilerplate), dashes become a period or comma, and links
- *                     outside the article's cluster allow-list become plain text; re-rendered and pinged. Each changed
+ *                     outside the article's cluster allow-list become plain text, and a plan price written next to its plan name
+ *                     takes the configured price (SeoDrafter::fix_plan_prices: "Creator is $49 a month" after the price
+ *                     moves); re-rendered and pinged. Each changed
  *                     row is first saved as JSON to <tmp>/cls_seo_backup_<date>/. Add --dry-run to list the changes
  *                     without writing. Income promises and names are only reported (fix those with --rewrite or the editor).
  *                     Run once on prod after the 2026-10-11 deploy: APPLICATION_ENV=production php .../seo_fact_check.php --fix-rules --quiet
@@ -125,10 +127,10 @@ foreach ($rows as $row) {
     if (isset($opts['fix-rules']) && (string) $a['status'] === 'published') {
         foreach ($rule_issues as $e) { $rule_counts['before'][$kind($e)] = ($rule_counts['before'][$kind($e)] ?? 0) + 1; }
         $f = array();
-        foreach (array('title', 'meta_description', 'excerpt', 'body_md') as $col) { $v = $undash((string) $a[$col]); if ($v !== (string) $a[$col]) { $f[$col] = $v; } }
+        foreach (array('title', 'meta_description', 'excerpt', 'body_md') as $col) { $v = SeoDrafter::fix_plan_prices($undash((string) $a[$col])); if ($v !== (string) $a[$col]) { $f[$col] = $v; } }
         $faq = json_decode((string) $a['faq'], true);
         if (is_array($faq)) {
-            foreach ($faq as $i => $q) { if (is_array($q)) { foreach (array('q', 'a') as $k) { $faq[$i][$k] = $undash((string) ($q[$k] ?? '')); } } }
+            foreach ($faq as $i => $q) { if (is_array($q)) { foreach (array('q', 'a') as $k) { $faq[$i][$k] = SeoDrafter::fix_plan_prices($undash((string) ($q[$k] ?? ''))); } } }
             $faq_json = json_encode($faq, JSON_UNESCAPED_UNICODE);
             if ($faq_json !== json_encode(json_decode((string) $a['faq'], true), JSON_UNESCAPED_UNICODE)) { $f['faq'] = $faq_json; }
         }
@@ -236,7 +238,7 @@ $alert = array_values(array_filter($flagged, function ($f) { return !preg_match(
 if (!isset($opts['quiet']) && !empty($alert)) {
     try {
         Notify::many((new UsersModel())->admin_ids(), 'system', 'Prices, fee or content rules off on ' . count($alert) . ' page(s)',
-            implode("\n", array_slice($alert, 0, 12)) . (count($alert) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-rules (mechanical), then --rewrite --all (rules and shape, one Claude call each).", '/admin?tab=content');
+            implode("\n", array_slice($alert, 0, 12)) . (count($alert) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-rules first (mechanical, no Claude calls: plan prices, fee wording, dashes, links). Only what is still listed after it needs --rewrite --slug=<slug> (one Claude call each).", '/admin?tab=content');
     } catch (\Throwable $e) { error_log('[seo] fact check notice: ' . $e->getMessage()); }
 }
 // findings are the job's output, not a failure: the Jobs box shows OK with the count, the admin notice above carries the list;
