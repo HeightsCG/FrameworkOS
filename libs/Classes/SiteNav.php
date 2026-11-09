@@ -16,7 +16,6 @@ class SiteNav
                 array('/features/automations', 'Automations', 'Posts and messages on a schedule', 'repeat'),
                 array('/features/analytics', 'Analytics', 'Content, audience and clicks in one view', 'chart'),
                 array('/features/link-in-bio', 'Link in Bio', 'One page at your handle', 'link'),
-                array('/features/custom-domains', 'Custom Domains', 'Your page on your own domain', 'plug'),
             ),
             'foot' => array('/integrations', 'See all nine integrations'),
         ),

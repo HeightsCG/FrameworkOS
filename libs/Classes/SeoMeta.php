@@ -167,7 +167,6 @@ class SeoMeta {
             'cross-posting'                        => '/features/publishing',
             'content automation'                   => '/features/automations',
             'creator analytics'                    => '/features/analytics',
-            'custom domain'                        => '/features/custom-domains',
             'sign up'                              => '/',
         );
     }

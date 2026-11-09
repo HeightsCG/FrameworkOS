@@ -1893,6 +1893,13 @@ jQuery(function ($) {
                 schedRules = o.rules || [];
                 schedPlan = { can_create: o.can_create !== false, included: o.included !== false, message: o.limit_message || '', upgrade_name: o.upgrade_name || '' };
                 renderSchedRules();
+                // Deep link /studio#automation-<id> (e.g. from a notice): open that automation once.
+                var dl = /^#automation-(\d+)$/.exec(window.location.hash || '');
+                if (dl) {
+                    var dl_rule = schedRules.filter(function (r) { return String(r.id) === dl[1]; })[0];
+                    history.replaceState(null, '', window.location.pathname + window.location.search);
+                    if (dl_rule) { openSchedForm(dl_rule); }
+                }
             });
     }
 
@@ -1920,7 +1927,7 @@ jQuery(function ($) {
     function schedCard(r) {
         var isMsg = r.kind === 'message';
         var aud = isMsg ? schedTargetsSummary(r) : 'Everyone';
-        var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : ((r.image_source === 'character' && r.character_name) ? (r.character_name + ' · ' + r.topic) : r.topic));
+        var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : r.topic);
         var lastRun = r.last_status === 'success'
             ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
             : r.last_status === 'rendering'
@@ -1982,6 +1989,10 @@ jQuery(function ($) {
             setSchedImageSource('influencer', m[1]); $('#csSchedInfluencer').trigger('change');
             return;
         }
+        if (/^#automation-\d+$/.test(window.location.hash || '')) {   // opened by loadScheduler once the list is in
+            var stab = document.querySelector('#csTabScheduler'); if (stab && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(stab).show(); }
+            return;
+        }
         m = /^#library-influencer-(\d+)$/.exec(window.location.hash || '');
         if (m && $('#csFilterInfluencer').length) { gotoLibraryTab(); $('#csFilterInfluencer').val(m[1]); state.filters.influencer = m[1]; loadLibrary(); }
     }, 0);
@@ -2033,10 +2044,8 @@ jQuery(function ($) {
         var kind = $('#csSchedKind').val() || 'post';
         var $c = $('#csSchedCredits');
         if (kind !== 'post') { $c.removeClass('is-low').text('Scheduled messages don\'t use AI credits.'); return; }
-        var still = schedForm.image_source === 'character' ? 0   // the still comes from Eromify, on the creator's Eromify credits
-            : ((schedIsVideo() && schedForm.image_source === 'influencer' && CFG.ai.inf_video_image_price) ? CFG.ai.inf_video_image_price : CFG.ai.image_price);
+        var still = (schedIsVideo() && schedForm.image_source === 'influencer' && CFG.ai.inf_video_image_price) ? CFG.ai.inf_video_image_price : CFG.ai.image_price;
         var per = (parseInt(still, 10) || 0) + schedVideoCredits();
-        if (per <= 0) { $c.removeClass('is-low').text('Images use your Eromify credits, not AI credits.'); return; }
         var runs = (schedForm.cadence === 'weekly') ? Math.round($('#csSchedDays .cs-ae__day.is-on').length * 52 / 12) : 30;
         var bal = parseInt(CFG.ai.balance, 10) || 0;
         var low = bal < per * runs;
@@ -2051,8 +2060,8 @@ jQuery(function ($) {
         return schedHasFace() ? all.filter(function (m) { return m.faces !== false; }) : all;
     }
     function schedIsVideo() { return schedForm.media_type === 'video'; }
-    // A real-looking face in the picture (a trained influencer or an Eromify character): face-refusing video styles are left out.
-    function schedHasFace() { return schedForm.image_source === 'influencer' || schedForm.image_source === 'character'; }
+    // A real-looking face in the picture (a trained influencer): face-refusing video styles are left out.
+    function schedHasFace() { return schedForm.image_source === 'influencer'; }
     function schedVideoCredits() {
         if (!schedIsVideo()) { return 0; }
         var m = schedVideoModels().filter(function (x) { return x.key === $('#csSchedVideoModel').val(); })[0];
@@ -2110,7 +2119,7 @@ jQuery(function ($) {
         var kind = $('#csSchedKind').val() || 'post';
         if (kind === 'post') {
             var src = schedForm.image_source === 'influencer' ? (schedInfluencerName(schedForm.influencer_id) || 'Influencer')
-                : (schedForm.image_source === 'character' ? (schedForm.character_name || 'My Character') : 'Brand photo');
+                : 'Brand photo';
             var size = aspectKey($('#csSchedSize').val());
             schedSum('content', src + ' · ' + ((CFG.aspect && CFG.aspect.names[size]) || size) + (schedIsVideo() ? ' · Video' : ''));
             schedSum('publishing', $('#csSchedAi').is(':checked') ? 'AI captions' : 'Own caption');
@@ -2134,7 +2143,7 @@ jQuery(function ($) {
     $('#csSchedName').on('input', function () { updateSchedTitle(); schedClearError('name'); });
 
     /* validation: inline message under the field + a flag on the section's nav item */
-    var SCHED_ERR_SECTION = { name: 'content', topic: 'content', message: 'content', influencer: 'content', character: 'content', targets: 'destinations', days: 'schedule' };
+    var SCHED_ERR_SECTION = { name: 'content', topic: 'content', message: 'content', influencer: 'content', targets: 'destinations', days: 'schedule' };
     function schedSetError(key, msg) {
         var $p = $('#csSchedErr_' + key).text(msg).prop('hidden', false);
         $('#csSchedErr_' + key).closest('.cs-ae__field').find('.form-control, .form-select').first().addClass('is-invalid');
@@ -2268,14 +2277,12 @@ jQuery(function ($) {
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.cadence = rule ? rule.cadence : 'daily';
         schedForm.influencer_id = rule ? String(rule.influencer_id || '') : '';
-        schedForm.character_id = rule ? String(rule.character_id || '') : '';
-        schedForm.character_name = rule ? String(rule.character_name || '') : '';
         schedForm.media_type = rule ? (rule.media_type || 'image') : 'image';
         schedForm.video_picked = !!(rule && rule.video_model_key);   // a saved automation keeps its style (unless it refuses her face)
         $('#csSchedVideoPrompt').val(rule ? (rule.video_prompt || '') : '');
         renderSchedVideoModels(rule ? rule.video_model_key : '', rule ? rule.video_duration : '');
         setSchedMedia(schedForm.media_type);
-        setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? (rule.image_source === 'character' ? rule.character_id : rule.influencer_id) : '');
+        setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? rule.influencer_id : '');
         setSchedCadence(schedForm.cadence);
 
         // header: live name, status only for an existing rule; footer: delete only for an existing rule
@@ -2315,13 +2322,11 @@ jQuery(function ($) {
         $('#csSchedImageSource .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('src') === schedForm.image_source); });
         syncPressed('#csSchedImageSource');
         $('#csSchedInfluencerWrap').prop('hidden', schedForm.image_source !== 'influencer');
-        $('#csSchedCharacterWrap').prop('hidden', schedForm.image_source !== 'character');
         schedPickSync('Inf', schedForm.influencer_id, '', 'Pick an influencer');
-        schedPickSync('Char', schedForm.character_id, schedForm.character_name, 'Pick a character');
     }
-    /* Face pickers (Influencer, My Character): a listbox panel under the trigger; search appears when there are more than 6.
-       k is the id part: Inf -> #csSchedInfPick/Panel/Trigger/Search, Char -> #csSchedCharPick/... */
-    var SCHED_PICK_VALUE = { Inf: '#csSchedInfluencer', Char: '#csSchedCharacter' };
+    /* Face picker (Influencer): a listbox panel under the trigger; search appears when there are more than 6.
+       k is the id part: Inf -> #csSchedInfPick/Panel/Trigger/Search */
+    var SCHED_PICK_VALUE = { Inf: '#csSchedInfluencer' };
     function schedPickSync(k, id, fallback, none) {
         id = String(id || '');
         var $opt = $('#csSched' + k + 'Panel .cs-ae__pickopt[data-id="' + id + '"]');
@@ -2330,7 +2335,7 @@ jQuery(function ($) {
         $('#csSched' + k + 'Trigger .cs-ae__pickname').text($opt.children().last().text().trim() || (id !== '' && fallback ? fallback : none));
     }
     function schedPickOpen(open, k) {
-        if (!k) { ['Inf', 'Char'].forEach(function (x) { schedPickOpen(false, x); }); return; }
+        if (!k) { ['Inf'].forEach(function (x) { schedPickOpen(false, x); }); return; }
         var $panel = $('#csSched' + k + 'Panel'), $search = $('#csSched' + k + 'Search:not([hidden])');
         $panel.prop('hidden', !open);
         $('#csSched' + k + 'Trigger').attr('aria-expanded', open ? 'true' : 'false');
@@ -2365,36 +2370,12 @@ jQuery(function ($) {
         else if (e.key === 'Enter' && $opts.length === 1) { e.preventDefault(); schedPickChoose(k, $opts.eq(0).attr('data-id')); }
     });
     $(document).on('mousedown', function (e) {
-        ['Inf', 'Char'].forEach(function (k) { if (!$('#csSched' + k + 'Panel').prop('hidden') && !$(e.target).closest('#csSched' + k + 'Pick').length) { schedPickOpen(false, k); } });
+        ['Inf'].forEach(function (k) { if (!$('#csSched' + k + 'Panel').prop('hidden') && !$(e.target).closest('#csSched' + k + 'Pick').length) { schedPickOpen(false, k); } });
     });
-    /* My Character: the creator's Eromify characters, loaded once per page; their reference picture is the face. */
-    var schedCharacters = null, schedCharLoading = false;
-    function loadSchedCharacters() {
-        if (schedCharacters || schedCharLoading) { return; }
-        schedCharLoading = true;
-        var $note = $('#csSchedCharNote').text('Loading…').prop('hidden', false);
-        ApiDataSvc.apiCall('post', 'eromify_characters', {}, function (resp) {
-            schedCharLoading = false;
-            var o = null; try { o = JSON.parse(resp); } catch (e) {}
-            if (!o || !o.success) { $note.text((o && o.message) || 'Could not load your characters.'); return; }
-            schedCharacters = o.characters || [];
-            var $list = $('#csSchedCharPanel .cs-ae__picklist').empty();
-            schedCharacters.forEach(function (c) {
-                var pic = c.reference_image ? '<img src="' + esc(c.reference_image) + '" alt="" loading="lazy">' : esc(String(c.name || '?').charAt(0).toUpperCase());
-                $list.append('<li class="cs-ae__pickopt" role="option" tabindex="-1" aria-selected="false" data-id="' + esc(c.id) + '" data-name="' + esc(String(c.name || '').toLowerCase()) + '"><span class="cs-ae__srcpic" aria-hidden="true">' + pic + '</span><span>' + esc(c.name) + '</span></li>');
-            });
-            $('#csSchedCharSearch').prop('hidden', schedCharacters.length <= 6);
-            if (schedCharacters.length) { $note.prop('hidden', true); } else { $note.text('No characters in your Eromify studio yet'); }
-            // a new automation starts on the first character; a saved one keeps its own
-            if (schedForm.image_source === 'character' && !schedForm.character_id && schedCharacters.length) { $('#csSchedCharacter').val(schedCharacters[0].id).trigger('change'); }
-            else { syncSchedSourceTiles(); }
-        });
-    }
     function setSchedImageSource(src, selectedId) {
         var influencers = (CFG.influencers && CFG.influencers.ready) || [];
         if (src === 'influencer' && !influencers.length) { toastr.info('Train an influencer first.'); src = 'brand'; }
-        if (src === 'character' && !(CFG.eromify && CFG.eromify.connected)) { toastr.info('Connect Eromify in Settings > Integrations first.'); src = 'brand'; }
-        schedForm.image_source = (src === 'influencer' || src === 'character') ? src : 'brand';
+        schedForm.image_source = (src === 'influencer') ? 'influencer' : 'brand';   // a rule still saying 'character' (Eromify, removed) opens as Brand
         var isInf = schedForm.image_source === 'influencer';
         if (isInf) {
             var want = selectedId ? String(selectedId) : (schedForm.influencer_id || '');
@@ -2402,14 +2383,8 @@ jQuery(function ($) {
             $('#csSchedInfluencer').val(want);
             schedForm.influencer_id = want;
         } else { schedClearError('influencer'); }
-        if (schedForm.image_source === 'character') {
-            if (selectedId) { schedForm.character_id = String(selectedId); }
-            $('#csSchedCharacter').val(schedForm.character_id || '');
-            loadSchedCharacters();
-            if (schedCharacters && !schedForm.character_id && schedCharacters.length) { schedForm.character_id = String(schedCharacters[0].id); schedForm.character_name = schedCharacters[0].name || ''; $('#csSchedCharacter').val(schedForm.character_id); }
-        } else { schedClearError('character'); }
         syncSchedSourceTiles();
-        // The styles offered follow the source; a face (influencer or character) video starts on Cinematic, 10 seconds, until a style is picked.
+        // The styles offered follow the source; a face (influencer) video starts on Cinematic, 10 seconds, until a style is picked.
         if (schedHasFace() && !schedForm.video_picked) { renderSchedVideoModels(SCHED_INF_VIDEO.key, SCHED_INF_VIDEO.dur); }
         else { renderSchedVideoModels($('#csSchedVideoModel').val(), $('#csSchedVideoDur').val()); }
         updateSchedSummaries();
@@ -2421,12 +2396,6 @@ jQuery(function ($) {
         if (parseInt($('#csSchedId').val(), 10) > 0) { return; }
         var inf = ((CFG.influencers && CFG.influencers.ready) || []).filter(function (i) { return String(i.id) === schedForm.influencer_id; })[0];
         if (inf && inf.share_accounts && inf.share_accounts.length) { renderSchedSocial(inf.share_accounts); }
-    });
-    $('#csSchedCharacter').on('change', function () {
-        schedForm.character_id = String(this.value || '');
-        var c = (schedCharacters || []).filter(function (x) { return String(x.id) === schedForm.character_id; })[0];
-        if (c) { schedForm.character_name = c.name || ''; }
-        schedClearError('character'); syncSchedSourceTiles(); updateSchedSummaries();
     });
     $('#csSchedCadence').on('click', '.cs-seg__opt', function () { setSchedCadence($(this).data('cad')); });
     function setSchedCadence(c) {
@@ -2453,7 +2422,6 @@ jQuery(function ($) {
         } else {
             if (topic === '') { errors.push({ key: 'topic', msg: schedForm.image_source !== 'brand' ? 'Describe the scene.' : 'Describe what to post.', focus: '#csSchedTopic' }); }
             if (schedForm.image_source === 'influencer' && !schedForm.influencer_id) { errors.push({ key: 'influencer', msg: 'Pick an influencer.', focus: '#csSchedInfTrigger' }); }
-            if (schedForm.image_source === 'character' && !schedForm.character_id) { errors.push({ key: 'character', msg: 'Pick a character.', focus: '#csSchedCharTrigger' }); }
         }
         if (schedForm.cadence === 'weekly' && !$('#csSchedDays .cs-ae__day.is-on').length) { errors.push({ key: 'days', msg: 'Pick at least one day of the week.', focus: '#csSchedDays .cs-ae__day' }); }
         errors.forEach(function (e) { schedSetError(e.key, e.msg); });
@@ -2495,7 +2463,6 @@ jQuery(function ($) {
             id: $('#csSchedId').val(), name: name, topic: topic,
             kind: kind, message_ai: msgAi ? '1' : '0', message_text: msgText, message_targets: JSON.stringify(targets),
             image_source: schedForm.image_source || 'brand', influencer_id: influencerId, content_level: 'safe',
-            character_id: (kind === 'post' && schedForm.image_source === 'character') ? (schedForm.character_id || '') : '', character_name: (kind === 'post' && schedForm.image_source === 'character') ? (schedForm.character_name || '') : '',
             media_type: (kind === 'post' && schedIsVideo()) ? 'video' : 'image', video_prompt: $('#csSchedVideoPrompt').val() || '',
             video_model_key: $('#csSchedVideoModel').val() || '', video_duration: $('#csSchedVideoDur').val() || '',
             size: $('#csSchedSize').val(),

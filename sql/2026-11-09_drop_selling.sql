@@ -1,4 +1,4 @@
--- NOT TO RUN YET. Drops tables of removed selling features after the retention period.
+-- APPLIED ON PROD 2026-11-09 (after cron/retire_selling_once.php --apply). Drops tables of removed selling features.
 -- Safe to re-run: tables use DROP TABLE IF EXISTS and every column drop checks information_schema first
 -- (a column that is not there, e.g. one prod never had, is skipped instead of stopping the file).
 -- ORDER: deploy the code, run cron/retire_selling_once.php --apply, THEN this file.

@@ -1,5 +1,5 @@
 <?php /* Sign-in / register dialog markup, opened by any [data-auth="login|register"] element (public/js/landing.js). Shared by login_form.php and public_page.php. */ ?>
-<?php $google_next = CustomDomains::safe_path((string) ($_GET['next'] ?? '')); $google_next = $google_next !== '/' ? '?next=' . htmlspecialchars(rawurlencode($google_next), ENT_QUOTES, 'UTF-8') : '';   // Google sign-in lands on ?next= too (Controller::bounce) ?>
+<?php $google_next = Main::safe_path((string) ($_GET['next'] ?? '')); $google_next = $google_next !== '/' ? '?next=' . htmlspecialchars(rawurlencode($google_next), ENT_QUOTES, 'UTF-8') : '';   // Google sign-in lands on ?next= too (Controller::bounce) ?>
     <div class="ld-auth" id="ld_auth" role="dialog" aria-modal="true" aria-label="Sign in or create account" hidden>
         <div class="ld-auth__veil"></div>
         <div class="ld-auth__dialog">

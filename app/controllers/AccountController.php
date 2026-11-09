@@ -103,18 +103,12 @@ class AccountController extends Controller {
         $this->view->inbox_ai            = Plan::has_feature($owner, 'inbox_ai');
         $inbox_up                        = PlanTiers::lowest_with_feature('inbox_ai');
         $this->view->inbox_ai_upgrade    = $inbox_up ? (string) $inbox_up['name'] : '';
-        $this->view->eromify             = $can_manage ? (new EromifyAccountsModel())->get_for_user($owner['user_id']) : null;
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;
         $this->view->notification_meta   = $notification_meta;
         $this->view->connected           = $connected;
         $this->view->mcp_connected       = $can_manage && (new ApiTokensModel())->has_active_for_user($owner['user_id']);
         $this->view->mcp_url             = Main::get_base_domain() . '/mcp';
-        // Custom domain (Studio plan): the owner's domains + the DNS records to add.
-        $this->view->domain_allowed      = $can_manage && CustomDomains::allowed($owner);
-        $this->view->domain_upgrade      = (string) ((PlanTiers::lowest_with_feature('custom_domain') ?? array())['name'] ?? '');
-        $this->view->domains             = $can_manage ? (new CreatorDomainsModel())->list_for_user($owner['user_id']) : array();
-        $this->view->domain_records      = CustomDomains::records($this->view->domains);
         $this->view->notification_prefs  = $prefsModel->get_prefs_map($user['user_id']);
         $this->view->blocked_users       = $blocksModel->get_for_user($user['user_id']);
         $this->view->data_export         = DataExportService::state_json((new DataExportsModel())->latest_for_user($user['user_id']), (string) ($user['content_timezone'] ?? 'UTC'));
@@ -222,7 +216,7 @@ class AccountController extends Controller {
         if ($me > 0) { $flow['link'] = $me; }   // signed in: connecting Google to this account (Settings > Security), not signing in
         $flow['signup'] = array_merge(UsersModel::signup_cookie(), array_filter(UsersModel::signup_params($_GET), 'strlen'));   // ?plan= / ?role= / ?ref= on this link, each one else the cls_signup cookie
         if (UsersModel::google_signup_from_start($_GET)) { $flow['start'] = 1; }   // the /start Google button: a new account is a Creator at signup, like the /start email form
-        $next = CustomDomains::safe_path((string) ($_GET['next'] ?? ''));   // ?next= from the sign-in dialog (Controller::bounce): where to land after Google, same site only
+        $next = Main::safe_path((string) ($_GET['next'] ?? ''));   // ?next= from the sign-in dialog (Controller::bounce): where to land after Google, same site only
         if ($next !== '/') { $flow['next'] = $next; }
         Session::set('google_oauth', $flow);
         Header('Location: ' . $url);
@@ -320,41 +314,8 @@ class AccountController extends Controller {
             Header('Location: /setup' . ($plan !== '' ? '?plan=' . rawurlencode($plan) : ''));
             exit;
         }
-        $land = !empty($flow['next']) ? CustomDomains::safe_path((string) $flow['next']) : '/';   // the page they were sent to sign in from, else home
+        $land = !empty($flow['next']) ? Main::safe_path((string) $flow['next']) : '/';   // the page they were sent to sign in from, else home
         Header('Location: ' . $land . (strpos($land, '?') === false ? '?' : '&') . 'signed_in=google' . ($new ? '&new=1' : ''));
-        exit;
-    }
-
-    /**
-     * /account/domain_login?host=lexivaughn.com&path=/: Sign In pressed on a creator's own domain.
-     * Signed in here already: straight back, signed in there. Otherwise sign in here first (password, Google,
-     * second factor all as usual); Bootstrap::return_to_custom_domain carries them back afterwards.
-     */
-    /**
-     * /account/domain_login?host=&path=: Sign In pressed on a creator's domain. Signed out: sign in here, then
-     * return_to_custom_domain carries the session over. Signed in: a confirm page (the handoff is a POST with the
-     * CSRF token, never a bare link, so nobody is sent to a creator's host by a link they clicked elsewhere).
-     * Staff are never handed over: they browse creator domains signed out.
-     */
-    public function domain_loginAction(){
-        $host = CustomDomains::normalize($_REQUEST['host'] ?? '');
-        $path = CustomDomains::safe_path($_REQUEST['path'] ?? '/');
-        $d    = CustomDomains::live($host);
-        if ($d === null) { self::bounce(); }
-        $me = (int) Session::get('user_id');
-        if ($me > 0 && !UserSession::impersonating()) {
-            if (Permissions::is_admin()) { self::bounce(); }
-            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && CSRF::validate()) {
-                Header('Location: ' . CustomDomains::handoff_url($me, $host, 'https://' . $host, $path));
-                exit;
-            }
-            $this->view->public_page(Main::app_path() . '/app/views/account/domain_continue.php',
-                array('title' => 'Continue to ' . $host, 'description' => '', 'noindex' => true),
-                array('host' => $host, 'path' => $path, 'handle' => (string) $d['u_name'], 'me_handle' => (string) Session::get('u_name')));
-            return;
-        }
-        Session::set('domain_return', array('host' => $host, 'path' => $path, 'at' => time()));
-        Header('Location: /?auth=login');
         exit;
     }
 

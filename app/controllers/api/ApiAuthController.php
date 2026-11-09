@@ -55,7 +55,7 @@ class ApiAuthController extends BaseApiController {
         // Where the verification link lands them once it has signed them in: the page they were on (same-site path only).
         $return = html_entity_decode((string) ($this->post['return'] ?? ''), ENT_QUOTES, 'UTF-8');
         if ($return === '') { $return = (string) parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH); }
-        Session::set('signup_return', CustomDomains::safe_path($return));
+        Session::set('signup_return', Main::safe_path($return));
 
         $existing = $this->userModel->email_exists($email);
         if (is_array($existing) && count($existing) > 0) {
@@ -148,7 +148,7 @@ class ApiAuthController extends BaseApiController {
     /** Start the session for an account that was just created and say where it goes first: a creator to /setup (with ?plan=), anyone else back to the page they signed up on. */
     private function sign_in_new_account(array $user): string{
         $done = LoginGate::finish($user);   // a brand-new account has no second factor and no seat limit
-        $return = CustomDomains::safe_path((string) Session::get('signup_return'));
+        $return = Main::safe_path((string) Session::get('signup_return'));
         Session::destroyValue('signup_return');
         $role = (int) ($user['role_id'] ?? 0) > 0 ? $this->userModel->get_role_name_by_id((int) $user['role_id']) : '';
         $plan = (string) ($user['signup_plan'] ?? '');
@@ -356,7 +356,7 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError(LoginGate::message($blocked));
         }
 
-        $return = CustomDomains::safe_path((string) Session::get('signup_return'));   // set by registerAction in this browser, if it is the same one
+        $return = Main::safe_path((string) Session::get('signup_return'));   // set by registerAction in this browser, if it is the same one
         Session::destroyValue('signup_return');
         $done = LoginGate::finish($user);
         // signed up with the founding trial offer: this browser may not be the one they signed up in (an ad's in-app browser), so it gets the flag too

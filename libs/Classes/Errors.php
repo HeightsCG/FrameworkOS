@@ -64,7 +64,7 @@ class Errors {
         if (headers_sent()) { return; }   // the page already started printing; nothing safe left to send
         $first = strtolower((string) (Main::get_url()[0] ?? ''));
         $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
-        $json = in_array($first, array('api', 'mcp', 'webhook', 'csrf-token', 'domain-check'), true)
+        $json = in_array($first, array('api', 'mcp', 'webhook', 'csrf-token'), true)
             || strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
             || (strpos($accept, 'application/json') !== false && strpos($accept, 'text/html') === false);
         header_remove('Location');

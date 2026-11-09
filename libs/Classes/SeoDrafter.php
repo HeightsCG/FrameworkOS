@@ -238,7 +238,7 @@ class SeoDrafter {
     const PRONOUNS = '/\b(it|its|they|them|their|this|these|those|he|she|such)\b/i';
     const PRONOUN_MAX = 2;
     /** A paragraph must hold at least one specific: a named product, tool, plan or platform, a number, a timeframe or a role. */
-    const SPECIFIC = '/(\d|\$|%|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|thirty|forty|fifty|hundred|thousand)\b|\b(?:Creator Link Studio|OnlyFans|Fanvue|Fansly|Patreon|Ko-fi|Linktree|Beacons|Stan Store|Eromify|LoRA|DreamBooth|FLUX|Hugging Face|IRS|FTC|YouTube|TikTok|Instagram|Facebook|Bluesky|Threads|Reddit|Discord|Creator plan|Studio plan|Free plan|PEFT|Diffusers|Kohya|Replicate|Midjourney|Stable Diffusion|SDXL|ComfyUI|Form 1099-K|arXiv)\b|\b(?:month|monthly|week|weekly|day|daily|year|yearly|hour|hourly|minute|quarter|deadline|morning|afternoon|overnight|billing cycle)s?\b|\b(?:creator|fan|subscriber|member|buyer|seller|agency|agencies|operator|reader|manager|team|founder|coach|podcaster|writer|photographer|influencer|customer|client|owner|author|editor|model)s?\b)/i';
+    const SPECIFIC = '/(\d|\$|%|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|thirty|forty|fifty|hundred|thousand)\b|\b(?:Creator Link Studio|OnlyFans|Fanvue|Fansly|Patreon|Ko-fi|Linktree|Beacons|Stan Store|LoRA|DreamBooth|FLUX|Hugging Face|IRS|FTC|YouTube|TikTok|Instagram|Facebook|Bluesky|Threads|Reddit|Discord|Creator plan|Studio plan|Free plan|PEFT|Diffusers|Kohya|Replicate|Midjourney|Stable Diffusion|SDXL|ComfyUI|Form 1099-K|arXiv)\b|\b(?:month|monthly|week|weekly|day|daily|year|yearly|hour|hourly|minute|quarter|deadline|morning|afternoon|overnight|billing cycle)s?\b|\b(?:creator|fan|subscriber|member|buyer|seller|agency|agencies|operator|reader|manager|team|founder|coach|podcaster|writer|photographer|influencer|customer|client|owner|author|editor|model)s?\b)/i';
     /** An order has the verb followed by its object or a direction ("Write four lines", "Work backwards"); a noun phrase does not ("Plan pricing works"). */
     const IMPERATIVE_OBJECT = '/^\w+ (?:the|a|an|your|every|each|all|any|some|only|both|one|two|three|four|five|six|seven|eight|nine|ten|it|them|down|up|out|backwards|forward|through|with|from|on|off|at|in|into|what|which|how|where|when|new|more|less|fewer|everything|nothing|something|anything)\b/i';
     /** Verbs that make a bare imperative opener when they start a paragraph's first sentence. */
@@ -454,7 +454,7 @@ class SeoDrafter {
         }
         $facts['credit rate'] = '/\$1 (?:=|buys|is|equals) ' . (int) Price::CREDITS_PER_DOLLAR . ' credits|\b' . (int) Price::CREDITS_PER_DOLLAR . ' credits (?:per|to the|for a|for every) dollar\b/i';
         $facts['nine platforms'] = '/\bnine (?:social )?(?:networks|platforms)\b/i';
-        foreach (array('DM agent', 'AI captions?', 'tracked links?', 'custom domains?', 'welcome messages?', 'broadcasts?', 'link in bio', 'team seats?', 'automations?') as $f) { $facts['feature ' . $f] = '/\b' . $f . '\b/i'; }
+        foreach (array('DM agent', 'AI captions?', 'tracked links?', 'welcome messages?', 'broadcasts?', 'link in bio', 'team seats?', 'automations?') as $f) { $facts['feature ' . $f] = '/\b' . $f . '\b/i'; }
         return $facts;
     }
 
@@ -1156,7 +1156,7 @@ class SeoDrafter {
     /** Facts Claude may use; nothing else is allowed to appear as a number or a claim. */
     private static function context(): string {
         $site = Main::site_name(); $base = SeoMeta::base();
-        $lines = array("Product: $site ($base). An AI content studio for creators and brands: AI influencers (consistent characters trained on reference photos), AI images and video, a studio that schedules and cross-posts each post to nine social platforms with AI captions, a link-in-bio page at $base/@handle with tracked links, an inbox with AI replies, welcome messages and broadcasts, automations, analytics, custom domains and team seats. Plans include monthly AI credits; extra AI credits can be bought (\$1 = 10 credits).");
+        $lines = array("Product: $site ($base). An AI content studio for creators and brands: AI influencers (consistent characters trained on reference photos), AI images and video, a studio that schedules and cross-posts each post to nine social platforms with AI captions, a link-in-bio page at $base/@handle with tracked links, an inbox with AI replies, welcome messages and broadcasts, automations, analytics and team seats. Plans include monthly AI credits; extra AI credits can be bought (\$1 = 10 credits).");
         $lines[] = 'Out of scope, never write about: selling content, fan subscriptions or memberships, pay-per-view, paywalls, tips, payouts, platform fees or a share of sales, adult content, or comparisons with other creator platforms.';
         foreach (PagesController::pricing_rows() as $r) {
             $t = (array) ($r['tier'] ?? array()); $lim = (array) ($t['limits'] ?? array());

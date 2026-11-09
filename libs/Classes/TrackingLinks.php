@@ -35,8 +35,8 @@ class TrackingLinks {
     }
 
     /**
-     * The profile page on any host (platform or the creator's own domain) with ?tl=<code> from /go: when the code is
-     * one of this creator's links, set cls_tl here too, so follows and signups on their domain can read it. Never throws.
+     * The profile page with ?tl=<code> from /go: when the code is one of this creator's links, set cls_tl here too,
+     * so follows and signups can read it. Never throws.
      */
     public static function from_query($creator_id): void {
         try {

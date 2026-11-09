@@ -184,17 +184,6 @@ try {
     $msg->mark_read($conv, $fan);
     check('mark read clears it', $msg->total_unread($fan) === 0);
 
-    /* ---- 11. domains ---- */
-    $dm = new CreatorDomainsModel();
-    $host = 'audit' . $tag . '.example.com';
-    $did = $dm->add($owner, $host, 'subdomain', 'tok', true);
-    $db->x("UPDATE creator_domains SET date_created = :t WHERE id = :id", array(':t' => date('Y-m-d H:i:s', time() - 8 * 86400), ':id' => $did));
-    $dm->expire_unverified(7);
-    check('an unverified claim expires after 7 days', !$dm->hostname_taken($host));
-    $did2 = $dm->add($owner, $host, 'subdomain', 'tok', true);
-    $um->delete_account($owner, $owner);
-    check('deleting the account releases its domains', !$dm->hostname_taken($host));
-    $db->x("DELETE FROM creator_domains WHERE id IN (" . (int) $did . ',' . (int) $did2 . ")");
 } catch (\Throwable $e) {
     check('no exception: ' . $e->getMessage() . ' @' . $e->getFile() . ':' . $e->getLine(), false);
 }
@@ -207,7 +196,6 @@ if (!empty($made)) {
     $db->x("DELETE FROM user_blocks WHERE user_id IN ($in) OR blocked_user_id IN ($in)");
     $db->x("DELETE FROM ai_credit_transactions WHERE user_id IN ($in)");
     $db->x("DELETE FROM username_history WHERE user_id IN ($in)");
-    $db->x("DELETE FROM creator_domains WHERE user_id IN ($in)");
     $db->x("DELETE FROM user_accounts WHERE user_id IN ($in)");
 }
 echo $fail === 0 ? "\nALL OK\n" : "\n$fail failed\n";

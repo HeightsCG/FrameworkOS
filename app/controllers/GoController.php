@@ -41,8 +41,7 @@ class GoController extends Controller {
 
     /**
      * Inbound tracking link /go/<code>: count the click, set the cls_tl cookie (TrackingLinks), then go to the
-     * creator's page (or the deeper path they chose) at its canonical address, their own domain when they have one,
-     * with ?tl=<code> so the page sets the cookie on that host too. clssim<id> is the system link behind the
+     * creator's page (or the deeper path they chose) at its /@handle address, with ?tl=<code> so the page sets the cookie. clssim<id> is the system link behind the
      * "More Creators Like This" block (?from=<profile id>); its row is made only for a directory-eligible creator.
      */
     private function inbound($code){
@@ -54,7 +53,7 @@ class GoController extends Controller {
             if ($u && (string) ($u['user_status'] ?? '') === 'Active' && (new CreatorProfileModel())->directory_eligible((int) $u['user_id'])) {
                 $link = $m->system_link((int) $u['user_id'], TrackingLinks::similar_code((int) $u['user_id']), TrackingLinks::SIMILAR_LABEL);
             } elseif ($u) {
-                header('Location: ' . CustomDomains::canonical_profile_url($u), true, 302);   // not in the directory: no row, no click
+                header('Location: ' . Main::get_base_domain() . '/@' . rawurlencode((string) $u['u_name']), true, 302);   // not in the directory: no row, no click
                 exit;
             }
         }
@@ -68,9 +67,9 @@ class GoController extends Controller {
         catch (\Throwable $e) { error_log('[tracking_links] click: ' . $e->getMessage()); }
         Analytics::event('tracking_click', array('creator_id' => (int) $link['creator_id'], 'meta' => 'code ' . (string) $link['code']));
         TrackingLinks::set_cookie($link);
-        $base = CustomDomains::canonical_profile_url($u);   // 'https://lexivaughn.com/' or 'https://www.../@handle'
+        $base = Main::get_base_domain() . '/@' . rawurlencode((string) $u['u_name']);   // 'https://www.../@handle'
         $path = TrackingLinks::clean_path($link['target_path']);
-        $dest = rtrim($base, '/') . ($path !== '' ? $path : (substr($base, -1) === '/' ? '/' : ''));
+        $dest = $base . $path;
         header('Location: ' . $dest . '?tl=' . rawurlencode((string) $link['code']), true, 302);
         exit;
     }

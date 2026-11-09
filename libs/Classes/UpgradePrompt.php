@@ -53,10 +53,9 @@ class UpgradePrompt {
         'broadcast_send' => 'send broadcasts', 'message_send' => 'send messages',
         'edit_project_create' => 'edit clips', 'edit_project_save' => 'edit clips', 'edit_project_export' => 'export clips',
         'generate_brand_identity' => 'generate your brand identity with AI', 'post_caption_auto' => 'write captions with AI',
-        'domain_add' => 'use a custom domain', 'domain_verify' => 'use a custom domain', 'domain_set_primary' => 'use a custom domain',
         'scheduler_save' => 'use automations', 'scheduler_toggle' => 'turn on automations', 'scheduler_run_now' => 'run automations', 'scheduler_run_status' => 'run automations',
         'post_share' => 'cross-post to your socials',
-        'mcp_token_generate' => 'connect Claude', 'eromify_connect' => 'connect Eromify', 'eromify_disconnect' => 'connect Eromify', 'eromify_characters' => 'connect Eromify',
+        'mcp_token_generate' => 'connect Claude',
         'media_generate' => 'generate images with AI', 'media_generate_video' => 'generate videos with AI',
         'media_edit' => 'edit images with AI', 'media_enhance_video' => 'enhance videos with AI', 'media_extract_frame' => 'create videos with AI',
         'influencer_create' => 'create an AI influencer', 'influencer_save_step' => 'create an AI influencer', 'influencer_name_suggest' => 'create an AI influencer',
@@ -74,7 +73,7 @@ class UpgradePrompt {
     );
 
     /** Prefix fallbacks for actions not listed above. */
-    const PREFIXES = array('influencer_' => 'use AI influencers', 'scene_' => 'use scenes', 'media_' => 'use AI tools', 'scheduler_' => 'use automations', 'domain_' => 'use a custom domain');
+    const PREFIXES = array('influencer_' => 'use AI influencers', 'scene_' => 'use scenes', 'media_' => 'use AI tools', 'scheduler_' => 'use automations');
 
     /** The words for an API action, or '' when there is nothing more specific than the default. */
     public static function action_words(string $api_action): string {

@@ -2,7 +2,7 @@
 /**
  * "Featured Creators": the partners of this creator's running cross-promotion swaps (PromoSwapsModel::featured_for).
  * Included once by view.php right after the header card. Links are absolute and go through /promote/click/<swap>/<to>,
- * which counts the click and lands on the partner's page (their own domain when they have one).
+ * which counts the click and lands on the partner's page.
  */
 $feat_rows = array();
 if (empty($focus_event) && empty($focus_service)) {

@@ -15,7 +15,7 @@ echo Sections::panel_hero(array('photo' => 'about', 'variant' => 'editorial',
 
 echo Sections::open('white', 'What it is', 'Everything your content needs, in one studio, under one handle.');
 echo Sections::cards(array(
-    array('icon' => 'page', 'title' => 'One public page', 'text' => 'Your link-in-bio page holds your posts and tracked links at your handle, or on your own domain on Studio. People follow you without leaving it.'),
+    array('icon' => 'page', 'title' => 'One public page', 'text' => 'Your link-in-bio page holds your posts and tracked links at your handle. People follow you without leaving it.'),
     array('icon' => 'send', 'title' => 'A studio that publishes', 'text' => 'Write a post once and publish it to your page and your connected social accounts at the same time, with AI captions and engagement pulled back into analytics.'),
     array('icon' => 'inbox', 'title' => 'An inbox that answers', 'text' => 'Message your audience one to one or in broadcasts, and let AI draft replies in your voice so no message waits.'),
 ), 3);

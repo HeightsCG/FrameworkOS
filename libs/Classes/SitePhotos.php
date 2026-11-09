@@ -32,7 +32,6 @@ class SitePhotos
         'automations'   => array('site', 'automations', self::TALL, 1152, 1440, 'A creator with a coffee on her balcony early in the morning, away from her desk', '50% 30%'),
         'analytics'     => array('site', 'analytics', self::TALL, 1152, 1440, 'A podcaster checking a tablet next to his microphone', '50% 30%'),
         'linkinbio'     => array('site', 'linkinbio', self::TALL, 1152, 1440, 'A travel creator on old stone steps at dusk smiling at her phone', '50% 35%'),
-        'domains'       => array('site', 'domains', self::TALL, 1152, 1440, 'A designer sketching at a tidy desk under a warm lamp', '50% 30%'),
         'dmagent'       => array('site', 'dmagent', self::TALL, 1152, 1440, 'A creator on his couch at night replying to messages on his phone', '50% 30%'),
         'alternatives'  => array('site', 'alternatives', self::WIDE, 1440, 816, 'A skateboarder creator holding a camera on a ledge at dusk', '72% 40%'),
         'about'         => array('site', 'about', self::WIDE, 1440, 816, 'A shared workspace at dusk with laptops, a camera and notebooks on a long table', '50% 50%'),

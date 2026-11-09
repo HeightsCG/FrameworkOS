@@ -178,4 +178,12 @@ class Main {
         return (($env === 'development') ? self::site_protocol() : 'https://') . $host;
     }
 
+    /** A same-site path only ('/about?x=1'), never '//evil.com' or 'https://…'. */
+    public static function safe_path($p): string
+    {
+        $p = (string) $p;
+        if (preg_match('/[\x00-\x20\x7f\\\\]/', $p)) { return '/'; }   // browsers drop tabs/newlines and read \ as /, so "/\t/evil.com" would leave the site
+        return ($p !== '' && $p[0] === '/' && (strlen($p) < 2 || $p[1] !== '/')) ? $p : '/';
+    }
+
 }

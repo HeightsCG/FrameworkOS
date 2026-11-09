@@ -7,7 +7,7 @@
 class FeaturePages {
 
     /** Footer grouping, in display order: PAGES slugs under "Product"; PAGES slugs then every ROOT page under "AI". */
-    const FOOTER_PRODUCT = array('link-in-bio', 'publishing', 'automations', 'analytics', 'custom-domains');
+    const FOOTER_PRODUCT = array('link-in-bio', 'publishing', 'automations', 'analytics');
     const FOOTER_AI      = array('ai-influencer', 'dm-agent');
 
 
@@ -23,7 +23,6 @@ class FeaturePages {
         'publishing'               => array('photo' => 'publishing', 'variant' => 'full', 'visual' => 'ui:targets', 'row' => 0),
         'automations'              => array('photo' => 'automations', 'variant' => 'split', 'visual' => 'ui:automation', 'row' => 0),
         'analytics'                => array('photo' => 'analytics', 'variant' => 'split', 'visual' => 'ui:analytics', 'row' => 0),
-        'custom-domains'           => array('photo' => 'domains', 'variant' => 'split', 'visual' => 'ui:domain', 'row' => 0),
         'lora-character-training'  => array('photo' => 'train-1', 'variant' => 'split', 'visual' => 'gallery:train-1,train-2,train-3,train-4,train-5,aichar', 'row' => 0, 'caption' => 'A training set: one AI character from six angles. Illustrative images made with AI.'),
         'consistent-ai-model-face' => array('photo' => 'aichar-c', 'variant' => 'split', 'visual' => 'trio:aichar,aichar-a,aichar-b', 'row' => 0, 'caption' => 'The same face in three scenes. Illustrative images made with AI.'),
     );
@@ -162,13 +161,13 @@ class FeaturePages {
         'link-in-bio' => array(
             'nav_title'   => 'Link in bio',
             'title'       => 'Link in Bio with Click Tracking',
-            'description' => 'One link-in-bio page at your handle with tracked links, your posts and your brand, on your own domain if you want it.',
+            'description' => 'One link-in-bio page at your handle with tracked links, your posts and your brand.',
             'hero' => array(
                 'title' => 'A Link in Bio That Shows What Works',
                 'lead'  => 'A link-in-bio page is one public page at your handle that holds every link, with each click tracked. Your page at {host}/@handle holds your links and your posts, in your colors, and every click shows up in your dashboard.',
             ),
             'video'   => '',
-            'related' => array('publishing', 'analytics', 'custom-domains'),
+            'related' => array('publishing', 'analytics', 'automations'),
             'rows' => array(
                 array(
                     'title'  => 'Links with click counts',
@@ -189,8 +188,7 @@ class FeaturePages {
                 ),
                 array(
                     'title'  => 'Your brand, your address',
-                    'text'   => 'Your colors, bio and links carry across the page. On the {domain_plan} plan your page can run on your own domain.',
-                    'link'   => array('See custom domains', '/features/custom-domains'),
+                    'text'   => 'Your colors, bio and links carry across the page.',
                 ),
                 array(
                     'title'  => 'Found beyond your bio',
@@ -203,11 +201,9 @@ class FeaturePages {
                 array('Put It in Every Bio', 'Use the one address on every social profile, so every visitor arrives at the same page and every click is counted.'),
             ),
             'fan_side' => 'A visitor lands on your page at your handle and sees your links first, with your posts under them. Following you is free.',   // what the fan sees
-            'limits'   => array('custom_domain'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Is it a replacement for my current link-in-bio tool?', 'a' => 'Yes. It holds your links like any bio page, counts every click, and shows your posts under them.'),
                 array('q' => 'Can I see which links get clicked?', 'a' => 'Yes. Every link counts its clicks, and the totals show in your dashboard.'),
-                array('q' => 'Can I use my own domain?', 'a' => 'Yes, on the {domain_plan} plan. Point your domain at us and your page answers on it.'),
             ),
             'cta' => array('title' => 'Put one link in every bio', 'text' => 'Links, posts and click counts on one page.'),
         ),
@@ -263,52 +259,6 @@ class FeaturePages {
                 array('q' => 'Who writes the captions?', 'a' => 'You do, or the studio drafts one in your brand voice and trims it for each network. You can edit every caption before it goes out.'),
             ),
             'cta' => array('title' => 'Post once, everywhere', 'text' => 'Your page and nine platforms from one studio.'),
-        ),
-
-        'custom-domains' => array(
-            'nav_title'   => 'Custom domains',
-            'title'       => 'Custom Domain for Your Creator Page',
-            'description' => 'Run your creator page on your own domain. Add a couple of DNS records, get a certificate automatically, and keep visitors signed in.',
-            'hero' => array(
-                'title' => 'Your Page on Your Own Domain',
-                'lead'  => 'A custom domain is your own web address pointing at your creator page. On the {domain_plan} plan your creator page can answer on a domain you own. Visitors see your address, follow and message you as usual, and stay signed in when they arrive from our site.',
-            ),
-            'video'   => '',
-            'related' => array('link-in-bio', 'analytics', 'publishing'),
-            'rows' => array(
-                array(
-                    'title'  => 'Connect in a few steps',
-                    'text'   => 'Add your domain in settings and copy the DNS records it shows you into your domain provider. We check them and switch the domain on.',
-                    'points' => array(
-                        'A bare domain and its www version are added together',
-                        'A secure certificate is issued automatically',
-                        'Records are checked again every day',
-                    ),
-                ),
-                array(
-                    'title'  => 'Instant handoff for signed-in visitors',
-                    'text'   => 'A visitor who is signed in on our site is handed straight to your domain, so they follow and message you without signing in again.',
-                ),
-                array(
-                    'title'  => 'Your profile and your posts',
-                    'text'   => 'Your page, your links and your posts all answer on your domain.',
-                    'link'   => array('See link in bio', '/features/link-in-bio'),
-                ),
-            ),
-            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
-                array('Add the Domain', 'Enter the domain in your settings. The bare domain and its www version are added together.'),
-                array('Copy the Records', 'Copy the DNS records shown there into your domain provider, exactly as written.'),
-                array('Wait for the Check', 'We check the records and switch the domain on. The secure certificate is issued automatically.'),
-            ),
-            'fan_side' => 'A visitor who types your domain sees your page, your links and your posts on your own address. A visitor already signed in on our site arrives signed in.',   // what the fan sees
-            'limits'   => array('custom_domain'),   // PlanTiers rows and features that bear on this page
-            'faq' => array(
-                array('q' => 'Which plan includes custom domains?', 'a' => 'The {domain_plan} plan.'),
-                array('q' => 'What do I need to change at my domain provider?', 'a' => 'A verification record plus the routing records we show you (two for a bare domain and its www version), all shown in settings with the exact values to copy.'),
-                array('q' => 'Do I need my own certificate?', 'a' => 'No. A certificate is issued automatically once your records point at us.'),
-                array('q' => 'Will visitors have to sign in again?', 'a' => 'No. A signed-in visitor is handed to your domain with their session, so they can follow and message you straight away.'),
-            ),
-            'cta' => array('title' => 'Put your page on your domain', 'text' => 'Your address, your page, your brand.'),
         ),
 
         'automations' => array(   // 2026-10-15. Every line traces to cron/scheduler.php, SchedulerRulesModel, AutoPostService, MessageBlastService and InboxAutomationService.

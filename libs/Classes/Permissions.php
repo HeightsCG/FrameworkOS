@@ -43,7 +43,6 @@ class Permissions {
     /** True if the signed-in user is a team member (collaborator) acting on an owner's account. */
     public static function is_team_member(): bool
     {
-        if (CustomDomains::session_scoped()) { return false; }   // on a creator's domain everyone is a plain fan
         return self::team_role() !== '' && ((int) Session::get('created_by')) > 0;
     }
 
@@ -104,7 +103,7 @@ class Permissions {
         }
         self::$admin_cache = false;
         $uid = (int) Session::get('user_id');
-        if ($uid > 0 && !CustomDomains::session_scoped()) {   // never staff on a creator's domain
+        if ($uid > 0) {
             $rows = (new UsersModel())->get_user_by_id($uid);
             $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
             self::$admin_cache = $u && !empty($u['is_admin']);

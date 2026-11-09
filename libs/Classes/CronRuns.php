@@ -15,7 +15,6 @@ class CronRuns {
         'billing'        => 900,
         'lifecycle'      => 900,
         'social_metrics' => 21600,
-        'domains'        => 86400,
         'seo_draft'      => 86400,
         'seo_fact_check' => 86400,
         'error_digest'   => 86400,

@@ -2,7 +2,7 @@
 /**
  * "More Creators Like This": up to 4 directory creators in this creator's niche (CreatorProfileModel::similar), the
  * same set all day. Included once by view.php above "Create Your Page Free"; hidden when the creator turned it off.
- * Links are absolute (custom domains too) and go through the system tracking link /go/clssim<id>?from=<this creator>.
+ * Links are absolute and go through the system tracking link /go/clssim<id>?from=<this creator>.
  */
 $sim_rows = array();
 if (empty($profile['similar_off'])) {

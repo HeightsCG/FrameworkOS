@@ -281,7 +281,7 @@ class Sections {
 
     /**
      * Product schematics: small drawings of a screen in HTML with invented values, always labelled, never a screenshot (Daniel's rule).
-     * Kinds: automation, analytics, schedule, targets, offers (your page), inbox, linkpage, domain. Every row maps to a real feature.
+     * Kinds: automation, analytics, schedule, targets, offers (your page), inbox, linkpage. Every row maps to a real feature.
      */
     public static function ui(string $kind): string {
         $e = function ($s) { return self::e($s); };
@@ -321,9 +321,6 @@ class Sections {
             case 'linkpage':
                 $li = ''; foreach (array('Latest video', 'My newsletter', 'Brand partnerships', 'Shop my presets') as $x) { $li .= '<li>' . $e($x) . '</li>'; }
                 $body = $bar('@yourhandle') . '<ul class="sx-ui__links">' . $li . '</ul>';
-                break;
-            case 'domain':
-                $body = $bar('Custom Domain', '<span class="sx-ui__on">Connected</span>') . $rows(array(array('Domain', 'www.yourname.com'), array('Points to', 'Your page'), array('Security', 'HTTPS on')));
                 break;
             default:
                 return '';

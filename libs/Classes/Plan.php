@@ -27,7 +27,6 @@ class Plan {
         'brand'     => array('video' => '04', 'icon' => 'fa-wand-magic-sparkles', 'title' => 'Brand Identity',   'text' => 'Set your colors, voice and audience once, and every caption and image the Studio writes follows them.'),
         'inbox'     => array('video' => '07', 'icon' => 'fa-robot',               'title' => 'Inbox Automation', 'text' => 'Welcome new fans, answer messages and send scheduled messages with media, automatically.'),
         'connected' => array('video' => '06', 'icon' => 'fa-share-nodes',         'title' => 'Integrations',     'text' => 'Connect your social accounts and publish each post to all of them from one place.'),
-        'domain'    => array('video' => '',   'icon' => 'fa-globe',               'title' => 'Custom Domain',    'text' => 'Put your public page on your own domain.'),
     );
 
     /** The locked Settings sections for the signed-in account: all of them for a non-creator, none for anyone else. */
@@ -472,8 +471,7 @@ class Plan {
     public static function automation_credits(array $rule): array
     {
         $post = ((string) ($rule['kind'] ?? 'post') !== 'message');
-        // An Eromify character's still is paid with the creator's Eromify credits, not AI credits.
-        $per = (!$post || (string) ($rule['image_source'] ?? '') === 'character') ? 0 : self::ai_price('image', array('params' => array('num_images' => 1)));
+        $per = !$post ? 0 : self::ai_price('image', array('params' => array('num_images' => 1)));
         if ($post && (string) ($rule['media_type'] ?? 'image') === 'video') {   // the still, then animating it
             $per += self::ai_price('video', array('model_key' => (string) ($rule['video_model_key'] ?? ''), 'duration' => (string) ($rule['video_duration'] ?? '')));
         }

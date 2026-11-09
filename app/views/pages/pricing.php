@@ -96,7 +96,7 @@ foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $t
 $st = PlanTiers::get('studio');
 if ($st) {
     echo Sections::prose('white', 'Which plan fits a team or an agency?', array(
-        'The ' . $st['name'] . ' plan is the one built for a team. It includes ' . PlanTiers::fmt_tier_limit($st, 'seats') . ' team seats, so collaborators work on your account with their own sign-in and never share your password. It also covers ' . PlanTiers::fmt_tier_limit($st, 'influencers') . ' AI influencers and custom domains.',
+        'The ' . $st['name'] . ' plan is the one built for a team. It includes ' . PlanTiers::fmt_tier_limit($st, 'seats') . ' team seats, so collaborators work on your account with their own sign-in and never share your password. It also covers ' . PlanTiers::fmt_tier_limit($st, 'influencers') . ' AI influencers.',
         'Everyone on the team works inside the account owner\'s studio: the same AI influencers, library, schedule and inbox. The plan limits and AI credits are the owner\'s, and the owner manages Billing.',
     ));
 }

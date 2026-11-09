@@ -528,14 +528,13 @@
                             <div class="form-check form-switch cs-ae__switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedMsgAi"></div>
                         </div>
 
-                        <?php /* Source: Brand Photo, Influencer or My Character (Eromify); each picker is a face list that scales to any number (search past 6). */ ?>
+                        <?php /* Source: Brand Photo or Influencer; the influencer picker is a face list that scales to any number (search past 6). */ ?>
                         <div class="cs-ae__row" data-kind="post">
                             <div class="cs-ae__field">
                                 <span class="cs-ae__label" id="csSchedImageSourceLabel">Source</span>
                                 <div class="cs-seg cs-ae__seg" id="csSchedImageSource" role="group" aria-labelledby="csSchedImageSourceLabel">
                                     <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>Brand Photo</span></button>
                                     <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="influencer"<?php echo empty($this->influencers['ready']) ? ' disabled title="Train an influencer first"' : ''; ?>><i class="fa-regular fa-user" aria-hidden="true"></i><span>Influencer</span></button>
-                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="character"<?php echo empty($this->eromify_connected) ? ' disabled title="Connect Eromify in Settings > Integrations"' : ''; ?>><i class="fa-solid fa-user-astronaut" aria-hidden="true"></i><span>My Character</span></button>
                                 </div>
                             </div>
                             <div class="cs-ae__field cs-ae__reveal" id="csSchedInfluencerWrap" hidden>
@@ -562,22 +561,6 @@
                                     <?php endforeach; ?>
                                 </select>
                                 <p class="cs-ae__error" id="csSchedErr_influencer" role="alert" hidden></p>
-                            </div>
-                            <div class="cs-ae__field cs-ae__reveal" id="csSchedCharacterWrap" hidden>
-                                <span class="cs-ae__label" id="csSchedCharacterLabel">Character</span>
-                                <div class="cs-ae__pick" id="csSchedCharPick" data-pick="Char">
-                                    <button type="button" class="cs-ae__picktrigger" id="csSchedCharTrigger" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="csSchedCharacterLabel csSchedCharTrigger" aria-describedby="csSchedErr_character">
-                                        <span class="cs-ae__srcpic" aria-hidden="true"></span><span class="cs-ae__pickname"></span><i class="fa-solid fa-chevron-down cs-ae__pickcaret" aria-hidden="true"></i>
-                                    </button>
-                                    <div class="cs-ae__pickpanel" id="csSchedCharPanel" hidden>
-                                        <input type="search" class="form-control cs-ae__picksearch" id="csSchedCharSearch" placeholder="Search characters" autocomplete="off" aria-label="Search characters" hidden>
-                                        <ul class="cs-ae__picklist" role="listbox" aria-labelledby="csSchedCharacterLabel"></ul>
-                                        <p class="cs-ae__pickempty" hidden>No character by that name</p>
-                                        <p class="cs-ae__pickempty cs-ae__picknote" id="csSchedCharNote" hidden></p>
-                                    </div>
-                                </div>
-                                <input type="hidden" id="csSchedCharacter" value="">
-                                <p class="cs-ae__error" id="csSchedErr_character" role="alert" hidden></p>
                             </div>
                         </div>
 
@@ -722,7 +705,6 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'social'   => $this->social,
     'inbox'    => $this->inbox,
     'influencers' => $this->influencers ?? array('all' => array(), 'ready' => array()),
-    'eromify'  => array('connected' => !empty($this->eromify_connected)),
     'brand'    => $this->brand,
     'ai'       => $this->ai ?? array('balance' => 0, 'image_price' => 0),
     'automation_plan' => $this->automation_plan ?? null,

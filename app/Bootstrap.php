@@ -35,89 +35,8 @@ class Bootstrap
         exit;
     }
 
-    /**
-     * On a creator's own domain: / is their profile (rewritten to /@handle),
-     * AJAX and crawler routes work as they are, and every other page (settings, wallet, inbox) is the
-     * platform's, so the visitor is sent there, still signed in.
-     */
-    private function custom_domain_route(array $d): void
-    {
-        $model = new CreatorDomainsModel();
-        // The www twin goes to the main address. 302, not 301: the creator can swap which one is main,
-        // and a browser-cached 301 would then loop.
-        if (empty($d['is_primary'])) {
-            $p = $model->primary_for_user((int) $d['user_id']);
-            if ($p && $p['hostname'] !== $d['hostname']) {
-                header('Location: https://' . $p['hostname'] . CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/'), true, 302);
-                exit;
-            }
-        }
-        $url    = Main::get_url();
-        $first  = strtolower((string) ($url[0] ?? ''));
-        $handle = (string) $d['u_name'];
-        if (in_array($first, CustomDomains::PASSTHROUGH, true)) { return; }
-        if ($first === '' || in_array($first, CustomDomains::PROFILE_PATHS, true)) {
-            $_GET['url'] = '@' . $handle . ($first === '' ? '' : '/' . implode('/', $url));
-            return;
-        }
-        // Their own /@handle here: drop the prefix.
-        if ($first === '@' . strtolower($handle)) {
-            header('Location: /' . implode('/', array_slice($url, 1)), true, 301);
-            exit;
-        }
-        // The platform's own pages: their platform session (cookie on the platform host) is still in the browser,
-        // so a plain redirect does; a domain session is never turned into a platform one.
-        header('Location: ' . CustomDomains::platform_base() . CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/'), true, 302);
-        exit;
-    }
-
-    /**
-     * /_handoff?t=…: sign in the user a one-time token was minted for on this host, then go where they were headed.
-     * The session is a fan one, bound to this host (domain_scope): only CustomDomains::FAN_ACTIONS work, the wallet
-     * only pays this creator, staff status and team roles are off, and it lapses after DOMAIN_SESSION_TTL.
-     */
-    private function redeem_handoff(): void
-    {
-        header('X-Robots-Tag: noindex');
-        $host = CustomDomains::request_host();
-        $r = (new CreatorDomainsModel())->redeem_handoff((string) ($_GET['t'] ?? ''), $host);
-        $path = '/';
-        if ($r) {
-            $rows = (new UsersModel())->get_user_by_id($r['user_id']);
-            $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            if ($user && LoginGate::blocked($user) === '' && empty($user['is_admin'])) {   // staff browse creator domains signed out
-                session_regenerate_id(true);
-                UserSession::start($user);   // they already passed sign-in (and any second factor) on the other host
-                Session::set('domain_scope', $host);
-                Session::set('domain_scope_at', time());
-            }
-            $path = CustomDomains::safe_path($r['path']);
-        }
-        header('Location: ' . $path, true, 302);
-        exit;
-    }
-
-    /**
-     * Someone who pressed Sign In on a creator's domain signed in here (password, Google, second factor):
-     * on the next page load, carry the session back to where they were. See AccountController::domain_loginAction.
-     */
-    private function return_to_custom_domain(): void
-    {
-        $ret = Session::get('domain_return');
-        if (!is_array($ret) || (int) Session::get('user_id') <= 0) { return; }
-        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') { return; }
-        $first = strtolower((string) (Main::get_url()[0] ?? ''));
-        if (in_array($first, array('api', 'mcp', 'go', 'mail-image', 'domain-check'), true)) { return; }
-        Session::destroyValue('domain_return');
-        if (time() - (int) ($ret['at'] ?? 0) > 1800 || UserSession::impersonating() || Permissions::is_admin()) { return; }   // staff never carry a session to a creator's domain
-        $host = (string) ($ret['host'] ?? '');
-        if (CustomDomains::live($host) === null) { return; }
-        header('Location: ' . CustomDomains::handoff_url((int) Session::get('user_id'), $host, 'https://' . $host, CustomDomains::safe_path($ret['path'] ?? '/')), true, 302);
-        exit;
-    }
-
     /** First URL segments the router answers itself (before any controller lookup) that keep their session. */
-    const SESSION_ROUTES = array('api', 'mcp', 'go', 'mail-image', '_handoff', 'domain-check', 'csrf-token', 'a');
+    const SESSION_ROUTES = array('api', 'mcp', 'go', 'mail-image', 'csrf-token', 'a');
     /** First URL segments that are public reading pages besides PagesController::ROUTES (the home page is ''). */
     const PUBLIC_READ = array('', 'blog', 'tools', 'robots.txt', 'sitemap.xml', 'llms.txt', 'llms-full.txt', '.well-known');
 
@@ -125,9 +44,8 @@ class Bootstrap
      * True for a GET or HEAD of a public reading page from a visitor with no session cookie, on the platform host. Those
      * requests run without a session (Session::get() answers null for everything, as it does for any signed-out visitor).
      */
-    private static function anonymous_public_get($custom): bool
+    private static function anonymous_public_get(): bool
     {
-        if ($custom) { return false; }   // a creator's domain keeps its own session handling
         if (!in_array((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), array('GET', 'HEAD'), true)) { return false; }
         if (isset($_COOKIE[session_name()])) { return false; }
         $first = (string) (Main::get_url()[0] ?? '');
@@ -149,25 +67,13 @@ class Bootstrap
         $config = Main::get_config();
         $domain = $config[$env]['domain'];
 
-        // Caddy's on-demand TLS asks here before issuing a certificate for a creator's domain (no session needed).
-        if ((Main::get_url()[0] ?? '') === 'domain-check') {
-            $ok = CustomDomains::live(CustomDomains::normalize($_GET['domain'] ?? '')) !== null;
-            http_response_code($ok ? 200 : 404);
-            echo $ok ? 'ok' : 'unknown host';
-            return;
-        }
-
-        // A creator's own domain (lexivaughn.com through the gateway). Resolved before the session starts:
-        // that session's cookie belongs to their host, not to .<platform domain>.
-        $custom = CustomDomains::current();
-
         // Only flag the session cookie "secure" on real HTTPS. Over plain HTTP a
         // secure cookie is never stored by the browser, so the session never
         // persists and logins don't stick. Stays locked down in production (HTTPS).
         $isHttps = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
             || (($_SERVER['SERVER_PORT'] ?? '') == 443)
             || (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
-        ini_set('session.cookie_domain', $custom ? '' : '.' . $domain);
+        ini_set('session.cookie_domain', '.' . $domain);
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_secure',   $isHttps ? '1' : '0');
         ini_set('session.cookie_samesite', 'Lax');
@@ -175,39 +81,26 @@ class Bootstrap
         // (SEO audit 2026-10-12). The session starts when it is needed: any request that already carries the cookie, any POST,
         // any app route, and /csrf-token, which the sign-in dialog and the public forms call when they open.
         // The page-view beacon a cacheable page sends after load: it sets the two analytics cookies and records the view. No session.
-        if (!$custom && implode('/', array_slice(Main::get_url(), 0, 2)) === ltrim(Analytics::BEACON_PATH, '/')) { Analytics::beacon(); return; }
-        if (self::anonymous_public_get($custom)) {
+        if (implode('/', array_slice(Main::get_url(), 0, 2)) === ltrim(Analytics::BEACON_PATH, '/')) { Analytics::beacon(); return; }
+        if (self::anonymous_public_get()) {
             Analytics::defer();   // no cookie on this response: the page reports its own view after load
         } else {
             Analytics::begin();   // first-party analytics cookies (visitor + session), before any output; crawlers and the CLI are skipped
             Session::init();
         }
 
-        // A session handed to a creator's domain only works on that host and only for a while. Presented anywhere
-        // else (the platform host, another domain) or after its time, it is dropped before anything reads it.
-        $scope = (string) Session::get('domain_scope');
-        if ($scope !== '' && (!$custom || $scope !== (string) $custom['hostname'] || time() - (int) Session::get('domain_scope_at') > CustomDomains::DOMAIN_SESSION_TTL)) {
+        // A fan session once handed to a creator's own domain (custom domains were removed 2026-11-09) is never
+        // honoured: dropped before anything reads it.
+        if ((string) Session::get('domain_scope') !== '') {
             Session::destroy();
             Session::init();
             session_regenerate_id(true);
         }
 
-        // One-time sign-in carried over from another host (platform <-> custom domain). Before the canonical
-        // redirect, so the token is redeemed on the host it was minted for.
-        if ((Main::get_url()[0] ?? '') === '_handoff') {
-            $this->redeem_handoff();
-            return;
-        }
-
-        if ($custom) {
-            $this->custom_domain_route($custom);
-        } else {
-            // One canonical host: everything answers on https://www.<domain>. Anything else 301s there once,
-            // so links, sitemap URLs and Search Console all agree. Done here rather than in .htaccess:
-            // no server config to get wrong, and it is testable on dev (where it stays off).
-            $this->canonical_host($config, $env);
-            $this->return_to_custom_domain();
-        }
+        // One canonical host: everything answers on https://www.<domain>. Anything else 301s there once,
+        // so links, sitemap URLs and Search Console all agree. Done here rather than in .htaccess:
+        // no server config to get wrong, and it is testable on dev (where it stays off).
+        $this->canonical_host($config, $env);
 
         // The request token for a page that was served without a session (above): the dialog fetches it when it opens.
         if ((Main::get_url()[0] ?? '') === 'csrf-token') {
@@ -235,7 +128,7 @@ class Bootstrap
         // HeyCatch short links: a single-character path (/a-/z, /0-/9) is a channel link. The query IS the
         // attribution (the SDK reads it on landing, then tidies the URL bar), so a bare redirect to / would lose it.
         // No real route is one character long. Done here, not in server config, for the same reason as canonical_host.
-        if (HeyCatch::ENABLED && !$custom && count($url) === 1 && preg_match('/^[a-z0-9]$/', $url[0])) {
+        if (HeyCatch::ENABLED && count($url) === 1 && preg_match('/^[a-z0-9]$/', $url[0])) {
             header('Location: /?utm_source=heycatch&utm_campaign=' . $url[0], true, 302);
             return;
         }
@@ -292,7 +185,6 @@ class Bootstrap
         if (isset($url[0]) && $url[0] === 'api') {
             header('X-Robots-Tag: noindex');
             $action = isset($url[1]) ? strtolower(preg_replace('/[^A-Za-z0-9_]/', '', $url[1])) : '';
-            if ($custom && !in_array($action, CustomDomains::FAN_ACTIONS, true)) { Errors::page_not_found(); return; }   // a creator's domain only serves fan actions
             $class  = ($action !== '') ? ApiRoutes::controller_for($action) : null;
             $method = $action . 'Action';
             if ($class !== null && class_exists($class) && method_exists($class, $method)) {

@@ -21,23 +21,18 @@ $page_title = $display_name . ' (@' . $handle . ') · ' . $site_name;
 $initial    = strtoupper(mb_substr($display_name, 0, 1));
 $followers  = number_format((int) $follower_count);
 $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
-// On the creator's own domain (lexivaughn.com) the page is always the standalone one, its links drop the
-// /@handle prefix, and Sign In goes through the platform (CustomDomains::login_url) and comes back here.
-$on_own_domain = CustomDomains::is_home_of($handle);
-$in_app     = !empty($viewer_logged_in) && !$on_own_domain;
-$pf_base    = CustomDomains::profile_path($handle);
-$pf_home    = ($pf_base === '') ? '/' : $pf_base;
-$login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/')) : '/';
-// Logged-out visitors get the site's nav and footer around the page. On the creator's own domain those links go to the
-// main site; the profile's own links stay relative. "Create Your Page Free" always signs up on the main site with ?ref=.
+$in_app     = !empty($viewer_logged_in);
+$pf_base    = '/@' . rawurlencode((string) $handle);
+$pf_home    = $pf_base;
+$login_href = '/';
+// Logged-out visitors get the site's nav and footer around the page. "Create Your Page Free" signs up with ?ref=.
 $site_chrome = !$in_app && empty($viewer_logged_in);
-$main_base   = rtrim(Main::get_base_domain(), '/');
-$here_path   = CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/');
-$join_href   = $main_base . '/?auth=register&ref=' . rawurlencode((string) $user['u_name']);
+$here_path   = Main::safe_path($_SERVER['REQUEST_URI'] ?? '/');
+$join_href   = rtrim(Main::get_base_domain(), '/') . '/?auth=register&ref=' . rawurlencode((string) $user['u_name']);
 $pub_links   = array(
-    'base'     => $on_own_domain ? $main_base : '',
-    'login'    => $on_own_domain ? $login_href : '/?auth=login&next=' . rawurlencode($here_path),
-    'register' => $on_own_domain ? $join_href : '/?auth=register&ref=' . rawurlencode((string) $user['u_name']) . '&next=' . rawurlencode($here_path),
+    'base'     => '',
+    'login'    => '/?auth=login&next=' . rawurlencode($here_path),
+    'register' => '/?auth=register&ref=' . rawurlencode((string) $user['u_name']) . '&next=' . rawurlencode($here_path),
     'cta'      => 'outline',   // the creator's Follow is this page's one primary button
 );
 ?>
@@ -63,7 +58,7 @@ $pub_links   = array(
     <?php echo CSRF::meta(); ?>
     <?php
         $seo_base   = Main::get_base_domain();
-        $seo_url    = CustomDomains::canonical_profile_url($user);
+        $seo_url    = Main::get_base_domain() . '/@' . rawurlencode((string) $user['u_name']);
         $seo_image  = $has_avatar ? (string) $profile['avatar_url'] : SeoMeta::default_image();
         $seo_about  = $display_name . ' (@' . $handle . ') on ' . $site_name . ': content and links.';
         // A bio too short to describe the page gets the standard line after it.

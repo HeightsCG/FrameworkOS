@@ -130,8 +130,7 @@ class UsersModel extends Model {
     /** Live creator handles for the public sitemap: verified, active, not deleted. */
     /**
      * Creator profiles for the sitemap: active paid creators whose page lives on this host, with or without content
-     * (Daniel 2026-10-26). A creator with an active custom domain is left out (their /@handle here redirects to that
-     * domain, which carries its own sitemap). last_modified also follows their newest published post.
+     * (Daniel 2026-10-26). last_modified also follows their newest published post.
      */
     /**
      * Does this creator's page have anything on it worth indexing: a published post?
@@ -164,7 +163,6 @@ class UsersModel extends Model {
                 AND u.is_demo = 0
                 AND " . Plan::paid_sql('u') . "
                 AND u.u_name <> ''
-                AND NOT EXISTS (SELECT 1 FROM creator_domains d WHERE d.user_id = u.user_id AND d.deleted = 0 AND d.status = 'active')
             ORDER BY
                 u.u_name"
         );
@@ -345,7 +343,6 @@ class UsersModel extends Model {
             array('user_id' => (int) $user_id)
         );
         $this->release_identifiers($user_id);
-        (new CreatorDomainsModel())->remove_all_for_user((int) $user_id);   // custom domains can be claimed again
         return $done;
     }
 

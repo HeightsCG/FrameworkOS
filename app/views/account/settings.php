@@ -27,11 +27,9 @@
             <?php if ($this->can_manage): ?>
             <button type="button" class="settings__nav-item" data-section="inbox"><i class="fa-solid fa-robot"></i><span>Inbox Automation</span><span class="settings__nav-badge" id="inboxNavBadge" <?php echo $this->inbox_pending > 0 ? '' : 'hidden'; ?>><?php echo (int) $this->inbox_pending; ?></span></button>
             <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
-            <button type="button" class="settings__nav-item" data-section="domain"><i class="fa-solid fa-globe"></i><span>Custom Domain</span></button>
             <?php elseif ($settings_covers): ?>
             <button type="button" class="settings__nav-item" data-section="inbox"><i class="fa-solid fa-robot"></i><span>Inbox Automation</span></button>
             <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
-            <button type="button" class="settings__nav-item" data-section="domain"><i class="fa-solid fa-globe"></i><span>Custom Domain</span></button>
             <?php endif; ?>
         </nav>
 
@@ -691,90 +689,6 @@
                 <?php endif; ?>
             </section>
 
-            <section class="settings__section" data-section="domain">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Custom Domain</h2>
-                    <p class="settings__section-desc">Show your page at your own address, like yourname.com.</p>
-                </div>
-                <?php if (!$this->domain_allowed): ?>
-                    <div class="settings__upgrade">
-                        <i class="fa-solid fa-globe settings__upgrade-icon"></i>
-                        <div>
-                            <div class="settings__upgrade-title">Custom domains are on the <?php echo htmlspecialchars($this->domain_upgrade !== '' ? $this->domain_upgrade : 'Studio', ENT_QUOTES, 'UTF-8'); ?> plan</div>
-                            <p class="settings__upgrade-text">Upgrade to show your page at your own domain.</p>
-                        </div>
-                        <a href="/account/billing" class="btn btn-primary">View Plans</a>
-                    </div>
-                <?php elseif (empty($this->domains)): ?>
-                    <div class="integ">
-                        <div class="integ__row">
-                            <span class="integ__icon"><i class="fa-solid fa-globe"></i></span>
-                            <div class="integ__main">
-                                <div class="integ__name">Connect a domain</div>
-                                <div class="integ__inline">
-                                    <input type="text" class="form-control form-control-sm" id="domain_host" placeholder="yourname.com" autocomplete="off" spellcheck="false">
-                                    <button type="button" class="btn btn-primary btn-sm" id="domain_add">Add Domain</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <?php
-                        $dom_status = array('active' => 'Connected', 'verified' => 'Waiting for the address record', 'pending' => 'Waiting for DNS records', 'failed' => 'DNS records not found yet', 'disabled' => 'Off');
-                        $dom_pair   = count($this->domains) > 1;
-                        $dom_prev_error = null;   // a pair shares one TXT record: show its error once
-                    ?>
-                    <div class="integ">
-                        <?php foreach ($this->domains as $d): $d_live = in_array($d['status'], array('active', 'verified'), true); ?>
-                        <div class="integ__row">
-                            <span class="integ__icon"><i class="fa-solid fa-globe"></i></span>
-                            <div class="integ__main">
-                                <div class="integ__name"><?php echo htmlspecialchars($d['hostname'], ENT_QUOTES, 'UTF-8'); ?></div>
-                                <div class="integ__meta">
-                                    <span class="integ__dot <?php echo $d['status'] === 'active' ? 'is-on' : ''; ?>"></span><?php echo $dom_status[$d['status']] ?? ''; ?>
-                                    <?php if ($dom_pair): ?><span class="integ__sep">·</span><?php echo !empty($d['is_primary']) ? 'Main address' : 'Redirects to your main address'; ?><?php endif; ?>
-                                    <?php if ($d_live): ?><span class="integ__sep">·</span><a class="integ__link" href="https://<?php echo htmlspecialchars($d['hostname'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Open</a><?php endif; ?>
-                                </div>
-                                <?php if ($d['status'] !== 'active' && (string) $d['last_error'] !== '' && $d['last_error'] !== $dom_prev_error): ?><div class="integ__error"><?php echo htmlspecialchars($d['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; $dom_prev_error = (string) $d['last_error']; ?>
-                            </div>
-                            <?php if ($dom_pair && empty($d['is_primary'])): ?>
-                            <div class="integ__actions"><button type="button" class="btn btn-secondary btn-sm" data-domain-primary="<?php echo (int) $d['id']; ?>">Make Main Address</button></div>
-                            <?php endif; ?>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <h3 class="integ__group dns-group">DNS Records</h3>
-                    <div class="integ">
-                        <table class="dns-records">
-                            <thead><tr><th>Type</th><th>Host</th><th>Value</th><th>Status</th></tr></thead>
-                            <tbody>
-                                <?php foreach ($this->domain_records as $r): ?>
-                                <tr>
-                                    <td class="dns-records__type"><?php echo $r['type']; ?></td>
-                                    <td class="dns-records__mono"><?php echo htmlspecialchars($r['host'], ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td>
-                                        <?php if ($r['value'] === ''): ?><span class="dns-records__missing">Not available yet</span>
-                                        <?php else: ?>
-                                        <span class="dns-records__value">
-                                            <span class="dns-records__mono"><?php echo htmlspecialchars($r['value'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                            <button type="button" class="dns-records__copy" data-copy="<?php echo htmlspecialchars($r['value'], ENT_QUOTES, 'UTF-8'); ?>" aria-label="Copy value"><i class="fa-regular fa-copy"></i></button>
-                                        </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><span class="dns-records__state <?php echo $r['done'] ? 'is-done' : ''; ?>"><?php echo $r['done'] ? '<i class="fa-solid fa-check"></i> Found' : 'Waiting'; ?></span></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="dns-actions">
-                        <button type="button" class="btn btn-primary" id="domain_verify">Check DNS</button>
-                        <button type="button" class="btn btn-secondary" id="domain_remove">Remove Domain</button>
-                    </div>
-                <?php endif; ?>
-            </section>
-
             <section class="settings__section" data-section="connected">
                 <div class="settings__section-head">
                     <?php echo Tutorials::button('06', 'data-float'); ?>
@@ -782,37 +696,8 @@
                     <p class="settings__section-desc">Connect the platforms you publish to and the tools that work on your behalf.</p>
                 </div>
 
-                <?php $er = $this->eromify; $er_on = $er && ($er['status'] ?? '') === 'connected'; ?>
-
                 <h3 class="integ__group">Platforms &amp; tools</h3>
                 <div class="integ">
-
-                    <?php if ($this->can_manage): ?>
-                    <div class="integ__row">
-                        <span class="integ__icon"><i class="fa-solid fa-user-astronaut"></i></span>
-                        <div class="integ__main">
-                            <div class="integ__name">Eromify</div>
-                            <div class="integ__meta">
-                                <?php if ($er_on): ?>
-                                    <span class="integ__dot is-on"></span><?php echo htmlspecialchars(ucfirst((string) ($er['plan'] ?: 'Connected')) . ' plan' . ($er['credits'] !== null ? ' · ' . number_format((int) $er['credits']) . ' credits' : ''), ENT_QUOTES, 'UTF-8'); ?>
-                                <?php else: ?>
-                                    <span class="integ__dot"></span>Put your AI character in automated posts
-                                <?php endif; ?>
-                            </div>
-                            <?php if (!$er_on): ?>
-                            <div class="integ__reveal" id="eromifyKeyWrap" hidden>
-                                <input type="text" class="form-control form-control-sm" id="eromifyKey" placeholder="API key from eromify.com/studio/api" aria-label="Eromify API key" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true">
-                            </div>
-                            <?php endif; ?>
-                            <?php if ($er_on && !empty($er['last_error'])): ?><div class="integ__error"><?php echo htmlspecialchars($er['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                        </div>
-                        <div class="integ__actions">
-                            <?php if ($er_on): ?><button type="button" class="btn btn-ghost btn-sm" id="eromifyDisconnect">Disconnect</button>
-                            <?php else: ?><button type="button" class="btn btn-secondary btn-sm" id="eromifyConnect">Connect</button>
-                            <button type="button" class="btn btn-ghost btn-sm" id="eromifyCancel" hidden>Cancel</button><?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
 
                     <div class="integ__row">
                         <span class="integ__icon"><i class="fa-solid fa-plug"></i></span>
@@ -2342,32 +2227,6 @@ $(function () {
     });
     $('#inboxTestText').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#inboxTest').trigger('click'); } });
 
-    // Connect sits on the right like every other row: the first click opens the key field, the next one connects.
-    $('#eromifyConnect').on('click', function () {
-        var $wrap = $('#eromifyKeyWrap');
-        if ($wrap.prop('hidden') || $.trim($('#eromifyKey').val()) === '') { $wrap.prop('hidden', false); $('#eromifyCancel').prop('hidden', false); $('#eromifyKey').trigger('focus'); return; }
-        var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'eromify_connect', { api_key: $('#eromifyKey').val() }, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) { toastr.success(o.message); setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800); }
-            else { toastr.error(o.message); $btn.prop('disabled', false); }
-        });
-    });
-    $('#eromifyKey').on('keydown', function (e) {
-        if (e.key === 'Enter') { e.preventDefault(); $('#eromifyConnect').trigger('click'); }
-        else if (e.key === 'Escape') { e.preventDefault(); $('#eromifyCancel').trigger('click'); }
-    });
-    $('#eromifyCancel').on('click', function () {
-        $('#eromifyKey').val(''); $('#eromifyKeyWrap').prop('hidden', true); $(this).prop('hidden', true);
-        $('#eromifyConnect').prop('disabled', false).trigger('focus');
-    });
-    $('#eromifyDisconnect').on('click', function () {
-        ApiDataSvc.apiCall('post', 'eromify_disconnect', {}, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) { toastr.success(o.message); setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800); } else { toastr.error(o.message); }
-        });
-    });
-
     // AI disclosure line per social account: saved when the field is left.
     $(document).on('change', '.conn-ai-line', function () {
         var $f = $(this);
@@ -2429,53 +2288,6 @@ $(function () {
         });
     });
 
-    // Custom domain
-    function domain_reload() {
-        window.location.href = '/account/settings?section=domain';
-    }
-    function domain_call(action, payload, btn) {
-        var label = btn.html();
-        btn.prop('disabled', true);
-        ApiDataSvc.apiCall('post', action, payload, function (data) {
-            var o = JSON.parse(data);
-            btn.prop('disabled', false).html(label);
-            if (o.success) {
-                toastr.success(o.message);
-                setTimeout(domain_reload, 800);
-            } else {
-                if (o.need_plan) { window.location.href = '/account/billing'; return; }
-                toastr.error(o.message);
-                if (action === 'domain_verify') { setTimeout(domain_reload, 1600); }
-            }
-        });
-    }
-    $('#domain_add').on('click', function () {
-        if ($('#domain_host').val() == '') {
-            toastr.error('Domain is required');
-            return;
-        }
-        domain_call('domain_add', { hostname: $('#domain_host').val() }, $(this));
-    });
-    $('#domain_host').keyup(function (e) {
-        if (e.key === 'Enter') { $('#domain_add').trigger('click'); }
-    });
-    $('#domain_verify').on('click', function () {
-        $(this).html('Checking...');
-        domain_call('domain_verify', {}, $(this));
-    });
-    $('[data-domain-primary]').on('click', function () {
-        domain_call('domain_set_primary', { id: $(this).attr('data-domain-primary') }, $(this));
-    });
-    $('#domain_remove').on('click', function () {
-        var btn = $(this);
-        Swal.fire({ title: 'Remove your domain?', text: 'Your page will only be at its ' + <?php echo json_encode(Main::public_domain(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?> + ' address.',
-            showCancelButton: true, reverseButtons: true, confirmButtonText: 'Remove Domain', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
-            .then(function (r) { if (r.isConfirmed) { domain_call('domain_remove', {}, btn); } });
-    });
-    $('.dns-records__copy').on('click', function () {
-        var value = $(this).attr('data-copy');
-        if (navigator.clipboard) { navigator.clipboard.writeText(value).then(function () { toastr.success('Copied'); }); }
-    });
 
 });
 </script>

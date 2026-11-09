@@ -26,7 +26,7 @@ class Controller {
      */
     public static function bounce(): void {
         if ((int) Session::get('user_id') === 0) {
-            $next = CustomDomains::safe_path((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+            $next = Main::safe_path((string) ($_SERVER['REQUEST_URI'] ?? '/'));
             header('Location: ' . ($next !== '/' ? '/?auth=login&next=' . rawurlencode($next) : '/?auth=login'));
         } else {
             header('Location: /');

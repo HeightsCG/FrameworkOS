@@ -55,7 +55,7 @@ class PromoteController extends Controller {
             $hash = $viewer > 0 ? sha1('u:' . $viewer) : sha1('a:' . $this->get_ip_address() . '|' . (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
             $model->record_click($swap, $from_id, $to_id, $hash);
         }
-        header('Location: ' . CustomDomains::canonical_profile_url($to), true, 302);
+        header('Location: ' . Main::get_base_domain() . '/@' . rawurlencode((string) $to['u_name']), true, 302);
         exit;
     }
 }

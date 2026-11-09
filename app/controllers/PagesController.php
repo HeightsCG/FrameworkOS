@@ -115,9 +115,8 @@ class PagesController extends Controller {
 
     /** Placeholders in the constants are filled from config here, so plans, limits and names never go stale in the text. */
     private static function fill_feature_text(array $pages): array {
-        $domain_plan = ''; $inf = array(); $seats = array();
+        $inf = array(); $seats = array();
         foreach (self::paid_tiers() as $t) {
-            if ($domain_plan === '' && !empty($t['features']['custom_domain'])) { $domain_plan = (string) $t['name']; }
             if ((int) ($t['limits']['seats'] ?? 1) > 1) { $seats[] = (string) $t['name']; }
             if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $inf[] = (int) $t['limits']['influencers'] . ' on ' . $t['name']; }
         }
@@ -125,7 +124,6 @@ class PagesController extends Controller {
             '{site}'             => Main::site_name(),
             '{host}'             => preg_replace('#^https?://(www\.)?#', '', SeoMeta::base()),
             '{networks}'         => SeoController::NETWORKS,
-            '{domain_plan}'      => $domain_plan,
             '{influencer_plans}' => implode(', ', $inf),
             '{seats_plans}'      => implode(' or ', $seats),
             '{final_note}'       => self::FINAL_NOTE,
@@ -200,7 +198,7 @@ class PagesController extends Controller {
             return;
         }
         $faq = array(
-            array('q' => 'Do I need my own website?', 'a' => 'No. Your link-in-bio page lives at our domain under your handle and holds your posts and links. On Studio you can point your own domain at it.'),
+            array('q' => 'Do I need my own website?', 'a' => 'No. Your link-in-bio page lives at our domain under your handle and holds your posts and links.'),
             array('q' => 'Can I keep posting to my social accounts?', 'a' => 'Yes. The studio publishes each post to your page and to any connected social accounts at the same time, and pulls their engagement back into analytics.'),
             array('q' => 'Who owns my content?', 'a' => 'You do. Your posts, library files, AI images and video and messages download at any time from Settings.'),   // there is no audience export (2026-10-26)
             array('q' => 'What do the AI tools cost?', 'a' => 'Creator and Studio include AI credits every month. AI images, video and AI influencers spend those credits, and you can buy more credits at any time on either plan.'),
@@ -316,7 +314,7 @@ class PagesController extends Controller {
 
     /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, what Free is and add-ons, from config. */
     public static function plan_cost_answer(): string {
-        return trim(self::plan_price_sentence() . ' ' . CreatorPromo::sentence() . ' ' . self::FREE_LINE . ' Studio adds more AI credits, more AI influencers, team seats and a custom domain. ' . self::addon_sentence());   // the Founding Creator line drops out by itself after the deadline
+        return trim(self::plan_price_sentence() . ' ' . CreatorPromo::sentence() . ' ' . self::FREE_LINE . ' Studio adds more AI credits, more AI influencers and team seats. ' . self::addon_sentence());   // the Founding Creator line drops out by itself after the deadline
     }
 
     /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */

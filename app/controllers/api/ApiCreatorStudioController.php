@@ -324,70 +324,6 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Tracking link deleted']);
     }
 
-    /* ---- custom domain (Studio plan): lexivaughn.com serves the creator's profile ---- */
-
-    /** Add the creator's domain. A bare domain comes with its www twin; the one they typed is primary. */
-    public function domain_addAction(){
-        $owner = $this->require_creator('manage');
-        if (!CustomDomains::allowed($owner)) { $this->jsonError(Plan::feature_message('custom_domain'), ['need_plan' => true]); }
-        $host = CustomDomains::normalize($this->post['hostname'] ?? '');
-        if (!CustomDomains::valid($host)) { $this->jsonError('Enter a domain like yourname.com'); }
-        if (CustomDomains::is_reserved($host)) { $this->jsonError('That domain can\'t be used'); }
-
-        $model = new CreatorDomainsModel();
-        if (count($model->list_for_user((int) $owner['user_id'])) > 0) { $this->jsonError('Remove your current domain before adding another'); }
-
-        $root  = CustomDomains::root($host);
-        $pair  = ($host === $root || $host === 'www.' . $root);
-        $hosts = $pair ? array($root, 'www.' . $root) : array($host);
-        foreach ($hosts as $h) {
-            if ($model->hostname_taken($h)) { $this->jsonError($h . ' is already in use'); }
-        }
-        $token = 'cls-' . bin2hex(random_bytes(16));
-        foreach ($hosts as $h) {
-            $model->add((int) $owner['user_id'], $h, $h === $root ? 'apex' : 'subdomain', $token, $h === $host);
-        }
-        $this->jsonSuccess(['message' => 'Domain added. Add the DNS records below, then check.']);
-    }
-
-    /** Check DNS for the creator's domains now. */
-    public function domain_verifyAction(){
-        $owner = $this->require_creator('manage');
-        if (!CustomDomains::allowed($owner)) { $this->jsonError(Plan::feature_message('custom_domain'), ['need_plan' => true]); }
-        $model = new CreatorDomainsModel();
-        $rows  = $model->list_for_user((int) $owner['user_id']);
-        if (!$rows) { $this->jsonError('Add a domain first'); }
-        $live = false;
-        $errors = array();
-        foreach ($rows as $row) {
-            $r = CustomDomains::verify($row);
-            $model->set_status((int) $row['id'], $r['status'], $r['error']);
-            if ($r['status'] === 'active') { $live = true; } elseif ($r['error']) { $errors[] = $r['error']; }
-        }
-        if ($live && !$errors) { $this->jsonSuccess(['message' => 'Your domain is connected']); }
-        $this->jsonError($errors ? ($errors[0] . '. DNS changes can take up to an hour.') : 'Not connected yet');
-    }
-
-    /** Which of the pair visitors land on (the other one redirects to it). */
-    public function domain_set_primaryAction(){
-        $owner = $this->require_creator('manage');
-        $model = new CreatorDomainsModel();
-        $row   = $model->get_for_user((int) $owner['user_id'], (int) ($this->post['id'] ?? 0));
-        if (!$row) { $this->jsonError('Domain not found'); }
-        $model->set_primary((int) $owner['user_id'], (int) $row['id']);
-        $this->jsonSuccess(['message' => $row['hostname'] . ' is now your main address']);
-    }
-
-    /** Disconnect the creator's domain (both halves of a pair). Their page goes back to /@handle only. */
-    public function domain_removeAction(){
-        $owner = $this->require_creator('manage', false);
-        $model = new CreatorDomainsModel();
-        foreach ($model->list_for_user((int) $owner['user_id']) as $row) {
-            $model->remove((int) $owner['user_id'], (int) $row['id']);
-        }
-        $this->jsonSuccess(['message' => 'Domain removed']);
-    }
-
     public function toggle_creator_linkAction(){
         $this->require_creator('content', false);
         $id = (int) ($this->post['id'] ?? 0);
@@ -445,15 +381,8 @@ class ApiCreatorStudioController extends BaseApiController {
         } elseif ($topic === '') { $this->jsonError('Describe what to post (the topic).'); }
 
         $src           = (string) ($this->post['image_source'] ?? 'brand');
-        $image_source  = in_array($src, ['influencer', 'character'], true) ? $src : 'brand';
+        $image_source  = ($src === 'influencer') ? 'influencer' : 'brand';   // anything else (incl. the removed Eromify 'character') is Brand
         $influencer_id = (int) ($this->post['influencer_id'] ?? 0);
-        $character_id  = trim((string) ($this->post['character_id'] ?? ''));
-        if ($kind === 'post' && $image_source === 'character') {
-            if (!(new EromifyAccountsModel())->get_connected_for_user($creator_id)) {
-                $this->jsonError('Connect Eromify in Settings > Integrations to use a character.');
-            }
-            if ($character_id === '') { $this->jsonError('Pick a character.'); }
-        }
         if ($kind === 'post' && $image_source === 'influencer') {
             $infl = $influencer_id > 0 ? (new InfluencersModel())->get_one($creator_id, $influencer_id) : null;
             if (!$infl) { $this->jsonError('Pick an influencer.'); }
@@ -462,8 +391,6 @@ class ApiCreatorStudioController extends BaseApiController {
         $fields = [
             'image_source'     => $image_source,
             'influencer_id'    => $influencer_id,
-            'character_id'     => $character_id,
-            'character_name'   => trim(html_entity_decode((string) ($this->post['character_name'] ?? ''), ENT_QUOTES)),
             'influencer_model_key' => (string) ($this->post['influencer_model_key'] ?? ''),
             'media_type'       => (($this->post['media_type'] ?? 'image') === 'video') ? 'video' : 'image',
             'video_prompt'     => trim(html_entity_decode((string) ($this->post['video_prompt'] ?? ''), ENT_QUOTES)),
@@ -1002,9 +929,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'credits_per_run'  => $cost['per_run'],     // AI credits each run uses
             'credits_per_month'=> $cost['per_month'],   // at this cadence
             'kind'             => (($r['kind'] ?? 'post') === 'message') ? 'message' : 'post',
-            'image_source'     => in_array($r['image_source'] ?? 'brand', ['influencer', 'character'], true) ? (string) $r['image_source'] : 'brand',
-            'character_id'     => (string) ($r['character_id'] ?? ''),
-            'character_name'   => (string) ($r['character_name'] ?? ''),
+            'image_source'     => (($r['image_source'] ?? 'brand') === 'influencer') ? 'influencer' : 'brand',
             'influencer_id'    => (int) ($r['influencer_id'] ?? 0),
             'influencer_name'  => $this->scheduler_influencer_name($r),
             'influencer_model_key' => (string) ($r['influencer_model_key'] ?? ''),

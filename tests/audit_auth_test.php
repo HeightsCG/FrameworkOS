@@ -45,8 +45,8 @@ $ids = array();
 
 /* ---- pure helpers ---- */
 check('Main::config returns the default for a missing key, no warning', Main::config('global', 'no_such_key_' . $tag, 'dflt') === 'dflt');
-foreach (array("/\t/evil.com", "/\n/evil.com", '/\\evil.com', '//evil.com', '/ /evil.com') as $bad) { check('safe_path rejects ' . json_encode($bad), CustomDomains::safe_path($bad) === '/'); }
-check('safe_path keeps a normal path', CustomDomains::safe_path('/@h/events/12?x=1') === '/@h/events/12?x=1');
+foreach (array("/\t/evil.com", "/\n/evil.com", '/\\evil.com', '//evil.com', '/ /evil.com') as $bad) { check('safe_path rejects ' . json_encode($bad), Main::safe_path($bad) === '/'); }
+check('safe_path keeps a normal path', Main::safe_path('/@h/events/12?x=1') === '/@h/events/12?x=1');
 $js = (string) file_get_contents($root . '/libs/Layout/auth_head.php');
 check('cls_after_login rejects control characters and backslashes', strpos($js, "/[\\u0000-\\u0020\\u007f\\\\]/.test(n)") !== false);
 

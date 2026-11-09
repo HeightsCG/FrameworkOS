@@ -119,7 +119,7 @@
                         try {
                             $pub_rows = (new UsersModel())->get_user_by_id((int) Permissions::creator_id());
                             $pub_user = (is_array($pub_rows) && count($pub_rows) === 1) ? $pub_rows[0] : null;
-                            $pub_url  = ($pub_user && Plan::can_use_creator_features($pub_user)) ? CustomDomains::canonical_profile_url($pub_user) : '';
+                            $pub_url  = ($pub_user && Plan::can_use_creator_features($pub_user)) ? Main::get_base_domain() . '/@' . rawurlencode((string) $pub_user['u_name']) : '';
                         } catch (\Throwable $e) { $pub_url = ''; }
                         if ($pub_url !== ''): ?>
                     <a href="<?php echo htmlspecialchars($pub_url, ENT_QUOTES, 'UTF-8'); ?>" class="app-account-menu__item" role="menuitem" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square"></i> View Public Page</a>

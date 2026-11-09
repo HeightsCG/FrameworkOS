@@ -9,7 +9,7 @@ class SchedulerRulesModel extends Model {
 
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
-        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'character_id', 'character_name', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'comments_enabled', 'on_cls',
+        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'comments_enabled', 'on_cls',
         'use_brand', 'ai_assist', 'caption_text', 'caption_mode', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
@@ -60,12 +60,9 @@ class SchedulerRulesModel extends Model {
         $out['topic']            = (string) ($f['topic'] ?? '');
         $out['size']             = Aspect::normalize($f['size'] ?? '', Aspect::DEFAULT_IMAGE);   // 3:4 by default: full bodies warp in a square frame
         $src = (string) ($f['image_source'] ?? 'brand');
-        $out['image_source']     = in_array($src, array('influencer', 'character'), true) ? $src : 'brand';
+        $out['image_source']     = ($src === 'influencer') ? 'influencer' : 'brand';   // Eromify 'character' was removed 2026-11-09
         $out['influencer_id']    = ($out['image_source'] === 'influencer' && (int) ($f['influencer_id'] ?? 0) > 0) ? (int) $f['influencer_id'] : null;
         $out['influencer_model_key'] = ($out['image_source'] === 'influencer') ? (mb_substr(trim((string) ($f['influencer_model_key'] ?? '')), 0, 64) ?: null) : null;
-        // My Character: the creator's Eromify character (its id in their Eromify studio, and its name for display).
-        $out['character_id']     = ($out['image_source'] === 'character') ? (mb_substr(trim((string) ($f['character_id'] ?? '')), 0, 64) ?: null) : null;
-        $out['character_name']   = ($out['image_source'] === 'character') ? (mb_substr(trim((string) ($f['character_name'] ?? '')), 0, 190) ?: null) : null;
         // Video: the run's still (either image source) is animated. The model and length must be ones that model offers.
         $vm = (($f['media_type'] ?? '') === 'video') ? InfluencerConfig::resolve_model('video', (string) ($f['video_model_key'] ?? '')) : null;
         $out['media_type']       = $vm ? 'video' : 'image';
@@ -136,6 +133,21 @@ class SchedulerRulesModel extends Model {
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
+    /** Rules still on the removed Eromify 'character' source (cron/retire_eromify_once.php). */
+    public function character_rules(): array {
+        return (array) parent::select(
+            "SELECT r.id, r.creator_id, r.name, r.active, u.u_name AS creator_handle
+             FROM scheduler_rules r LEFT JOIN user_accounts u ON u.user_id = r.creator_id
+             WHERE r.image_source = 'character' ORDER BY r.creator_id, r.id");
+    }
+
+    /** Switch one such rule to Brand Photo and pause it. True when the row changed. */
+    public function retire_character_rule($id): bool {
+        return (bool) parent::sql("UPDATE scheduler_rules SET image_source = 'brand', active = 0, next_run_at = NULL, updated_at = :n
+             WHERE id = :id AND image_source = 'character'",
+            array(':n' => gmdate('Y-m-d H:i:s'), ':id' => (int) $id));
+    }
+
     public function set_active($creator_id, $id, $active){
         $rule = $this->get_one($creator_id, $id);
         if (!$rule) { return 0; }
@@ -174,7 +186,7 @@ class SchedulerRulesModel extends Model {
     public function due_rules($now_utc = null){
         $now = $now_utc ?: date('Y-m-d H:i:s');
         return parent::select(
-            "SELECT * FROM scheduler_rules WHERE active = 1 AND next_run_at IS NOT NULL AND next_run_at <= :n ORDER BY next_run_at ASC",
+            "SELECT * FROM scheduler_rules WHERE active = 1 AND image_source <> 'character' AND next_run_at IS NOT NULL AND next_run_at <= :n ORDER BY next_run_at ASC",   // 'character' (Eromify, removed) is skipped
             array('n' => $now)
         );
     }

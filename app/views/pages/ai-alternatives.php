@@ -17,7 +17,7 @@ $rows = array(
     array('Video generators', 'Animate a still image or make a short clip from a prompt, including talking-head video.', 'Clip length, whether the face stays stable while moving, and whether lip sync matches the audio.'),
     array('Voice tools', 'Give the character a voice for videos and voice notes.', 'Whether the voice stays consistent and sounds natural reading your scripts.'),
     array('Schedulers and social tools', 'Publish posts to social networks on a schedule.', 'Which platforms it supports, whether it sets each platform\'s AI label, and whether it handles captions that are too long.'),
-    array('Link-in-bio and analytics tools', 'Give your audience one page with every link, and show what each post and link brings in.', 'Whether clicks are tracked per link, whether social engagement comes back in one place, and whether it runs on your own domain.'),
+    array('Link-in-bio and analytics tools', 'Give your audience one page with every link, and show what each post and link brings in.', 'Whether clicks are tracked per link, and whether social engagement comes back in one place.'),
 );
 $trows = array();
 foreach ($rows as $r) { $trows[] = array('<b>' . $e($r[0]) . '</b>', $e($r[1]), $e($r[2])); }

@@ -6,7 +6,7 @@ $base = getenv('SEO_TEST_BASE') ?: 'http://framework.contentos.cvk';
 $fail = 0; function check($l, $c) { global $fail; echo ($c ? 'ok   ' : 'FAIL ') . $l . "\n"; if (!$c) { $fail++; } }
 function fetch($u) { $ch = curl_init($u); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 15)); $b = (string) curl_exec($ch); $c = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); $r = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL); curl_close($ch); return array($c, $b, $r); }
 $paths = array('/features/ai-influencer', '/features/dm-agent', '/features/link-in-bio',
-    '/features/publishing', '/features/automations', '/features/analytics', '/features/custom-domains', '/lora-character-training', '/consistent-ai-model-face',
+    '/features/publishing', '/features/automations', '/features/analytics', '/lora-character-training', '/consistent-ai-model-face',
     '/for/fitness-coaches', '/for/musicians', '/for/coaches', '/for/photographers', '/for/travel-creators', '/for/brands');   // NichePages (2026-10-24)
 foreach ($paths as $p) {
     list($c, $b) = fetch($base . $p);

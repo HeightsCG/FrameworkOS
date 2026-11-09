@@ -106,7 +106,7 @@ echo Sections::index_list(array(
     array('icon' => 'bot', 'title' => 'Inbox automation', 'text' => 'AI drafts replies to your messages in your voice for you to approve.'),
     array('icon' => 'megaphone', 'title' => 'Broadcasts', 'text' => 'Send one message to all of your followers at once.'),
     array('icon' => 'sparkles', 'title' => 'AI captions', 'text' => 'Captions written in your brand voice for every platform.'),
-    array('icon' => 'plug', 'title' => 'Custom domains', 'text' => 'Point your own domain at your page on Studio.'),
+    array('icon' => 'plug', 'title' => 'Claude connector', 'text' => 'Ask Claude to make images, write posts or schedule them.'),
     array('icon' => 'users', 'title' => 'Team seats', 'text' => 'Invite collaborators who work on your account with you.'),
 ));
 echo '<p class="hm-more"><a href="/features">See every feature</a></p>';

@@ -509,7 +509,7 @@
 .cs-sf__row .cs-seg--compact .cs-seg__opt{ flex:0 0 auto; padding:.42rem 1.1rem; }
 .cs-sf__row .cs-sched__time{ flex:0 0 auto; margin-left:auto; }
 @media (max-width:640px){ .cs-sf__row .cs-sched__time{ margin-left:0; } }
-.cs-sf #csSchedMsgTextWrap, .cs-sf #csSchedCharacterWrap{ margin-top:1rem; }
+.cs-sf #csSchedMsgTextWrap{ margin-top:1rem; }
 .cs-sf #csSchedCaptionWrap{ margin-top:1rem; }
 
 /* ---- Automation modal: property rows (label left, control right) ---- */

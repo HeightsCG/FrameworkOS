@@ -24,7 +24,6 @@ class PageDates {
         '/features/ai-influencer' => array('2026-10-15', 'c0687fcff757'),
         '/features/analytics' => array('2026-10-15', '09c7132c1c5f'),
         '/features/automations' => array('2026-10-15', '50618b10d38f'),
-        '/features/custom-domains' => array('2026-10-15', '13c655a09106'),
         '/features/dm-agent' => array('2026-10-15', 'dbe50f5f7663'),
         '/features/link-in-bio' => array('2026-10-15', '7389ad0bce52'),
         '/features/publishing' => array('2026-10-15', 'cf300c17a391'),

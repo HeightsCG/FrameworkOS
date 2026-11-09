@@ -14,7 +14,6 @@ digest also needs read access to `/var/log/apache2/error.log`, so that user must
 ```
 # --- current prod crontab (8)
 30 9 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_fact_check.php >> /tmp/cls-seo-fact-check.log 2>&1
-17 4 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/domains.php >> /tmp/cls-domains.log 2>&1
 */15 * * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/billing.php >> /var/www/creatorlinkstudio.com/www/cron/billing.log 2>&1
 0 9 * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_draft.php >> /var/www/creatorlinkstudio.com/www/cron/seo_draft.log 2>&1
 */2 * * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/moderate.php >> /var/www/creatorlinkstudio.com/www/cron/moderate.log 2>&1

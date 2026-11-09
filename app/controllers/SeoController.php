@@ -20,7 +20,6 @@ class SeoController extends Controller {
 
     /** Index the landing page and creator pages; keep the signed-in app and machine endpoints out. */
     public function robotsAction(){
-        if (CustomDomains::current()) { $this->custom_domain_crawl('robots'); return; }
         $base = Main::get_base_domain();
         header('Content-Type: text/plain; charset=utf-8');
         header('Cache-Control: public, max-age=3600');
@@ -84,7 +83,6 @@ class SeoController extends Controller {
     }
 
     public function sitemapAction(){
-        if (CustomDomains::current()) { $this->custom_domain_crawl('sitemap'); return; }
         header('Content-Type: application/xml; charset=utf-8');
         header('Cache-Control: public, max-age=3600');
         $urls = self::sitemap_entries();
@@ -99,23 +97,6 @@ class SeoController extends Controller {
             // no <changefreq> or <priority>: search engines ignore both, and an accurate <lastmod> is the signal they use
             echo "  </url>\n";
         }
-        echo '</urlset>', "\n";
-    }
-
-    /** robots.txt / sitemap.xml on a creator's own domain: just their profile. */
-    private function custom_domain_crawl($which){
-        $d    = CustomDomains::current();
-        $base = 'https://' . $d['hostname'];
-        header('Cache-Control: public, max-age=3600');
-        if ($which === 'robots') {
-            header('Content-Type: text/plain; charset=utf-8');
-            echo "User-agent: *\nAllow: /\nDisallow: /api\nDisallow: /go\n\nSitemap: " . $base . "/sitemap.xml\n";
-            return;
-        }
-        $locs = array($base . '/');
-        header('Content-Type: application/xml; charset=utf-8');
-        echo '<?xml version="1.0" encoding="UTF-8"?>', "\n", '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', "\n";
-        foreach ($locs as $loc) { echo '  <url><loc>', htmlspecialchars($loc, ENT_QUOTES | ENT_XML1, 'UTF-8'), "</loc></url>\n"; }
         echo '</urlset>', "\n";
     }
 

@@ -5,8 +5,8 @@
  *  - the creator's plan ends first (AccountBilling::on_leave_creator, in the request);
  *  - scheduled cross-posts are withdrawn from Post for Me;
  *  - posts are deleted;
- *  - influencers, scenes, edits, automations, links, collections, brand, inbox settings, custom
- *    domains and the profile's bio and images are removed;
+ *  - influencers, scenes, edits, automations, links, collections, brand, inbox settings and the
+ *    profile's bio and images are removed;
  *  - media files nobody was sent are deleted from storage for good.
  * Runs as a queue job (CreatorDeleteJob) after the account is already back to a regular user.
  */
@@ -38,10 +38,6 @@ class CreatorDeletion {
         foreach ((array) $scenes->list_for_creator($cid) as $sc) { if ((int) ($sc['creator_id'] ?? 0) === $cid) { $scenes->delete_own($cid, (int) $sc['id']); } }
         $edits = new EditProjectsModel();
         foreach ((array) $edits->list_for_creator($cid, 1000) as $ep) { $edits->soft_delete($cid, (int) $ep['id']); }
-
-        // Custom domains
-        $domains = new CreatorDomainsModel();
-        foreach ($domains->list_for_user($cid) as $d) { $domains->remove($cid, (int) $d['id']); }
 
         // Media files: gone for good unless someone was sent them
         $purge = array();
