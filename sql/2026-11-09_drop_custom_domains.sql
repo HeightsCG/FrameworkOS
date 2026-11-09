@@ -1,3 +1,4 @@
+-- APPLIED ON PROD 2026-11-09.
 -- Custom domains removed 2026-11-09 (owner decision): drops the tables behind them.
 --   creator_domains: one row per creator hostname (lexivaughn.com, www.lexivaughn.com).
 --   domain_handoffs: one-time sign-in tokens that carried a session to a creator's domain.

@@ -1,3 +1,4 @@
+-- APPLIED ON PROD 2026-11-09.
 -- 2026-11-09: Eromify integration removed (docs/remove-selling-2026-11-09.txt).
 -- Drops the creators' Eromify API-key table and the scheduler_rules "My Character" columns.
 -- ORDER: deploy the code, run cron/retire_eromify_once.php --apply (pauses rules still on the
