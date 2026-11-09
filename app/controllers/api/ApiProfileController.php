@@ -163,44 +163,6 @@ class ApiProfileController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Notification preferences saved']);
     }
 
-    /* ---------- Content preferences ---------- */
-
-    public function save_adult_content_prefAction(){
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Not authorized');
-        }
-
-        $uid     = (int) Session::get('user_id');
-        $enabled = !empty($this->post['enabled']);
-
-        // Enabling adult content requires an explicit age confirmation (PRD 34.7).
-        if ($enabled && empty($this->post['age_confirmed'])) {
-            $this->jsonError('Age confirmation is required');
-        }
-
-        // Trigger 1: the toggle does not save until the account is age verified. Not verified yet (or failed last
-        // time): open the provider's hosted session and send the person there; the toggle stays off until they return.
-        if ($enabled && AgeVerification::refresh_if_pending($uid, 1) !== 'verified') {   // a result that arrived late (or whose webhook was lost) is picked up here, not re-run
-            $s = AgeVerification::start($uid, '/account/settings?section=privacy');   // ?section= is the page's own deep link to Restricted content
-            if (empty($s['ok'])) {
-                $this->jsonError('Could not start age verification. ' . ((string) ($s['error'] ?? '') !== '' ? (string) $s['error'] : 'Please try again.'));
-            }
-            $this->jsonError('Verify your age to show adult content.', ['need_age_verification' => true, 'url' => (string) $s['url']]);
-        }
-
-        $this->userModel->set_adult_content_enabled($uid, $enabled, $uid);
-
-        $this->jsonSuccess(['message' => $enabled ? 'Adult content enabled' : 'Adult content hidden']);
-    }
-
-    /** The signed-in account's age verification state: none | pending | verified | failed (Settings polls this after the return). */
-    public function age_verification_statusAction(){
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Not authorized');
-        }
-        $this->jsonSuccess(['status' => AgeVerification::status((int) Session::get('user_id'))]);
-    }
-
     /* ---------- Internal messaging (PRD 24) ---------- */
 
     public function block_userAction(){
@@ -229,42 +191,14 @@ class ApiProfileController extends BaseApiController {
         $me = (int) Session::get('user_id');
         $blocksModel = new BlocksModel();
         $blocksModel->add_block($me, (int) $target['user_id']);
-        // A block ends the relationship both ways: follows go, and any membership between the two is canceled now.
+        // A block ends the relationship both ways: follows go.
         $follows = new FollowsModel();
         $follows->unfollow($me, (int) $target['user_id']);
         $follows->unfollow((int) $target['user_id'], $me);
-        $this->end_memberships_between($me, (int) $target['user_id']);
 
         $name = trim(($target['first_name'] ?? '') . ' ' . ($target['last_name'] ?? ''));
 
         $this->jsonSuccess(['message' => 'Account blocked', 'blocked_user_id' => (int) $target['user_id'], 'u_name' => $target['u_name'], 'name' => $name]);
-    }
-
-    /**
-     * Cancel every active membership between two accounts, whichever of them is the creator.
-     * Paid ones are canceled in Stripe immediately (no proration refund — refunds stay an Admin decision);
-     * the row is closed even if Stripe fails so access ends at once. The subscriber is told their membership ended.
-     */
-    private function end_memberships_between(int $a, int $b): void{
-        $subs = new CreatorSubscriptionsModel();
-        foreach (array(array($a, $b), array($b, $a)) as $pair) {
-            list($fan, $creator) = $pair;
-            $rows = $subs->active_between($fan, $creator);
-            if (empty($rows)) { continue; }
-            $creator_row = $this->userModel->get_user_by_id($creator);
-            $connect     = (is_array($creator_row) && count($creator_row) === 1) ? (string) ($creator_row[0]['stripe_connect_account_id'] ?? '') : '';
-            foreach ($rows as $sub) {
-                if (empty($sub['is_free']) && !empty($sub['stripe_subscription_id']) && $connect !== '') {
-                    if (!StripeService::cancel_subscription_now($connect, (string) $sub['stripe_subscription_id'])) {
-                        error_log('[block] Stripe cancel failed for creator_subscriptions #' . $sub['id'] . ' (' . $sub['stripe_subscription_id'] . ') — row closed locally, check Stripe');
-                    }
-                }
-                $subs->cancel($fan, (int) $sub['id']);
-            }
-            $this->notify($fan, 'subscriptions', 'Membership ended',
-                'Your membership to ' . (Notify::name_of($creator) ?: 'this creator') . ' has ended and will not renew.',
-                '/account/settings?section=subscriptions', 'fa-heart-crack');
-        }
     }
 
     public function unblock_userAction(){
@@ -336,7 +270,7 @@ class ApiProfileController extends BaseApiController {
         try { $this->userModel->record_leave($user_id, 'creator', (string) ($this->post['leave_reason'] ?? ''), (string) ($this->post['leave_note'] ?? '')); }   // the optional "why"
         catch (\Throwable $e) { error_log('[leave] reason ' . $user_id . ': ' . $e->getMessage()); }
 
-        // Stop every recurring charge tied to the creator side: fans' memberships to them (each fan is told) and their own plan.
+        // Their own plan stops billing.
         AccountBilling::on_leave_creator($user_id);
 
         $result = $this->userModel->revert_creator($user_id, $user_id);

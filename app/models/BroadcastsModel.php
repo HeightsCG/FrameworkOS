@@ -1,21 +1,19 @@
 <?php
 /**
  * Broadcasts (PRD §25): a creator composes one message and it fans out as an
- * individual 1:1 message to every account in the chosen audience segments, so each
- * fan can reply privately in their own thread. Reuses conversations/messages via
- * MessagesModel. A `broadcasts` row logs each send; media and a credit price ride
- * along exactly as on a direct message. Big audiences are delivered by a queue job.
+ * individual 1:1 message to every follower, so each fan can reply privately in their
+ * own thread. Reuses conversations/messages via MessagesModel. A `broadcasts` row logs
+ * each send; media rides along exactly as on a direct message. Big audiences are delivered by a queue job.
  */
 class BroadcastsModel extends Model {
 
     const INLINE_MAX = 50;   // recipients delivered in-request; above this the queue takes it
 
     /** Valid audience segments, in display order. */
-    public static function segments(){ return array('all', 'followers', 'subscribers', 'expired', 'buyers'); }
+    public static function segments(){ return array('followers'); }
 
     public static function segment_labels(){
-        return array('all' => 'Everyone', 'followers' => 'Followers', 'subscribers' => 'Subscribers',
-                     'expired' => 'Expired subscribers', 'buyers' => 'Buyers');
+        return array('followers' => 'Followers');
     }
 
     /** Announcement audiences: the Creator Link Studio team account (PlatformAccount) writing to the whole platform. */
@@ -29,6 +27,7 @@ class BroadcastsModel extends Model {
     public static function clean_segments($segments, $platform = false){
         if (is_string($segments)) { $segments = json_decode($segments, true) ?: explode(',', $segments); }
         $segments = array_map('strval', (array) $segments);
+        if (!$platform && in_array('all', $segments, true)) { $segments[] = 'followers'; }   // older rows and callers say 'all': everyone is a follower now
         $out = array();
         foreach ($platform ? self::platform_segments() : self::segments() as $s) { if (in_array($s, $segments, true)) { $out[] = $s; } }
         return $out;
@@ -50,8 +49,7 @@ class BroadcastsModel extends Model {
         $ids = array();
         foreach ($segments as $s) { $ids = array_merge($ids, $this->segment_ids((int) $creator_id, $s)); }
         $ids = array_values(array_unique(array_filter($ids)));
-        // Never reach anyone in a block relationship with the creator (buyers/expired members keep
-        // their rows after a block, so the segments alone don't exclude them).
+        // Never reach anyone in a block relationship with the creator.
         $blocked = (new BlocksModel())->related_ids((int) $creator_id);
         if ($blocked) { $ids = array_values(array_filter($ids, function ($id) use ($blocked) { return !isset($blocked[(int) $id]); })); }
         return $ids;
@@ -60,30 +58,7 @@ class BroadcastsModel extends Model {
     private function segment_ids($cid, $segment){
         if (PlatformAccount::is($cid)) { return $this->platform_segment_ids($cid, $segment); }
         $p = array('c' => $cid, 'me' => $cid);
-        switch ($segment) {
-            case 'followers':
-                $sql = "SELECT DISTINCT follower_id AS uid FROM follows WHERE creator_id = :c AND follower_id <> :me";
-                break;
-            case 'subscribers':
-                $sql = "SELECT DISTINCT subscriber_id AS uid FROM creator_subscriptions WHERE creator_id = :c AND status = 'active' AND subscriber_id <> :me";
-                break;
-            case 'expired':
-                $sql = "SELECT DISTINCT cs.subscriber_id AS uid FROM creator_subscriptions cs
-                        WHERE cs.creator_id = :c AND cs.status <> 'active' AND cs.subscriber_id <> :me
-                          AND NOT EXISTS (SELECT 1 FROM creator_subscriptions a WHERE a.creator_id = cs.creator_id AND a.subscriber_id = cs.subscriber_id AND a.status = 'active')";
-                break;
-            case 'buyers':
-                $sql = "SELECT fan_id AS uid FROM ppv_unlocks WHERE creator_id = :c AND fan_id <> :me
-                        UNION SELECT fan_id FROM bundle_unlocks WHERE creator_id = :c2 AND fan_id <> :me2
-                        UNION SELECT fan_id FROM message_unlocks WHERE creator_id = :c3 AND fan_id <> :me3";
-                $p = array('c' => $cid, 'me' => $cid, 'c2' => $cid, 'me2' => $cid, 'c3' => $cid, 'me3' => $cid);
-                break;
-            default: // all = followers ∪ active subscribers
-                $sql = "SELECT follower_id AS uid FROM follows WHERE creator_id = :c AND follower_id <> :me
-                        UNION
-                        SELECT subscriber_id AS uid FROM creator_subscriptions WHERE creator_id = :c2 AND status = 'active' AND subscriber_id <> :me2";
-                $p = array('c' => $cid, 'me' => $cid, 'c2' => $cid, 'me2' => $cid);
-        }
+        $sql = "SELECT DISTINCT follower_id AS uid FROM follows WHERE creator_id = :c AND follower_id <> :me";   // followers (the only creator segment)
         $ids = array();
         foreach ((array) parent::select($sql, $p) as $r) { $ids[] = (int) $r['uid']; }
         return $ids;
@@ -123,21 +98,19 @@ class BroadcastsModel extends Model {
      * Log the broadcast and deliver it: in-request for small audiences, through the
      * job queue for big ones. Returns array(broadcast_id, recipient_count, queued).
      */
-    public function create_and_send($creator_id, $segments, $body, array $asset_ids = array(), $price_credits = 0){
+    public function create_and_send($creator_id, $segments, $body, array $asset_ids = array()){
         $cid = (int) $creator_id;
         $segments = self::clean_segments(is_array($segments) ? $segments : array($segments), PlatformAccount::is($cid));
-        if (empty($segments)) { $segments = array(PlatformAccount::is($cid) ? 'all_users' : 'all'); }
+        if (empty($segments)) { $segments = array(PlatformAccount::is($cid) ? 'all_users' : 'followers'); }
         $ids = $this->recipient_ids($cid, $segments);
         if (empty($ids)) { return array(0, 0, false); }
         $asset_ids = array_values(array_unique(array_filter(array_map('intval', $asset_ids))));
-        $price = empty($asset_ids) ? 0 : max(0, (int) $price_credits);
 
         $bid = (int) parent::insert('broadcasts', array(
             'creator_id'      => $cid,
             'audience'        => $segments[0],
             'segments'        => implode(',', $segments),
             'body'            => (string) $body,
-            'price_credits'   => $price,
             'asset_ids'       => empty($asset_ids) ? null : json_encode($asset_ids),
             'recipient_count' => count($ids),
             'created_at'      => date('Y-m-d H:i:s'),
@@ -151,7 +124,7 @@ class BroadcastsModel extends Model {
                 error_log('[broadcast] queue push failed, delivering inline: ' . $e->getMessage());
             }
         }
-        $this->deliver($bid, $ids, $cid, (string) $body, $asset_ids, $price);
+        $this->deliver($bid, $ids, $cid, (string) $body, $asset_ids);
         return array($bid, count($ids), false);
     }
 
@@ -167,18 +140,18 @@ class BroadcastsModel extends Model {
         $todo = array();
         foreach ($ids as $uid) { if (empty($seen[$uid])) { $todo[] = $uid; } }
         $assets = json_decode((string) ($b['asset_ids'] ?? ''), true);
-        $this->deliver((int) $b['id'], $todo, (int) $b['creator_id'], (string) $b['body'], is_array($assets) ? $assets : array(), (int) $b['price_credits']);
+        $this->deliver((int) $b['id'], $todo, (int) $b['creator_id'], (string) $b['body'], is_array($assets) ? $assets : array());
         return count($todo);
     }
 
-    private function deliver($bid, array $ids, $cid, $body, array $asset_ids, $price){
+    private function deliver($bid, array $ids, $cid, $body, array $asset_ids){
         $messages = new MessagesModel();
         $name  = Notify::name_of($cid) ?: 'A creator you follow';
-        $prev  = MessagesModel::preview_text($body, count($asset_ids), $price);
+        $prev  = MessagesModel::preview_text($body, count($asset_ids));
         $team  = PlatformAccount::is($cid);   // an announcement: the whole text in the email, sent to everyone with Broadcasts email on
         foreach ($ids as $uid) {
             $conv_id = $messages->get_or_create($cid, $uid);   // creator is always creator_id side
-            $messages->send($conv_id, $cid, $body, $bid, $asset_ids, $price);
+            $messages->send($conv_id, $cid, $body, $bid, $asset_ids);
             if ($team) { Notify::send($uid, 'broadcasts', 'News from ' . PlatformAccount::NAME, (string) $body, '/inbox/thread/' . (int) $conv_id, 'fa-bullhorn'); continue; }
             Notify::send($uid, 'broadcasts', $name . ' sent a message to fans', mb_substr($prev, 0, 140), '/inbox/thread/' . (int) $conv_id, 'fa-bullhorn', true);
         }
@@ -193,7 +166,7 @@ class BroadcastsModel extends Model {
     public function recent_for_creator($creator_id, $limit = 20){
         $limit = max(1, min(100, (int) $limit));
         return (array) parent::select(
-            "SELECT id, audience, segments, body, price_credits, recipient_count, created_at
+            "SELECT id, audience, segments, body, recipient_count, created_at
              FROM broadcasts WHERE creator_id = :c ORDER BY id DESC LIMIT $limit",
             array('c' => (int) $creator_id)
         );

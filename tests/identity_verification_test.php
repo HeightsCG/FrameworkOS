@@ -78,8 +78,8 @@ try {
     $r = IdentityVerification::start($b);
     check('Try Again opens a new session', !empty($r['ok']) && $vm->latest_for($b)['status'] === 'pending' && $vm->latest_for($b)['id'] !== $row['id']);
 
-    echo "== the age check is untouched\n";
-    check('an age-check webhook for an unknown session still answers 200', $webhook('00000000-0000-0000-0000-000000000000', 0, 'Approved') === 200);
+    echo "== an unknown session\n";
+    check('a signed webhook for an unknown session still answers 200', $webhook('00000000-0000-0000-0000-000000000000', 0, 'Approved') === 200);
 } finally {
     foreach ($made as $uid) {
         foreach (array('verifications', 'notifications') as $tb) { $db->x("DELETE FROM $tb WHERE user_id = :u", array(':u' => $uid)); }

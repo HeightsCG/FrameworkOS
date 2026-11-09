@@ -46,14 +46,8 @@ class DashboardController extends Controller {
         $this->view->stats             = $a->overview($user_id);
         $this->view->compare           = $a->compare_periods($user_id, $range, $tz);
         $this->view->views_series      = $a->views_series($user_id, $range, $tz);
-        $this->view->revenue_series    = $a->revenue_series($user_id, $range, $tz);
         $this->view->follower_series   = $a->follower_series($user_id, $range, $tz);
-        $this->view->revenue_breakdown = $a->revenue_breakdown($user_id, $start_utc);
-        $this->view->revenue_lifetime  = $a->revenue_breakdown($user_id);   // all-time total for KPI context
         $this->view->top_posts         = $a->top_posts($user_id, 5);
-        $this->view->recent_sales      = $a->recent_sales($user_id, 8);
-        $this->view->customers         = $a->customer_stats($user_id);
-        $this->view->sub_movement      = $a->subscriber_movement($user_id, $range, $tz);
         $this->view->profile_views     = $a->profile_view_stats($user_id, $range, $tz);
         $this->view->link_clicks       = $a->link_click_stats($user_id, $range, $tz);
         $this->view->traffic = null;   // first-party page traffic for this creator's page (analytics_events), UTC days
@@ -61,53 +55,16 @@ class DashboardController extends Controller {
         try { $this->view->tracking_links = (new TrackingLinksModel())->stats($user_id, $start_utc); }
         catch (\Throwable $e) { error_log('[dashboard] tracking_links: ' . $e->getMessage()); $this->view->tracking_links = array(); }   // before the tracking_links sql has run
         $this->view->heatmap           = $a->activity_heatmap($user_id, $tz);
-        $this->view->content_mix       = $a->content_mix($user_id);
         $this->view->posts_table       = $a->posts_table($user_id, $start_utc);
         $this->view->share_stats       = $a->share_stats($user_id, $start_utc);
         try { $this->view->referred = $a->referred_signups($user_id); }
         catch (\Throwable $e) { error_log('[dashboard] referred_signups: ' . $e->getMessage()); $this->view->referred = array('signups' => 0, 'paid' => 0); }   // before the signup_params sql has run
         $this->view->timezone          = $tz;
 
-        // Upgrade nudge: last 30 days of sales priced on the current plan vs each higher plan.
-        $this->view->nudge = null;
-        if ($user && !Permissions::is_team_member()) {
-            $gross = $a->gross_sales_cents($user_id, gmdate('Y-m-d H:i:s', time() - 30 * 86400));
-            $this->view->nudge = Plan::upgrade_savings($user, $gross);
-            if ($this->view->nudge) { $this->view->nudge['gross_cents'] = $gross; }
-        }
-
         // Behind the upgrade cover a Free account sees sample numbers, not an empty page.
         if (Plan::cover('dashboard')) { foreach (PlanCoverSample::dashboard($range) as $key => $value) { $this->view->$key = $value; } }
 
         $this->view->render();
-    }
-
-    /**
-     * CSV export of the creator's credit ledger (PRD §41 "revenue by date range" —
-     * downloadable for accounting). Streams a file download, not a rendered view.
-     */
-    public function exportAction(){
-        if (!Permissions::can_act_as_creator()) { self::bounce(); }
-        $user_id = Permissions::creator_id();
-        $rows = (new AnalyticsModel())->export_rows($user_id);
-
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="creator-transactions.csv"');
-        $out = fopen('php://output', 'w');
-        fputcsv($out, array('Date (UTC)', 'Type', 'Credits', 'Amount (USD)', 'Balance (credits)', 'Description'), ',', '"', '\\');
-        foreach ($rows as $r) {
-            $credits = (int) $r['credits'];
-            fputcsv($out, array(
-                (string) $r['created_at'],
-                (string) $r['type'],
-                $credits,
-                number_format($credits / 10, 2, '.', ''),   // 1 credit = 10 cents
-                (int) $r['balance_after'],
-                html_entity_decode((string) $r['description'], ENT_QUOTES, 'UTF-8'),
-            ), ',', '"', '\\');
-        }
-        fclose($out);
-        exit;
     }
 
 }

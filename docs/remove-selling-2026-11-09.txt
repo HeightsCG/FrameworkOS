@@ -1,0 +1,122 @@
+REMOVE CREATOR SELLING + ONLYFANS-STYLE POSITIONING + ADULT CONTENT  (2026-11-09)
+====================================================================================
+
+WHY
+Stripe stopped allowing live charges on the platform account ("Your account cannot currently make
+live charges"). To pass Stripe review the product must stop being / looking like a fan-subscription
+(OnlyFans-style) or adult platform. Daniel's decisions (2026-11-09):
+
+  1. DELETE creator-to-fan selling from the codebase entirely (not hide).
+  2. Remove every comparison to OnlyFans / Fansly / Fanvue / Patreon / Passes / Ko-fi etc.
+  3. Existing Subscribers-only and Pay-per-view posts are ARCHIVED (never made public).
+  4. Events, Services and CLS Video (LiveKit calls, tips, replays) are DELETED completely.
+  5. ALL adult content goes: adult toggle, Didit AGE verification, adult starter scenes,
+     is_adult handling, every "adult content allowed" line. Adult posts are archived.
+     (Didit IDENTITY verification for the creator badge is NOT adult — keep it.)
+  6. Plans keep Free/Creator/Studio prices; the "% of sales" fee row disappears everywhere;
+     plans are pitched on AI credits, AI influencers, scheduling, automations, team seats,
+     custom domains, analytics.
+
+THE ONLY PAID FUNCTIONS (owner, 2026-11-09): the plan subscription (Free/Creator/Studio incl. its
+add-ons such as extra influencer slots) and AI credit purchases (AI packs + monthly AI pack).
+Everything else that takes or pays money goes. Affiliates are paid by staff by hand (stays).
+
+WHAT STAYS (must keep working)
+  - Platform plan billing: BillingService, PlanTiers, Plan, billing_accounts, billing_charges,
+    cron/billing.php, card SetupIntents, platform PaymentIntents, plan promos (CreatorPromo,
+    StripeService::resolve_promo_code), founding trial, no-card trial.
+  - AI credits: AiCreditsModel, ai_credit_* , AI packs (buy_ai_credits, PlanTiers::AI_PACKS,
+    pack_dollars monthly pack), Plan::charge_ai.
+  - Affiliates + ReferralRewards (plan invoices only) and their refund/dispute reversal hooks.
+  - Plan chargebacks: RefundsModel::record_chargeback path for billing_charges (suspend + log).
+  - Posts, feed, scheduling, automations, AI influencers, Content Studio, link in bio,
+    custom domains, messaging/inbox (DMs, broadcasts, auto-messages WITHOUT prices),
+    audience page (followers, tags, notes), analytics (content/audience), admin, support,
+    identity verification badge, moderation, team seats, MCP connector (non-selling tools),
+    social cross-posting via Post for Me, tracking of link-in-bio clicks (/go/<id>) and
+    signup/follow attribution.
+  - Cross-promotion (/promote) stays unless it hard-depends on creator_plans (then strip that bit).
+
+WHAT GOES
+  A. Public site / SEO / blog (agent A)
+     - /compare/*, /best-creator-monetization-platforms, /monetize-your-content,
+       /onlyfans-alternatives, /fanvue-alternatives, /patreon-alternatives, /linktree-alternatives,
+       /features/ai-ofm-tools (+ any OFM page), /features/pay-per-view, /features/payouts,
+       /features/memberships, /features/services-and-events, /integrations/fanvue.
+       Routes removed so they 404 (NO .htaccess edits, NO redirects at server level).
+     - PagesController::COMPETITORS + helpers, CompareProse.php, AlternativesPages.php, views
+       compare/best-platforms/monetize/alternatives; fee charts (public/images/charts/fee-*,
+       flow-how-a-sale-*, flow-from-a-generated-character-to-a-payout-*), site photos for
+       ppv/payouts/monetize/ofm/memberships + their SiteImages/Screenshots keys.
+     - Blog: delete app/articles selling-pay-per-view-*, where-and-how-to-sell-content-online,
+       how-can-i-sell-my-photos-online, best-place-to-sell-photos-online-free; edit
+       all-in-one-social-media-scheduler. Seed keyword lists / clusters / citation domains
+       for OnlyFans-style and selling topics removed. DB seo_articles about selling/OnlyFans:
+       unpublish via the once script (see E).
+     - Copy rewrite everywhere (home, features, pricing, about, press, contact, niches /for/*,
+       feature pages, tutorials, SiteNav, footer, public_page CTA, SeoMeta, llms.txt facts,
+       JSON-LD FAQ/Offers, auth modal, /start, legal terms, privacy, Creator Agreement text,
+       lifecycle/nurture emails). Positioning: an AI content studio for creators and brands —
+       AI influencers, AI images/video, scheduling + cross-posting, link in bio, inbox
+       automation, analytics. Never "sell", "monetize", "earn", "payouts", "fans pay",
+       "% of sales", "unlock", "paywall", "adult".
+  B. Events, Services, CLS Video (agent B)  — delete completely.
+  C. Fan money core (agent C) — fan wallet credits (buy, auto top-up, cash out, history),
+     creator earnings + payouts + Stripe Connect, Purchases page, fan refunds, tips,
+     Revenue/Customers dashboard tabs + revenue analytics, admin Sales tab + fan half of
+     Financials/Today, selling MCP tools (revenue_breakdown, recent_sales, customer_stats,
+     subscriber_count, analytics revenue), webhook fan branches, TopUps wallet branch,
+     MembershipFeeJob dispatch in BillingService::mirror, Plan/PlanTiers fee_percent display,
+     Plan::can_sell → neutral paid-plan gate (KEEP behaviour for AI/creator features).
+  D. Content selling (agent D) — post audience subscribers/ppv + ppv price + tiers, unlocks,
+     fan memberships/creator plans, bundles, fan promo codes, paid DMs/broadcasts/auto-messages
+     price fields, new_purchase/new_subscriber triggers, buyers/subscribers/expired segments,
+     MessagesModel::can_message rebuilt on follows, audience buyers/spend, launch campaign
+     promo/fanvue/buyers bits, tracking-link SALES attribution calls, Fanvue integration
+     (whole), settings sections (Membership Plans, My Subscriptions, Content Bundles,
+     Discount Codes), SetupService tiers/payouts steps, CreatorAgreement selling gates,
+     profile Membership tab / bundles / locked posts.
+  E. Adult content (agent E, after D).
+  E-note (owner question 2026-11-09): the 'Your post was held' notice (AgeVerification::hold_unverified_adult_post)
+     links to /account/settings?section=privacy (the Show adult content toggle). With adult content gone, replace it:
+     flagged-adult media => post is not published, stays in drafts; the notice names the post and links to that
+     draft in Content Studio (not Settings); staff clear false positives from the admin Moderation queue, then the
+     post can publish. Reuse posts.held_reason / hold_for_plan with a neutral reason (e.g. 'moderation').
+  F. Retirement script cron/retire_selling_once.php (agent D writes it; C/B add their parts
+     if needed): cancels every active paid fan membership in Stripe (Connect) and notifies
+     fans, archives subscribers/ppv posts and adult posts, unpublishes selling/OnlyFans
+     seo_articles, and PRINTS a report of: creator wallet balances > 0, pending payouts,
+     unreleased event/service earnings, fan wallet balances. Dry-run by default; --apply
+     to act. Daniel runs it on prod before deploying.
+
+DATABASE
+  Tables/columns are NOT dropped now. Code stops reading/writing them. A later file
+  sql/2026-11-09_drop_selling.sql (commented, NOT to run yet) lists the DROP statements.
+
+HOUSE RULES (from Daniel — follow exactly)
+  - NEVER git commit/push. NEVER edit .htaccess, server headers, Apache, app/config/*,
+    or public/js/api.data.js. No `open` commands.
+  - Targeted edits (Edit tool / precise replacements). Other agents are editing other parts of
+    the same working tree at the same time: never rewrite a whole file you don't own, never
+    revert changes you didn't make, re-read a file right before editing it.
+  - Coding style: `var` + snake_case in JS, `== ''` checks, toastr feedback, AJAX via
+    ApiDataSvc.apiCall. DB access only through models (no raw new Database() in controllers).
+  - Button/CTA and field labels Title Case; dialog titles + body sentence case. No helper text
+    under fields. No emoji. Headlines Title Case.
+  - Never name Stripe on public pages. Keep existing names of things that stay.
+  - When deleting an API action: remove it from libs/Classes/ApiRoutes.php AND the controller.
+    When deleting an MCP tool: remove it from McpTools::tools() AND the call() switch.
+  - Dev site: http://framework.contentos.cvk . Dev DB:
+      export MYSQL_PWD="$(php -r '$c=parse_ini_file("app/config/app.ini"); echo $c["db_pass"];')"
+      mysql -h 127.0.0.1 --protocol=TCP -u casivo contentos -e "..."
+    (read-only queries are fine; do not change dev data except via the once script dry run.)
+  - Verify: php -l every touched PHP file; grep for every deleted class/method/action/table
+    name to confirm zero remaining references; load affected pages with curl on dev
+    (expect 200 / intended 404, no PHP errors in output). Report what you could not verify.
+
+STATUS LOG (agents append one line when done)
+  - B (2026-11-09): Events, Services, CLS Video deleted (controllers/views/API/models/libs/JS/CSS, crons + queue jobs, MCP event/service tools, profile tabs + /@h/events|services 404, sidebar, notify categories, Plan COVERS, sitemap, can_message/has_public_content/FanSpend/Analytics/Admin unions, tests). DROPs in sql/2026-11-09_drop_selling.sql section B. Left for C: credit_transactions type maps (event_/service_/tip_/replay_earning) in AdminModel/AnalyticsModel/admin.js/dashboard view/PlanCoverSample revenue samples. Left for A: SiteNav/NichePages/PageDates/BlogController/PagesController/features copy for services-and-events.
+  A (2026-11-09): public/SEO/blog done — /compare/*, best-of, monetize, *-alternatives, ai-ofm-tools, features pay-per-view/payouts/memberships/services-and-events, integrations/fanvue removed (404); CompareProse/AlternativesPages + 4 views + fee/flow/sketch charts + selling site photos deleted; home/features/pricing/about/press/contact/legal/Creator Agreement/emails/tutorials/nav/footer/SeoMeta/llms/sitemap/drafter/blog rewritten to AI content studio; 9 platforms; seo_articles unpublish list handed to coordinator.
+  C (2026-11-09): fan money core deleted — CreditsModel, AutoReplenishService, PayoutsModel, PurchasesController + views/purchases + purchases.css + sidebar link, MembershipFeeJob + cron/sync_membership_fees.php + cron/connect_profile_sync_once.php, admin/sales.php; wallet/cash-out/auto top-up/Connect actions (ApiBillingController + ApiRoutes), admin_refund, stripe_connectAction + all webhook membership branches (slim plan refund/dispute path kept), TopUps AI-only, RefundsModel = record_chargeback only (chargebacks list moved to /admin/billing), Plan::can_sell/fee_percent/upgrade_savings + Founding fee lock + Main fee % gone (gate = Plan::can_use_creator_features), dashboard Revenue/Customers tabs + CSV export, admin Sales/fan financials/activity, analytics fan events, 4 selling MCP tools; Settings Wallet section is now "AI Credits". DROPs in section C. Left for D: CreditsModel/creator_net/Plan::fee_percent calls in ApiPostsController (unlock, bundle, membership checkout) and ApiMessagesController (paid DM unlock) now fatal if reached; viewer_credits forced to 0; stripe_connect_account_id still read by membership code + AccountBilling.
+  D (2026-11-09): content selling deleted — post paywall (audience/ppv/tiers, unlocks; FeedModel/profile show free posts only), fan memberships + creator plans, bundles, fan promo codes, paid DMs/broadcasts/auto-messages + inbox upsells, Fanvue integration (Eromify keeps its crypto in EromifyAccountsModel, still keyed by app.ini fanvue_token_key — do not delete that key), StripeService Connect/membership helpers, PlanTiers fee_percent/sub_tiers, settings Membership/My Subscriptions/Bundles/Discount Codes, MCP plan/promo/bundle tools; can_message = follow either way or existing conversation; audience/broadcasts followers only; tracking links click/follow/signup only. cron/retire_selling_once.php + RetireSellingModel (dry run default, --apply). DROPs in section D.
+  E (2026-11-09): adult content deleted — AgeVerification/AgeVerificationProvider/AgeVerificationsModel + age tests gone; Didit is identity-only (DiditProvider no longer an age provider, /webhook/didit verifies the signature then IdentityVerification); Settings "Restricted Content" toggle, /account/age_verification, save_adult_content_pref/age_verification_status/admin_reset_age_verification, admin age-check panel/user rows, adult starter scenes + is_adult everywhere (feed/profile/search/messages/directory/public thumbs/social share/email image). New ModerationHold: flagged (or blocked) media keeps a post in drafts (held_reason 'moderation', notice names the post, links /studio?post=<id>); admin Moderation Approve clears it and tells the creator. retire_selling_once.php step e (adult media/posts/scenes/toggle); DROPs in section E.

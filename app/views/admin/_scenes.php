@@ -8,7 +8,6 @@
             <button type="button" role="tab" class="adm-seg__b is-on" aria-selected="true" data-filter="all">All</button>
             <button type="button" role="tab" class="adm-seg__b" aria-selected="false" data-filter="live">Live</button>
             <button type="button" role="tab" class="adm-seg__b" aria-selected="false" data-filter="off">Off</button>
-            <button type="button" role="tab" class="adm-seg__b" aria-selected="false" data-filter="adult">Adult</button>
         </div>
         <button type="button" class="adm-btn adm-btn--primary adm-box__end" id="admSceneNew">New Scene</button>
     </header>
@@ -19,12 +18,12 @@
         <thead><tr><th data-sort="text">Scene</th><th data-sort="text">Category</th><th>Shape</th><th class="adm-r" data-sort="num">Rating</th><th data-sort="text">Status</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($scenes as $s): $j = SceneTemplates::json($s, true); ?>
-            <tr class="adm-crow adm-srow" data-scene="<?php echo $e(json_encode($j)); ?>" data-live="<?php echo $j['is_active'] ? 'live' : 'off'; ?><?php echo $j['is_adult'] ? ' adult' : ''; ?>">
+            <tr class="adm-crow adm-srow" data-scene="<?php echo $e(json_encode($j)); ?>" data-live="<?php echo $j['is_active'] ? 'live' : 'off'; ?>">
                 <td class="adm-t__main"><span class="adm-t__thumb"><?php if ($j['thumb_url'] !== ''): ?><img src="<?php echo $e($j['thumb_url']); ?>" alt=""><?php endif; ?></span><?php echo $e($j['title']); ?></td>
                 <td class="adm-t__muted"><?php echo $e($j['category'] !== '' ? $j['category'] : '—'); ?></td>
                 <td class="adm-t__muted"><?php echo $e($j['default_aspect']); ?></td>
                 <td class="adm-r adm-t__num adm-t__muted" data-value="<?php echo (int) $j['ups'] - (int) $j['downs']; ?>"><?php echo (int) $j['ups']; ?> up · <?php echo (int) $j['downs']; ?> down</td>
-                <td><?php echo adm_pill($j['is_active'] ? 'Live' : 'Off', $j['is_active'] ? 'ok' : 'gray'); ?><?php if ($j['is_adult']): ?> <?php echo adm_pill('Adult', 'bad'); ?><?php endif; ?></td>
+                <td><?php echo adm_pill($j['is_active'] ? 'Live' : 'Off', $j['is_active'] ? 'ok' : 'gray'); ?></td>
                 <td class="adm-t__act"><?php echo adm_row_menu('Scene actions', array(
                     array('text' => 'Edit', 'attrs' => 'data-scene-action="edit"'),
                     array('text' => $j['is_active'] ? 'Turn Off' : 'Turn On', 'attrs' => 'data-scene-action="toggle"'),
@@ -59,7 +58,6 @@
                         <div class="ai-field"><label class="ai-label" for="admScenePrompt">Base Prompt</label><textarea class="form-control" id="admScenePrompt" rows="5" maxlength="4000" placeholder="photo of a {subject} at a rooftop cafe at golden hour, iced coffee in hand"></textarea><p class="ai-error" data-err="base_prompt" role="alert" hidden></p></div>
                         <div class="adm-scene__switches">
                             <label class="form-check form-switch m-0" for="admSceneActive"><input class="form-check-input" type="checkbox" id="admSceneActive" checked> <span>Live</span></label>
-                            <label class="form-check form-switch m-0" for="admSceneAdult"><input class="form-check-input" type="checkbox" id="admSceneAdult"> <span>Adult</span></label>
                         </div>
                     </div>
                 </form>

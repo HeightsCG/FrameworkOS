@@ -375,7 +375,6 @@ body.ld {
 }
 .ld-access__row:last-child { border-bottom: 1px solid var(--ld-hair); }
 .ld-access__word { font-weight: 700; letter-spacing: -.025em; font-size: clamp(1.5rem, 2.6vw, 2.3rem); line-height: 1.1; color: var(--ld-ink); }
-.ld-access__row--ppv .ld-access__word { color: var(--ld-violet); }
 .ld-access__note { margin-left: auto; font-size: .98rem; color: var(--ld-muted); text-align: right; max-width: 30ch; }
 
 /* Act — Earn: full-bleed violet color field (bright, not dark) */

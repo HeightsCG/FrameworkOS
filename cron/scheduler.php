@@ -46,12 +46,8 @@ try {
 // Scheduled posts: go live at their time even if the creator never opens Studio, and tell followers.
 try {
     foreach ((new PostsModel())->publish_due(0) as $pid => $cid) {
-        if (Plan::hold_unsellable_post($cid, $pid)) {   // a paid post of a creator on Free: back to drafts until they upgrade
-            fwrite(STDOUT, date('c') . " scheduled post {$pid} held: paid post, creator on Free, moved to drafts\n");
-            continue;
-        }
-        if (AgeVerification::hold_unverified_adult_post((int) $cid, (int) $pid)) {   // adult media, creator not age verified: back to drafts until they verify
-            fwrite(STDOUT, date('c') . " scheduled post {$pid} held: adult media, creator not age verified, moved to drafts\n");
+        if (ModerationHold::hold((int) $cid, (int) $pid)) {   // flagged media: back to drafts until staff clear it
+            fwrite(STDOUT, date('c') . " scheduled post {$pid} held: flagged media, moved to drafts\n");
             continue;
         }
         PostNotifier::published($cid, $pid);
@@ -80,22 +76,6 @@ if (date('i') === '15') {
     } catch (\Throwable $e) {
         error_log('[scheduler] upload cleanup failed: ' . $e->getMessage());
     }
-}
-
-// Event reminders: one email per attendee about 24 hours before the start (the meeting link only travels by email).
-try {
-    $n = EventReminders::run(200);
-    if ($n > 0) { fwrite(STDOUT, date('c') . " event reminders sent: {$n}\n"); }
-} catch (\Throwable $e) {
-    error_log('[scheduler] event reminders failed: ' . $e->getMessage());
-}
-
-// Event ticket earnings: paid to the creator once the event has ended.
-try {
-    $n = EventEarnings::run(500);
-    if ($n > 0) { fwrite(STDOUT, date('c') . " event earnings paid for {$n} event(s)\n"); }
-} catch (\Throwable $e) {
-    error_log('[scheduler] event earnings failed: ' . $e->getMessage());
 }
 
 $now = gmdate('Y-m-d H:i:s');

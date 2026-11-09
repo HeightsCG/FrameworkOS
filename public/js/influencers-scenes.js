@@ -86,7 +86,7 @@ jQuery(function ($) {
         $('#infScenes').html(scenes.templates.map(function (t) {
             return '<div class="inf-scene__cell"><button type="button" class="inf-scene" data-scene="' + t.id + '">' +
                 '<span class="inf-scene__img">' + (t.thumb_url ? '<img src="' + esc(t.thumb_url) + '" alt="" loading="lazy">' : '<i class="fa-solid fa-panorama" aria-hidden="true"></i>') +
-                (t.is_adult ? '<span class="inf-scene__adult">18+</span>' : '') + '</span>' +
+                '</span>' +
                 '<span class="inf-scene__body"><strong>' + esc(t.title) + '</strong></span></button></div>';
         }).join('') +
             // New Scene is a card in the grid, like New Influencer
@@ -140,7 +140,6 @@ jQuery(function ($) {
         $('#infSceneEditName').val(s ? s.title : '');
         $('#infSceneEditPrompt').val(s ? s.base_prompt : '');
         aspect_build(s ? s.default_aspect : (ASPECT.default_image || '3:4'));
-        $('#infSceneEditAdult').prop('checked', s ? !!s.is_adult : false);
         $('#infSceneEditThumb').val('');
         edit_thumb(s ? s.thumb_url : '');
         $('#infSceneEditDelete').prop('hidden', !s);
@@ -169,7 +168,7 @@ jQuery(function ($) {
     function edit_save(done) {
         edit_errors_clear(); edit_busy(true, 'Saving');
         var id = parseInt($('#infSceneEditId').val(), 10) || 0;
-        var body = { id: id, title: $('#infSceneEditName').val(), default_aspect: aspect_value(), base_prompt: $('#infSceneEditPrompt').val(), is_adult: $('#infSceneEditAdult').prop('checked') ? 1 : 0 };
+        var body = { id: id, title: $('#infSceneEditName').val(), default_aspect: aspect_value(), base_prompt: $('#infSceneEditPrompt').val() };
         api('scene_save', body, function (o) {
             if (!o || !o.success) {
                 edit_busy(false);

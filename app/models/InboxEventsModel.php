@@ -1,6 +1,6 @@
 <?php
 /**
- * Inbound inbox events (Fanvue webhooks now, internal DMs later). One row per
+ * Inbound inbox events (internal DMs and auto-message triggers). One row per
  * provider event: the UNIQUE (provider, event_id) key IS the idempotency check,
  * `status` makes it a small work queue (webhook request processes it right
  * away; the scheduler worker drains anything left behind), and the stored

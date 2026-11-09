@@ -1,15 +1,14 @@
-/* Inbox page (/inbox): conversations, thread with media + paid unlocks, compose, people picker, broadcast. */
+/* Inbox page (/inbox): conversations, thread with media, compose, people picker, broadcast. */
 (function () {
     if (typeof window.jQuery === 'undefined' || typeof window.ApiDataSvc === 'undefined') { return; }
     var $ = window.jQuery;
     var $root = $('#ibx'); if (!$root.length) { return; }
     var CFG = {}; try { CFG = JSON.parse($root.attr('data-init') || '{}'); } catch (e) { CFG = {}; }
     var ME = parseInt(CFG.me, 10) || 0, IS_CREATOR = !!CFG.is_creator;
-    var SEG_LABELS = CFG.segment_labels || {}, SEGMENTS = CFG.segments || ['all', 'followers', 'subscribers'];
-    var WALLET = CFG.wallet_url || '/account/settings?section=wallet';
+    var SEG_LABELS = CFG.segment_labels || {}, SEGMENTS = CFG.segments || ['followers'];
 
     var $convs = $('#ibxConvs'), $scroll = $('#ibxScroll'), $pane = $('#ibxPane'), $blank = $('#ibxBlank'), $input = $('#ibxInput');
-    var convs = [], filter = 'all', search = '', active = 0, activePeer = null, iAmCreator = false, viewerCredits = 0, unlocking = 0, threadReq = 0;
+    var convs = [], filter = 'all', search = '', active = 0, activePeer = null, iAmCreator = false, threadReq = 0;
     var convs_more = false, thread_more = false, loading_more = false;
 
     function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
@@ -20,52 +19,28 @@
     function fdate(iso) { var d = utc(iso); return d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
     function ini(n) { return (String(n || '?').trim().charAt(0) || '?').toUpperCase(); }
     function av(a, n) { return a ? '<span class="ibx__av" style="background-image:url(\'' + esc(a) + '\')"></span>' : '<span class="ibx__av">' + esc(ini(n)) + '</span>'; }
-    // Everything inside the platform is credits: prices, balances, spend. Dollars only for buying credits and cashing out.
-    function money(credits) { var n = parseInt(credits, 10) || 0; return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }
-    function cr(credits) { return money(credits); }
-    function crT(credits) { return money(credits); }
     function toastErr(m) { if (window.toastr) { toastr.error(m); } }
     function api(action, data, cb) { ApiDataSvc.apiCall('post', action, data, function (r) { var o = null; try { o = JSON.parse(r); } catch (e) { o = null; } if (o && o.need_login) { window.location = '/'; return; } cb(o); }); }
     function modal(id) { var el = document.getElementById(id); return el ? bootstrap.Modal.getOrCreateInstance(el) : null; }
 
     /* ---- attachments (thread composer and broadcast composer each own one) ---- */
     function makeAttach($wrap) {
-        var a = { list: [], price: 0, onchange: null };
+        var a = { list: [], onchange: null };
         a.render = function () {
             if (!a.list.length) { $wrap.prop('hidden', true).empty(); return; }
             var h = '<div class="ibx__attach-list">';
             a.list.forEach(function (m) { h += '<span class="ibx__attach-item" style="background-image:url(\'' + esc(m.thumb) + '\')" title="' + esc(m.name || '') + '">' + (m.type === 'video' ? '<i class="fa-solid fa-play"></i>' : '') + '<button type="button" class="ibx__attach-rm" data-rm="' + m.id + '" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>'; });
-            var paid = a.price > 0;
-            h += '</div><div class="ibx__pricing" role="group" aria-label="Pricing">'
-               + '<button type="button" class="ibx__pill' + (paid ? '' : ' is-on') + '" data-mode="free" aria-pressed="' + (paid ? 'false' : 'true') + '">Free</button>'
-               + '<button type="button" class="ibx__pill' + (paid ? ' is-on' : '') + '" data-mode="paid" aria-pressed="' + (paid ? 'true' : 'false') + '">Paid</button>'
-               + '<label class="ibx__price"' + (paid ? '' : ' hidden') + '><input type="number" class="ibx__price-in" min="10" max="5000" step="1" placeholder="50" value="' + (paid ? a.price : '') + '" aria-label="Price in credits"><span class="ibx__price-unit">credits</span></label></div>';
+            h += '</div>';
             $wrap.html(h).prop('hidden', false);
             if (a.onchange) { a.onchange(); }
         };
         a.set = function (items) { a.list = items.slice(0, 10); a.render(); if (a.onchange) { a.onchange(); } };
-        a.clear = function () { a.list = []; a.price = 0; a.render(); if (a.onchange) { a.onchange(); } };
+        a.clear = function () { a.list = []; a.render(); if (a.onchange) { a.onchange(); } };
         a.ids = function () { return a.list.map(function (m) { return m.id; }); };
         $wrap.on('click', '[data-rm]', function () { var id = parseInt($(this).data('rm'), 10); a.list = a.list.filter(function (m) { return m.id !== id; }); a.render(); if (a.onchange) { a.onchange(); } });
-        $wrap.on('click', '.ibx__pill', function () {
-            var paid = $(this).data('mode') === 'paid';
-            $wrap.find('.ibx__pill').each(function () { var on = ($(this).data('mode') === 'paid') === paid; $(this).toggleClass('is-on', on).attr('aria-pressed', on ? 'true' : 'false'); });
-            var $in = $wrap.find('.ibx__price-in');
-            $wrap.find('.ibx__price').prop('hidden', !paid);
-            if (paid) { if (!(parseInt($in.val(), 10) > 0)) { $in.val('50'); } a.price = parseInt($in.val(), 10) || 50; $in.trigger('focus').trigger('select'); }   // credits
-            else { a.price = 0; }
-            if (a.onchange) { a.onchange(); }
-        });
-        $wrap.on('input change', '.ibx__price-in', function (e) {
-            // Never adjusted here: the server checks 10 to 5,000 whole credits and says what to fix.
-            var v = parseInt(this.value, 10); a.price = isNaN(v) || v <= 0 ? 0 : v;   // credits
-            if (a.onchange) { a.onchange(); }
-        });
         return a;
     }
     var attachD = makeAttach($('#ibxAttach')), attachB = makeAttach($('#ibxBcastAttach'));
-    function updateSendLabel() { $('#ibxSendLabel').text(attachD.price > 0 ? 'Send for ' + money(attachD.price) : 'Send'); }
-    attachD.onchange = updateSendLabel;
 
     /* ---- library picker (creators) ---- */
     var pickTarget = null, pickSel = {}, pickItems = [], pickT = null;
@@ -213,7 +188,7 @@
     function showPane() { $blank.prop('hidden', true); $pane.prop('hidden', false); $root.addClass('is-thread'); }
     function showList() { active = 0; $root.removeClass('is-thread'); $pane.prop('hidden', true); $blank.prop('hidden', false); closeCtx(); renderConvs(); history.replaceState(null, '', '/inbox'); }
     function applyThread(o, fromUser) {
-        active = o.conversation_id; iAmCreator = !!o.i_am_creator; viewerCredits = o.viewer_credits || 0;
+        active = o.conversation_id; iAmCreator = !!o.i_am_creator;
         thread_more = !!o.has_more;
         setPeer(o.other); renderMsgs(o.messages);
         $('#ibxAttachBtn').prop('hidden', !(IS_CREATOR && iAmCreator));
@@ -239,42 +214,26 @@
             if (!o || !o.success) { toastErr(o ? o.message : 'Could not open conversation'); showList(); return; }
             history.replaceState(null, '', '/inbox/thread/' + o.conversation_id);
             applyThread(o, true);
-            if (preset && preset.assets && IS_CREATOR && iAmCreator) { if (preset.price > 0) { attachD.price = preset.price; } attachD.set(preset.assets); }
-            else if (preset && preset.assets && preset.assets.length) { toastErr('Media can only be sent to your followers and subscribers.'); }
+            if (preset && preset.assets && IS_CREATOR && iAmCreator) { attachD.set(preset.assets); }
+            else if (preset && preset.assets && preset.assets.length) { toastErr('Media can only be sent to your followers.'); }
             if (!convs.some(function (c) { return c.id === o.conversation_id; })) { loadConvs(); }
         });
     }
-    function mediaLabel(m) { var n = m.media_count || (m.assets || []).length, v = (m.assets || []).filter(function (a) { return a.type === 'video'; }).length; if (n === 1) { return v ? '1 video' : '1 photo'; } if (v === n) { return n + ' videos'; } if (!v) { return n + ' photos'; } return n + ' items'; }
     function bubble(m) {
         var cls = 'ibx-bubble ' + (m.mine ? 'ibx-bubble--mine' : 'ibx-bubble--theirs') + ((m.assets && m.assets.length) ? ' ibx-bubble--media' : '') + (m.auto ? ' ibx-bubble--auto' : '');
         var h = '<div class="' + cls + '" data-mid="' + m.id + '">';
         if (m.assets && m.assets.length) {
-            if (m.mine && m.price_credits > 0 && !m.revealed) {
-                // the creator's own paid message is rendered exactly as the fan gets it (same cover, same button)
-                var cover0 = m.assets[0].blurred || m.assets[0].thumb || '';
-                h += '<div class="ibx-lock" style="background-image:url(\'' + esc(cover0) + '\')"><i class="fa-solid fa-lock ibx-lock__ico"></i><span class="ibx-lock__meta">' + esc(mediaLabel(m)) + '</span>'
-                   + '<button type="button" class="ibx-lock__btn" data-preview="' + m.id + '">Unlock for ' + crT(m.price_credits) + '</button></div>';
-            } else if (m.locked) {
-                var cover = m.assets[0].locked_url || '';
-                h += '<div class="ibx-lock" style="background-image:url(\'' + esc(cover) + '\')"><i class="fa-solid fa-lock ibx-lock__ico"></i><span class="ibx-lock__meta">' + esc(mediaLabel(m)) + '</span>'
-                   + '<button type="button" class="ibx-lock__btn" data-unlock="' + m.id + '">Unlock for ' + crT(m.price_credits) + '</button>'
-                   + (viewerCredits < m.price_credits ? '<span class="ibx-lock__note">You have ' + cr(viewerCredits) + '</span><a class="ibx-lock__btn ibx-lock__btn--buy" href="' + esc(WALLET) + '">Buy Credits</a>' : '')
-                   + '</div>';
-            } else {
-                var n = m.assets.length, show = m.assets.slice(0, 4);
-                h += '<div class="ibx-media ' + (n === 1 ? 'ibx-media--1' : 'ibx-media--n') + '">';
-                show.forEach(function (a, i) {
-                    var extra = (i === 3 && n > 4) ? '<span class="ibx-media__more">+' + (n - 4) + '</span>' : (a.type === 'video' ? '<span class="ibx-media__play"><i class="fa-solid fa-circle-play"></i></span>' : '');
-                    h += '<button type="button" class="ibx-media__item" style="background-image:url(\'' + esc(a.thumb || a.poster || a.url) + '\')" data-view="' + m.id + '" data-idx="' + i + '" aria-label="' + (a.type === 'video' ? 'Play video' : 'View photo') + '">' + extra + '</button>';
-                });
-                h += '</div>';
-            }
+            var n = m.assets.length, show = m.assets.slice(0, 4);
+            h += '<div class="ibx-media ' + (n === 1 ? 'ibx-media--1' : 'ibx-media--n') + '">';
+            show.forEach(function (a, i) {
+                var extra = (i === 3 && n > 4) ? '<span class="ibx-media__more">+' + (n - 4) + '</span>' : (a.type === 'video' ? '<span class="ibx-media__play"><i class="fa-solid fa-circle-play"></i></span>' : '');
+                h += '<button type="button" class="ibx-media__item" style="background-image:url(\'' + esc(a.thumb || a.poster || a.url) + '\')" data-view="' + m.id + '" data-idx="' + i + '" aria-label="' + (a.type === 'video' ? 'Play video' : 'View photo') + '">' + extra + '</button>';
+            });
+            h += '</div>';
         }
         if (m.body) { h += '<span class="ibx-bubble__body">' + esc(m.body).replace(/\n/g, '<br>') + '</span>'; }
-        if (m.mine && m.price_credits > 0) { h += '<span class="ibx-bubble__sale">' + cr(m.price_credits) + ' · ' + (m.unlocks === 1 ? 'Unlocked by 1 fan' : 'Unlocked by ' + (m.unlocks || 0) + ' fans') + '</span>'; }
-        else if (!m.mine && m.unlocked) { h += '<span class="ibx-bubble__sale">Unlocked · ' + cr(m.price_credits) + '</span>'; }
         h += '<span class="ibx-bubble__time">' + fclock(m.created_at) + '</span>';
-        if (m.mine && !(m.price_credits > 0 && m.unlocks > 0)) { h += '<button type="button" class="ibx-bubble__del" data-del="' + m.id + '" aria-label="Delete message" title="Delete"><i class="fa-regular fa-trash-can"></i></button>'; }
+        if (m.mine) { h += '<button type="button" class="ibx-bubble__del" data-del="' + m.id + '" aria-label="Delete message" title="Delete"><i class="fa-regular fa-trash-can"></i></button>'; }
         h += '</div>';
         var $b = $(h); $b.data('msg', m); return $b;
     }
@@ -311,7 +270,6 @@
             $scroll.scrollTop(t0 + $scroll[0].scrollHeight - h0);
         });
     });
-    function replaceBubble(m) { var $old = $scroll.find('.ibx-bubble[data-mid="' + m.id + '"]'); if ($old.length) { $old.replaceWith(bubble(m)); } }
     $('#ibxBack').on('click', showList);
 
     /* ---- delete: a message you sent (for both people), or a whole conversation (for you) ---- */
@@ -363,42 +321,6 @@
     $('#ibxLightbox').on('click', function (e) { if (e.target === this) { closeLightbox(); } });
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && !$('#ibxLightbox').prop('hidden')) { closeLightbox(); } });
 
-    /* confirm before any charge. Short balance → offer to buy credits instead. */
-    function confirmUnlock(m, balance, onYes) {
-        var price = m.price_credits;
-        if (typeof Swal === 'undefined') { onYes(); return; }
-        if (balance < price) {
-            Swal.fire({ title: 'Not enough credits', html: 'This unlock is <b>' + cr(price) + '</b>. You have ' + cr(balance) + ', so you need ' + cr(price - balance) + ' more.', showCancelButton: true, confirmButtonText: 'Buy Credits', cancelButtonText: 'Not Now', customClass: { popup: 'ibx-swal' } })
-                .then(function (r) { if (r.isConfirmed) { window.location.href = WALLET; } });
-            return;
-        }
-        Swal.fire({ title: 'Unlock for ' + cr(price) + '?', html: esc(mediaLabel(m)) + '. You have ' + cr(balance) + ' · ' + cr(balance - price) + ' left after.', showCancelButton: true, confirmButtonText: 'Pay ' + crT(price), cancelButtonText: 'Cancel', customClass: { popup: 'ibx-swal' } })
-            .then(function (r) { if (r.isConfirmed) { onYes(); } });
-    }
-    // creator side: the same button does what it does for the fan — confirmation, then the cover swaps to the opened media
-    $scroll.on('click', '[data-preview]', function () { var m = $(this).closest('.ibx-bubble').data('msg'); if (!m) { return; } confirmUnlock(m, m.price_credits, function () { m.revealed = true; replaceBubble(m); }); });
-
-    /* unlock in place */
-    $scroll.on('click', '[data-unlock]', function () {
-        var $btn = $(this), m0 = $btn.closest('.ibx-bubble').data('msg'); if (!m0) { return; }
-        confirmUnlock(m0, viewerCredits, function () { doUnlock($btn); });
-    });
-    function doUnlock($b) {
-        $b.prop('disabled', true).text('Unlocking…'); var mid = parseInt($b.data('unlock'), 10);
-        unlocking++;
-        api('message_unlock', { message_id: mid }, function (o) {
-            unlocking--;
-            if (!o || !o.success) {
-                var mm = $b.closest('.ibx-bubble').data('msg'); $b.prop('disabled', false).text('Unlock for ' + crT(mm ? mm.price_credits : 0));
-                if (o && o.need_credits) { viewerCredits = o.balance || 0; toastErr(o.message || 'Not enough credits in your wallet.'); var m = $b.closest('.ibx-bubble').data('msg'); if (m) { replaceBubble(m); } return; }
-                toastErr(o ? o.message : 'Could not unlock'); return;
-            }
-            if (o.balance != null) { viewerCredits = o.balance; }
-            if (o.message) { replaceBubble(o.message); }
-            if (window.toastr && !o.already) { toastr.success('Unlocked · ' + cr(o.message ? o.message.price_credits : 0) + ' · ' + cr(viewerCredits) + ' left'); }
-        });
-    }
-
     /* compose */
     var sending = false;   // one message in flight at a time (a held Enter key must not send it twice)
     // A failed request never reaches the api() callback; release the composer when any message_send finishes.
@@ -409,7 +331,7 @@
         var body = ($input.val() || '').trim(); if ((body === '' && !attachD.list.length) || !active) { return; }
         sending = true;
         $('#ibxSend').prop('disabled', true);
-        api('message_send', { conversation_id: active, body: body, asset_ids: attachD.ids(), price: attachD.price }, function (o) {
+        api('message_send', { conversation_id: active, body: body, asset_ids: attachD.ids() }, function (o) {
             sending = false;
             $('#ibxSend').prop('disabled', false);
             if (!o || !o.success) { toastErr(o ? o.message : 'Could not send'); return; }
@@ -429,9 +351,8 @@
         api('message_peer_info', { conversation_id: id }, function (o) {
             if (!o || !o.success || id !== active) { return; }
             var i = o.info || {}, h = '';
-            var rel = i.subscription && i.subscription.status === 'active' ? ((i.subscription.free ? 'Free member' : 'Subscriber') + (i.subscription.plan ? '<small>' + esc(i.subscription.plan) + ' · since ' + esc(fdate(i.subscription.since)) + '</small>' : '')) : (i.subscription ? 'Former subscriber<small>' + esc(i.subscription.plan || '') + '</small>' : (i.follows ? 'Follower<small>since ' + esc(fdate(i.followed_at)) + '</small>' : 'No follow or membership'));
+            var rel = i.follows ? 'Follower<small>since ' + esc(fdate(i.followed_at)) + '</small>' : 'Not following';
             h += '<div class="ibx__fact"><span class="ibx__fact-k">Relationship</span><span class="ibx__fact-v">' + rel + '</span></div>';
-            h += '<div class="ibx__fact"><span class="ibx__fact-k">Spent with you</span><span class="ibx__fact-v">' + money(i.spent_credits) + '<small>' + (i.purchases === 1 ? '1 purchase' : (i.purchases || 0) + ' purchases') + '</small></span></div>';
             h += '<div class="ibx__fact"><span class="ibx__fact-k">Member since</span><span class="ibx__fact-v">' + esc(fdate(i.member_since)) + (i.last_active ? '<small>last seen ' + esc(fdate(i.last_active)) + '</small>' : '') + '</span></div>';
             h += '<a class="ibx__ctxlink" href="/audience?q=' + encodeURIComponent(activePeer && activePeer.handle ? activePeer.handle : '') + '"><i class="fa-solid fa-users"></i> Open in Audience</a>';
             $('#ibxCtxBody').html(h);
@@ -449,7 +370,7 @@
             var h = $('#ibxPeople').empty();
             if (!o || !o.success) { h.html('<p class="ibx__note">' + esc(o ? o.message : 'Could not load people') + '</p>'); return; }
             var list = o.people || [];
-            if (!list.length) { h.html('<p class="ibx__note">' + (o.is_search ? 'No one matches that search.' : (o.media ? 'Media can be sent to your followers and subscribers. You have none yet.' : 'Follow or subscribe to a creator, or gain a follower, to start a conversation.')) + '</p>'); return; }
+            if (!list.length) { h.html('<p class="ibx__note">' + (o.is_search ? 'No one matches that search.' : (o.media ? 'Media can be sent to your followers. You have none yet.' : 'Follow a creator, or gain a follower, to start a conversation.')) + '</p>'); return; }
             list.forEach(function (c) {
                 var cb = c.is_creator ? ' <i class="fa-solid fa-circle-check ibx-badge" title="Creator"></i>' : '';
                 h.append('<button type="button" class="ibx-conv" data-pid="' + c.id + '" data-name="' + esc(c.name) + '" data-handle="' + esc(c.handle) + '" data-avatar="' + esc(c.avatar) + '" data-creator="' + (c.is_creator ? 1 : 0) + '">'
@@ -474,7 +395,7 @@
     });
 
     /* ---- broadcast ---- */
-    var bsegs = { all: true }, bcounts = {};
+    var bsegs = { followers: true }, bcounts = {};
     function renderSegs() {
         var $s = $('#ibxSegs').empty();
         SEGMENTS.forEach(function (k) { $s.append('<button type="button" class="ibx__seg' + (bsegs[k] ? ' is-on' : '') + '" data-seg="' + k + '" aria-pressed="' + (bsegs[k] ? 'true' : 'false') + '">' + esc(SEG_LABELS[k] || k) + ' <b data-n="' + k + '">' + (bcounts[k] != null ? bcounts[k] : '') + '</b></button>'); });
@@ -484,7 +405,6 @@
         var segs = segList(), n = 0; segs.forEach(function (k) { n += (bcounts[k] || 0); });
         var has = ($('#ibxBcastBody').val() || '').trim() !== '' || attachB.list.length > 0;
         var label = segs.length === 1 && bcounts[segs[0]] != null ? 'Send to ' + bcounts[segs[0]] : 'Send';
-        if (attachB.price > 0) { label += ' for ' + money(attachB.price) + ' Each'; }
         $('#ibxBcastSend').text(label).prop('disabled', !segs.length || n <= 0 || !has);
     }
     attachB.onchange = updateBcastSend;
@@ -500,7 +420,7 @@
         e.preventDefault();
         var body = ($('#ibxBcastBody').val() || '').trim(), segs = segList(); if ((body === '' && !attachB.list.length) || !segs.length) { return; }
         $('#ibxBcastSend').prop('disabled', true);
-        api('broadcast_send', { segments: segs, body: body, asset_ids: attachB.ids(), price: attachB.price }, function (o) {
+        api('broadcast_send', { segments: segs, body: body, asset_ids: attachB.ids() }, function (o) {
             if (!o || !o.success) { $('#ibxBcastSend').prop('disabled', false); toastErr(o ? o.message : 'Could not send broadcast'); return; }
             $('#ibxBcastBody').val(''); attachB.clear();
             var m = modal('ibxBcastModal'); if (m) { m.hide(); }
@@ -514,20 +434,13 @@
     setInterval(function () {
         if (document.hidden) { return; }
         pollConvs();
-        if (active && !unlocking) {
+        if (active) {
             var id = active, ids = msgIds(), after = ids.length ? Math.max.apply(null, ids) : 0;
             if (!after) { return; }   // an empty thread: the conversation poll brings it back when a message arrives
-            var watch = [];
-            $scroll.find('.ibx-bubble[data-mid]').each(function () { var m = $(this).data('msg'); if (m && m.mine && m.price_credits > 0) { watch.push(m.id); } });
-            api('message_thread', { conversation_id: id, after_id: after, watch: watch.slice(-100).join(',') }, function (o) {
-                if (!o || !o.success || o.conversation_id !== active || unlocking) { return; }
-                viewerCredits = o.viewer_credits || 0;
+            api('message_thread', { conversation_id: id, after_id: after }, function (o) {
+                if (!o || !o.success || o.conversation_id !== active) { return; }
                 var atBottom = ($scroll[0].scrollHeight - $scroll.scrollTop() - $scroll.height()) < 60, top = $scroll.scrollTop();
                 (o.messages || []).forEach(addMsg);
-                Object.keys(o.unlocks || {}).forEach(function (k) {
-                    var $bub = $scroll.find('.ibx-bubble[data-mid="' + k + '"]'), m = $bub.data('msg'), n = parseInt(o.unlocks[k], 10) || 0;
-                    if (m && (m.unlocks || 0) !== n) { m.unlocks = n; replaceBubble(m); }
-                });
                 if (!atBottom) { $scroll.scrollTop(top); }
             });
         }

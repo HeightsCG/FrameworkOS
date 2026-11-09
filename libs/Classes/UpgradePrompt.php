@@ -16,7 +16,7 @@ class UpgradePrompt {
      * in this browser), cannot sell yet, and Founding::eligible() (spots left, never claimed, not on a paid plan).
      */
     public static function founding(?array $user): bool {
-        if (!$user || Plan::can_sell($user)) { return false; }
+        if (!$user || Plan::can_use_creator_features($user)) { return false; }
         $flag = (int) ($user['signup_founding'] ?? 0) === 1 || (string) ($_COOKIE['cls_founding'] ?? '') === '1';
         if (!$flag) { return false; }
         try { return Founding::eligible((int) $user['user_id']); }
@@ -50,13 +50,12 @@ class UpgradePrompt {
     const ACTIONS = array(
         'launch_campaign_options' => 'run a launch campaign', 'launch_campaign_draft' => 'run a launch campaign', 'launch_campaign_confirm' => 'run a launch campaign',
         'billing_set_slots' => 'add AI influencer slots', 'billing_set_pack' => 'buy AI credits', 'confirm_ai_credit_purchase' => 'buy AI credits',
-        'broadcast_send' => 'send broadcasts', 'message_send' => 'send paid messages',
+        'broadcast_send' => 'send broadcasts', 'message_send' => 'send messages',
         'edit_project_create' => 'edit clips', 'edit_project_save' => 'edit clips', 'edit_project_export' => 'export clips',
         'generate_brand_identity' => 'generate your brand identity with AI', 'post_caption_auto' => 'write captions with AI',
         'domain_add' => 'use a custom domain', 'domain_verify' => 'use a custom domain', 'domain_set_primary' => 'use a custom domain',
-        'toggle_creator_plan' => 'turn on membership tiers', 'toggle_promo_code' => 'turn on promo codes', 'toggle_bundle' => 'turn on bundles',
         'scheduler_save' => 'use automations', 'scheduler_toggle' => 'turn on automations', 'scheduler_run_now' => 'run automations', 'scheduler_run_status' => 'run automations',
-        'post_share' => 'cross-post to your socials', 'event_set_live' => 'make an event live', 'service_set_live' => 'make a service live',
+        'post_share' => 'cross-post to your socials',
         'mcp_token_generate' => 'connect Claude', 'eromify_connect' => 'connect Eromify', 'eromify_disconnect' => 'connect Eromify', 'eromify_characters' => 'connect Eromify',
         'media_generate' => 'generate images with AI', 'media_generate_video' => 'generate videos with AI',
         'media_edit' => 'edit images with AI', 'media_enhance_video' => 'enhance videos with AI', 'media_extract_frame' => 'create videos with AI',

@@ -240,7 +240,7 @@ $(function () {
     $('.plan-cancel, #cancel_plan').on('click', function () {
         Swal.fire({
             title: 'Cancel your plan?',
-            html: 'Your plan stays on until <?php echo $end_ts ? $e($day($end_ts)) : 'the end of the period'; ?>. Then your account moves to Free: your creator tools pause and new sales stop, and no more plan charges are made. Everything you made is kept, and it all comes back when you pick a plan again.',
+            html: 'Your plan stays on until <?php echo $end_ts ? $e($day($end_ts)) : 'the end of the period'; ?>. Then your account moves to Free: your creator tools pause and no more plan charges are made. Everything you made is kept, and it all comes back when you pick a plan again.',
             showCancelButton: true, reverseButtons: true, confirmButtonText: 'Cancel Plan', cancelButtonText: 'Keep Plan',
             customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
         }).then(function (r) {
@@ -401,7 +401,7 @@ $(function () {
 <div class="billing">
 
     <?php if (empty($this->is_creator)): ?>
-    <div class="billing__head tut-head"><h1 class="billing__title">Billing</h1><?php echo Tutorials::button('02'); ?></div>
+    <div class="billing__head tut-head"><h1 class="billing__title">Billing</h1></div>
     <div class="blist">
         <div class="blist__row">
             <div class="blist__body blist__body--inline">
@@ -454,7 +454,6 @@ $(function () {
 ?>
     <div class="billing__head tut-head">
         <h1 class="billing__title">Billing</h1>
-        <?php echo Tutorials::button('02'); ?>
     </div>
 
 
@@ -623,7 +622,7 @@ $(function () {
         ?>
         <div class="ccard">
             <div class="ccard__big"><?php echo number_format((int) $b['total']); ?> <span>AI credits</span></div>
-            <p class="ccard__text ccard__text--sep">AI credits are for creating images and videos. They're separate from your <a href="/account/settings?section=wallet">wallet credits</a><?php echo ' (' . $e(number_format((int) ($this->user['credit_balance'] ?? 0))) . ')'; ?>, which buy content and hold your earnings.</p>
+            <p class="ccard__text ccard__text--sep">AI credits are for creating images and videos.</p>
             <?php if ($grant_n > 0): ?><p class="ccard__text"><?php echo $grants_once ? 'Your plan came with ' . number_format($grant_n) . ' starter AI credits.' : 'Your plan includes ' . number_format($grant_n) . ' AI credits every month.'; ?></p><?php endif; ?>
             <?php if ((int) $b['plan'] > 0): ?><p class="ccard__text"><?php echo number_format((int) $b['plan']); ?> of these come with your plan and reset on <?php echo $e(date('M j', $reset)); ?>. Credits you buy never expire.</p><?php endif; ?>
 

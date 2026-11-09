@@ -39,7 +39,7 @@ class Controller {
         if (!UserSession::impersonating()) { return; }
         $url = Main::get_url();
         if (strtolower((string) ($url[0] ?? '')) !== 'api') { return; }
-        // Normalize exactly like the router (Bootstrap strips everything but [A-Za-z0-9_]) so "/api/ppv_unlock-" can't slip past.
+        // Normalize exactly like the router (Bootstrap strips everything but [A-Za-z0-9_]) so "/api/post_save-" can't slip past.
         $action = strtolower(preg_replace('/[^A-Za-z0-9_]/', '', (string) ($url[1] ?? '')));
         if (!in_array($action, UserSession::IMPERSONATION_BLOCKED, true)) { return; }
         // Same plain response as jsonError(): a JSON content type makes jQuery hand page scripts an object, their JSON.parse fails and the message is lost

@@ -7,7 +7,7 @@ $site  = Main::site_name();
 $email = PagesController::LEGAL_CONTACT;
 echo Sections::panel_hero(array('photo' => 'contact', 'variant' => 'split', 
     'title' => 'Contact Support',
-    'lead'  => 'Questions about billing, payouts, your account or a bug. Send a message and we reply by email.',
+    'lead'  => 'Questions about billing, your account or a bug. Send a message and we reply by email.',
 ));
 ?>
 <section class="sx sx--alt"><div class="ld-wrap sx__in ct">
@@ -51,7 +51,7 @@ echo Sections::panel_hero(array('photo' => 'contact', 'variant' => 'split',
         <h2 class="ct-h">Email Us</h2>
         <p class="sx-p"><a href="mailto:<?php echo Sections::e($email); ?>"><?php echo Sections::e($email); ?></a></p>
         <h2 class="ct-h">Signed In?</h2>
-        <p class="sx-p">Members can open a request from Support in the account menu and follow the replies there.</p>
+        <p class="sx-p">Signed-in users can open a request from Support in the account menu and follow the replies there.</p>
         <p class="sx-p"><?php echo Sections::e($site); ?> is a Heights Consulting Group LLC product.</p>
     </aside>
 </div></section>

@@ -1,20 +1,19 @@
 <?php
 /**
- * /integrations and /integrations/<slug> (PagesController::integrationsAction): the ten platforms the studio
+ * /integrations and /integrations/<slug> (PagesController::integrationsAction): the nine platforms the studio
  * publishes to, one page each. Every line here matches what the code does, so check the source before adding one:
- *  - nine social networks go through Post for Me (SocialShareService): the public caption plus a safe preview
- *    (a blurred one for paid posts; free posts send their media), no link added, caption limits in
+ *  - nine social networks go through Post for Me (SocialShareService): the caption plus the post media
+ *    no link added, caption limits in
  *    SocialShareService::LIMITS, media counts in MEDIA_LIMITS / MIXED_MEDIA / NEEDS_MEDIA, Stories in
  *    AiDisclosure::STORY_PLATFORMS, the AI label in AiDisclosure::PLATFORM_FLAGS (else a disclosure line),
  *    engagement back through cron/social_metrics.php;
- *  - Fanvue mirrors the whole post (FanvueShareService): caption, media into the Fanvue vault, audience, price, schedule.
  * Connecting happens in Settings > Integrations; cross-posting is on the Creator and Studio plans (Plan::can_social_post).
- * Logos: public/images/integrations/<slug>.svg (Simple Icons, each brand's own mark), index grid only. Fanvue has none.
+ * Logos: public/images/integrations/<slug>.svg (Simple Icons, each brand's own mark), index grid only.
  */
 class IntegrationPages {
 
     /** Shared lines, so every social page says the same thing in the same words. */
-    const TEASER  = 'Publish the public version of each post: the caption and a preview image. Paid posts send a blurred preview, so what fans pay for stays on your page.';
+    const TEASER  = 'Publish each post with its caption and its media, formatted for the platform.';
     const NO_LINK = 'No link is added to the post. Your page link belongs in your bio.';
     const SCHED   = 'Publish now or schedule it for a time you pick, along with your page.';
     const STATS   = 'Views, likes, comments and shares come back into your analytics dashboard next to the post.';
@@ -178,23 +177,6 @@ class IntegrationPages {
                 array('q' => 'How many images does a Pin carry?', 'a' => 'One. The post\'s cover goes to Pinterest and the rest stays on your page.'),
             ),
             'tools' => array('ai-disclosure-caption-checker', 'ai-influencer-name-generator'),
-        ),
-        'fanvue' => array(
-            'name' => 'Fanvue', 'logo' => '',
-            'lead' => 'Mirror each post to Fanvue in full: the caption, the media, who can see it and its price.',
-            'can'  => array(
-                'Connect your Fanvue account with Fanvue\'s own sign-in.',
-                'Mirror the whole post, not a preview: the caption and the real media.',
-                'Media is uploaded into your Fanvue vault.',
-                'The post keeps its audience and its pay-per-view price.',
-                'Publish now or schedule it for a time you pick, along with your page.',
-                'Videos upload in the background, and you get a notification if one fails.',
-            ),
-            'faq' => array(
-                array('q' => 'Why does Fanvue get the full post when other platforms get a preview?', 'a' => 'Fanvue is a paid content platform like your page, so the post goes across as it is, price included. Social networks get the public preview instead.'),
-                array('q' => 'Where does the media go on Fanvue?', 'a' => 'Into your Fanvue vault, attached to the mirrored post.'),
-            ),
-            'tools' => array('ai-influencer-name-generator', 'ai-influencer-bio-generator'),
         ),
     );
 

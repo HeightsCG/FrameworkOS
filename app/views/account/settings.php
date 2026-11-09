@@ -1,6 +1,5 @@
 <link rel="stylesheet" href="/css/account-settings.css?v=<?php echo @filemtime(Main::app_path().'/public/css/account-settings.css'); ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-<script src="https://js.stripe.com/v3/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -21,12 +20,9 @@
             <?php if ($this->can_content || isset($settings_covers['brand'])): ?>
             <button type="button" class="settings__nav-item" data-section="brand"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Brand Identity</span></button>
             <?php endif; ?>
-            <?php if ($this->can_manage || isset($settings_covers['plans'])): ?>
-            <button type="button" class="settings__nav-item" data-section="plans"><i class="fa-solid fa-gem"></i><span>Membership Plans</span></button>
+            <?php if ($this->is_owner_creator): ?>
+            <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Credits</span></button>
             <?php endif; ?>
-            <button type="button" class="settings__nav-item" data-section="subscriptions"><i class="fa-solid fa-heart"></i><span>My Subscriptions</span></button>
-            <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wallet"></i><span>Wallet</span></button>
-            <button type="button" class="settings__nav-item" data-section="privacy"><i class="fa-solid fa-shield-halved"></i><span>Restricted Content</span></button>
             <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
             <?php if ($this->can_manage): ?>
             <button type="button" class="settings__nav-item" data-section="inbox"><i class="fa-solid fa-robot"></i><span>Inbox Automation</span><span class="settings__nav-badge" id="inboxNavBadge" <?php echo $this->inbox_pending > 0 ? '' : 'hidden'; ?>><?php echo (int) $this->inbox_pending; ?></span></button>
@@ -118,7 +114,7 @@
                 <?php $dx = $this->data_export; ?>
                 <div class="acct-card" id="dx_card" data-export='<?php echo htmlspecialchars(json_encode($dx), ENT_QUOTES, 'UTF-8'); ?>'>
                     <h3 class="acct-card__title">Download Your Data</h3>
-                    <p class="acct-card__desc">A zip of your account details, posts, messages, purchases, subscriptions and wallet history, plus the original files in your Library. We&rsquo;ll notify you when it&rsquo;s ready, and it stays available for 7 days.</p>
+                    <p class="acct-card__desc">A zip of your account details, posts, messages and AI credit history, plus the original files in your Library. We&rsquo;ll notify you when it&rsquo;s ready, and it stays available for 7 days.</p>
                     <p class="dx__status" id="dx_status" hidden></p>
                     <div class="acct-card__actions">
                         <button type="button" class="btn btn-secondary" id="dx_request"><i class="fa-solid fa-file-zipper"></i> Request Export</button>
@@ -466,110 +462,6 @@
             </section>
             <?php endif; ?>
 
-            <?php if ($this->can_manage): ?>
-            <section class="settings__section" data-section="plans">
-                <?php echo Tutorials::bar('05'); ?>
-                <div class="links-head">
-                    <h3 class="links-head__title">Membership Plans</h3>
-                    <button type="button" class="btn btn-secondary" id="plan_add_btn"><i class="fa-solid fa-plus"></i> Add Plan</button>
-                </div>
-                <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Create tiers your fans can subscribe to. Drag to reorder; toggle to show or hide a tier on your profile.</p>
-                <div class="links-card">
-                    <div class="plans-list" id="plans_list">
-                        <?php foreach ($this->creator_plans as $plan): ?>
-                        <?php
-                            $unit = $plan['billing_interval'] === 'year' ? 'yr' : ($plan['billing_interval'] === 'week' ? 'wk' : 'mo');
-                            $tunit = in_array(($plan['trial_unit'] ?? 'day'), array('day','week','month'), true) ? $plan['trial_unit'] : 'day';
-                            $tenabled = !empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0;
-                            $tval = $tenabled ? (int) $plan['trial_value'] : 7;
-                        ?>
-                        <div class="plan-row<?php echo empty($plan['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $plan['id']; ?>"
-                             data-name="<?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?>"
-                             data-price="<?php echo htmlspecialchars(number_format($plan['price_cents'] / 100, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"
-                             data-interval="<?php echo htmlspecialchars((string) $plan['billing_interval'], ENT_QUOTES, 'UTF-8'); ?>"
-                             data-trial-enabled="<?php echo $tenabled ? 1 : 0; ?>" data-trial-value="<?php echo $tval; ?>" data-trial-unit="<?php echo htmlspecialchars($tunit, ENT_QUOTES, 'UTF-8'); ?>"
-                             data-description="<?php echo htmlspecialchars((string) $plan['description'], ENT_QUOTES, 'UTF-8'); ?>"
-                             data-perks="<?php echo htmlspecialchars((string) $plan['perks'], ENT_QUOTES, 'UTF-8'); ?>">
-                            <span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>
-                            <div class="plan-row__info">
-                                <span class="plan-row__name"><?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price"><?php if ((int) $plan['price_cents'] === 0): ?>Free<?php else: ?>$<?php echo number_format($plan['price_cents'] / 100, 2); ?><span class="plan-row__unit">/<?php echo $unit; ?></span><?php endif; ?><?php if ($tenabled): ?> <span class="plan-row__trial"><?php echo $tval . '-' . $tunit; ?> trial</span><?php endif; ?></span>
-                            </div>
-                            <label class="plan-row__switch" title="Active">
-                                <input type="checkbox" class="plan-toggle" <?php echo !empty($plan['is_active']) ? 'checked' : ''; ?>>
-                                <span class="plan-row__slider"></span>
-                            </label>
-                            <button type="button" class="link-row__btn plan-edit" aria-label="Edit plan"><i class="fa-solid fa-pen"></i></button>
-                            <button type="button" class="link-row__btn plan-delete" aria-label="Remove plan"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <p class="settings__empty links-empty" id="plans_empty" <?php echo empty($this->creator_plans) ? '' : 'hidden'; ?>>No membership plans yet. Add a tier your fans can subscribe to.</p>
-                </div>
-
-                <?php if (!empty($this->can_promo)): ?>
-                <div class="links-head" style="margin-top:2rem;">
-                    <h3 class="links-head__title">Discount Codes</h3>
-                    <button type="button" class="btn btn-secondary" id="promo_add_btn"><i class="fa-solid fa-plus"></i> Add Code</button>
-                </div>
-                <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Percent-off codes fans apply at checkout. Toggle to enable; set a redemption cap or expiry.</p>
-                <div class="links-card">
-                    <div class="promos-list" id="promos_list">
-                        <?php foreach ($this->promo_codes as $pc): $applies = $pc['applies_to'] === 'ppv' ? 'Pay-per-view' : ($pc['applies_to'] === 'subscription' ? 'Subscriptions' : 'Subs &amp; PPV'); ?>
-                        <div class="plan-row<?php echo empty($pc['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $pc['id']; ?>"
-                             data-code="<?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?>"
-                             data-percent="<?php echo (int) $pc['percent_off']; ?>"
-                             data-amount="<?php echo (int) ($pc['amount_off_credits'] ?? 0) > 0 ? (int) $pc['amount_off_credits'] : ''; ?>"
-                             data-min="<?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? (int) $pc['min_order_credits'] : ''; ?>"
-                             data-first="<?php echo !empty($pc['first_purchase_only']) ? 1 : 0; ?>"
-                             data-applies="<?php echo htmlspecialchars((string) $pc['applies_to'], ENT_QUOTES, 'UTF-8'); ?>"
-                             data-max="<?php echo $pc['max_redemptions'] === null ? '' : (int) $pc['max_redemptions']; ?>"
-                             data-expires="<?php echo $pc['expires_at'] ? htmlspecialchars(date('Y-m-d', strtotime((string) $pc['expires_at'])), ENT_QUOTES, 'UTF-8') : ''; ?>">
-                            <div class="plan-row__info">
-                                <span class="plan-row__name"><?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price"><?php echo htmlspecialchars(CreatorPromoCodesModel::label($pc), ENT_QUOTES, 'UTF-8'); ?><span class="plan-row__unit"> &middot; <?php echo $applies; ?><?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? ' &middot; Min ' . Price::credits((int) $pc['min_order_credits']) : ''; ?><?php echo !empty($pc['first_purchase_only']) ? ' &middot; First purchase' : ''; ?> &middot; <?php echo (int) $pc['redemptions']; ?> used</span></span>
-                            </div>
-                            <label class="plan-row__switch" title="Active"><input type="checkbox" class="promo-toggle" <?php echo !empty($pc['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
-                            <button type="button" class="link-row__btn promo-edit" aria-label="Edit code"><i class="fa-solid fa-pen"></i></button>
-                            <button type="button" class="link-row__btn promo-delete" aria-label="Remove code"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <p class="settings__empty links-empty" id="promos_empty" <?php echo empty($this->promo_codes) ? '' : 'hidden'; ?>>No discount codes yet. Create one fans can use at checkout.</p>
-                </div>
-                <?php endif; ?>
-
-                <?php if (!empty($this->can_bundles)): ?>
-                <div class="links-head" style="margin-top:2rem;">
-                    <h3 class="links-head__title">Content bundles</h3>
-                    <button type="button" class="btn btn-secondary" id="bundle_add_btn"><i class="fa-solid fa-plus"></i> Add Bundle</button>
-                </div>
-                <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Sell a group of your Library content (photos &amp; videos) together at one price. Buyers get every item in their Purchases.</p>
-                <div class="links-card">
-                    <div class="bundles-list" id="bundles_list">
-                        <?php foreach ($this->content_bundles as $bd): ?>
-                        <div class="plan-row<?php echo empty($bd['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $bd['id']; ?>"
-                             data-name="<?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?>"
-                             data-description="<?php echo htmlspecialchars((string) $bd['description'], ENT_QUOTES, 'UTF-8'); ?>"
-                             data-price="<?php echo (int) $bd['price_credits']; ?>"
-                             data-assets="<?php echo htmlspecialchars(implode(',', array_map('intval', (array) $bd['asset_ids'])), ENT_QUOTES, 'UTF-8'); ?>">
-                            <div class="plan-row__info">
-                                <span class="plan-row__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price"><?php echo Price::credits((int) $bd['price_credits']); ?><span class="plan-row__unit"> &middot; <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span></span>
-                            </div>
-                            <label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle" <?php echo !empty($bd['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
-                            <button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>
-                            <button type="button" class="link-row__btn bundle-delete" aria-label="Remove bundle"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <p class="settings__empty links-empty" id="bundles_empty" <?php echo empty($this->content_bundles) ? '' : 'hidden'; ?>>No bundles yet. Group content from your Library into a bundle fans can buy.</p>
-                </div>
-                <?php endif; ?>
-            </section>
-
-            <?php endif; ?>
-
             <?php foreach ($settings_covers as $cover_key => $cover): ?>
             <section class="settings__section" data-section="<?php echo $cover_key; ?>">
                 <div class="settings-lock">
@@ -585,235 +477,21 @@
             </section>
             <?php endforeach; ?>
 
-            <section class="settings__section" data-section="subscriptions">
-                <p class="acct-card__desc" style="margin:0 0 1.1rem;">Creators you support. Cancel or resume anytime.</p>
-                <div class="subs-list" id="subs_list">
-                    <?php foreach ($this->my_subscriptions as $sub): ?>
-                    <?php
-                        $s_free   = !empty($sub['is_free']);
-                        $s_unit   = $sub['billing_interval'] === 'year' ? 'year' : ($sub['billing_interval'] === 'week' ? 'week' : 'month');
-                        $s_period = !empty($sub['current_period_end']) ? date('M j, Y', strtotime((string) $sub['current_period_end'])) : '';
-                        $s_active = ($sub['status'] === 'active');
-                        $s_cancel = $s_active && !empty($sub['cancel_at_period_end']);
-                        $s_handle = (string) $sub['creator_handle'];
-                    ?>
-                    <div class="sub-row" data-id="<?php echo (int) $sub['id']; ?>" data-free="<?php echo $s_free ? 1 : 0; ?>" data-period="<?php echo htmlspecialchars($s_period, ENT_QUOTES, 'UTF-8'); ?>" data-handle="<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>">
-                        <div class="sub-row__info">
-                            <a class="sub-row__creator" href="/@<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $sub['creator_name'], ENT_QUOTES, 'UTF-8'); ?></a>
-                            <span class="sub-row__plan"><?php echo htmlspecialchars((string) $sub['plan_name'], ENT_QUOTES, 'UTF-8'); ?> · <?php echo $s_free ? 'Free' : '$' . number_format($sub['price_cents'] / 100, 2) . '/' . $s_unit; ?></span>
-                            <span class="sub-row__status" data-status><?php
-                                if (!$s_active) { echo 'Canceled'; }
-                                elseif ($s_cancel) { echo 'Ends ' . htmlspecialchars($s_period, ENT_QUOTES, 'UTF-8'); }
-                                elseif ($s_free) { echo 'Active'; }
-                                elseif ($s_period !== '') { echo 'Renews ' . htmlspecialchars($s_period, ENT_QUOTES, 'UTF-8'); }
-                                else { echo 'Active'; }
-                            ?></span>
-                        </div>
-                        <div class="sub-row__actions" data-actions>
-                            <?php if (!$s_active): ?>
-                                <?php if ($s_free): ?><button type="button" class="btn btn-secondary sub-reactivate">Rejoin</button>
-                                <?php else: ?><a class="btn btn-secondary" href="/@<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Subscribe Again</a><?php endif; ?>
-                            <?php elseif ($s_cancel): ?>
-                                <button type="button" class="btn btn-secondary sub-reactivate">Resume</button>
-                            <?php else: ?>
-                                <button type="button" class="btn btn-secondary sub-cancel"><?php echo $s_free ? 'Leave' : 'Cancel'; ?></button>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                <div class="links-card" id="subs_empty"<?php echo empty($this->my_subscriptions) ? '' : ' hidden'; ?>>
-                    <p class="settings__empty links-empty">You're not subscribed to any creators yet.</p>
-                </div>
-            </section>
-
+            <?php if ($this->is_owner_creator): ?>
             <section class="settings__section" data-section="wallet">
-                <?php echo Tutorials::bar('11'); ?>
-                <?php
-                    $ar     = $this->autoreplenishment;
-                    $ar_on  = !empty($ar['enabled']);
-                    $ar_dollars = (int) round($ar['amount_cents'] / 100);
-                    $ar_credits = 0;
-                    foreach ($this->credit_packages as $pkg) {
-                        if ((int) $pkg['dollars'] === $ar_dollars) { $ar_credits = (int) $pkg['credits']; }
-                    }
-                    $ar_status = $ar_on
-                        ? 'Add ' . Price::credits($ar_credits) . ' when your balance drops below ' . Price::credits((int) $ar['threshold'])
-                        : 'Automatically top up when your balance runs low.';
-                ?>
                 <div class="wallet">
-                    <!-- Balance is always pinned at the top of the Wallet. -->
-                    <?php if ($this->is_owner_creator): /* creators hold two separate balances: say which is which */ ?>
-                    <div class="wallet__pair">
-                        <div class="wallet__balance">
-                            <span class="wallet__balance-label">Wallet credits<small>For buying content and your earnings</small></span>
-                            <span class="wallet__balance-value"><i class="fa-solid fa-wallet"></i> <span id="credit_balance"><?php echo number_format((int) $this->credit_balance); ?></span></span>
-                        </div>
-                        <div class="wallet__balance wallet__balance--ai">
-                            <span class="wallet__balance-label">AI credits<small>For creating images and videos</small></span>
-                            <span class="wallet__balance-side">
-                                <span class="wallet__balance-value wallet__balance-value--ai"><i class="fa-solid fa-wand-magic-sparkles"></i> <?php echo number_format((int) ($this->user['ai_credit_balance'] ?? 0)); ?></span>
-                                <?php if (Plan::has_paid_plan($this->user)): ?><a class="wallet__balance-link" href="/account/billing?tab=credits">Buy AI Credits</a><?php endif; ?>
-                            </span>
-                        </div>
-                    </div>
-                    <?php else: ?>
-                    <div class="wallet__balance">
-                        <span class="wallet__balance-label">Wallet credits</span>
-                        <span class="wallet__balance-value"><i class="fa-solid fa-wallet"></i> <span id="credit_balance"><?php echo Price::credits((int) $this->credit_balance); ?></span></span>
-                    </div>
-                    <?php endif; ?>
-
-                    <div class="wallet-tabs" role="tablist">
-                        <button type="button" class="wallet-tab is-active" data-wtab="buy">Buy Credits</button>
-                        <?php if ($this->is_owner_creator): ?><button type="button" class="wallet-tab" data-wtab="cashout">Cash Out</button><?php endif; ?>
-                        <button type="button" class="wallet-tab" data-wtab="history">History</button>
-                        <button type="button" class="wallet-tab" data-wtab="auto">Auto-Replenishment</button>
-                    </div>
-
-                    <div class="wallet-panel is-active" data-wpanel="buy">
-                        <div class="credit-packs">
-                            <?php foreach ($this->credit_packages as $pkg): $pkg_fee = (int) $pkg['dollars'] * Main::credit_fee_percent() / 100; ?>
-                            <button type="button" class="credit-pack buy-credits" data-dollars="<?php echo (int) $pkg['dollars']; ?>">
-                                <span class="credit-pack__credits"><?php echo Price::credits((int) $pkg['credits']); ?></span>
-                                <span class="credit-pack__label">$<?php echo number_format((int) $pkg['dollars'], 2); ?></span>
-                                <span class="credit-pack__fee">+ $<?php echo number_format(round($pkg_fee, 2), 2); ?> fee · $<?php echo number_format((int) $pkg['dollars'] + round($pkg_fee, 2), 2); ?> total</span>
-                            </button>
-                            <?php endforeach; ?>
-                        </div>
-                        <p class="wallet__fee-note">A <?php echo rtrim(rtrim(number_format(Main::credit_fee_percent(), 2), '0'), '.'); ?>% processing fee is added at checkout. Credit purchases are final and non-refundable.<?php if ($this->is_owner_creator): ?> These are wallet credits for buying content.<?php if (Plan::has_paid_plan($this->user)): ?> To create images and videos, <a href="/account/billing?tab=credits">buy AI credits</a>.<?php endif; ?><?php endif; ?></p>
-                    </div>
-
-                    <?php if ($this->is_owner_creator): $ps = $this->payout_status; $pb = $this->payout_balance; ?>
-                    <div class="wallet-panel" data-wpanel="cashout">
-                        <?php if (empty($ps['payouts_enabled'])): ?>
-                        <div class="payout-setup">
-                            <div class="payout-setup__info">
-                                <span class="payout-setup__title"><?php echo !empty($ps['details_submitted']) ? 'Finish setting up payouts' : 'Set up payouts'; ?></span>
-                                <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can cash out.' : 'Connect a Stripe account to cash out to your bank.'; ?></span>
-                            </div>
-                            <button type="button" class="btn btn-primary" id="payout_setup_btn"><?php echo !empty($ps['details_submitted']) ? 'Continue setup' : 'Set up payouts'; ?></button>
-                        </div>
-                        <?php if ($this->has_connect): ?>
-                        <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
-                        <?php endif; ?>
-                        <?php else: $avail_credits = (int) ($pb['available_credits'] ?? 0); $min_credits = Price::PAYOUT_MIN_CREDITS; ?>
-                        <div class="payout-balance">
-                            <div class="payout-balance__cell">
-                                <span class="payout-balance__label">Available to cash out</span>
-                                <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
-                                <span class="payout-balance__sub">ready now</span>
-                            </div>
-                            <div class="payout-balance__cell">
-                                <span class="payout-balance__label">In transit</span>
-                                <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
-                                <span class="payout-balance__sub">on the way to your bank</span>
-                            </div>
-                            <?php if ((int) ($pb['events_pending'] ?? 0) > 0): ?>
-                            <div class="payout-balance__cell">
-                                <span class="payout-balance__label">Pending</span>
-                                <span class="payout-balance__value">$<?php echo number_format($pb['events_pending'] / 100, 2); ?></span>
-                                <span class="payout-balance__sub">after each event or delivered booking</span>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                        <div class="payout-actions">
-                            <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash Out</button>
-                            <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo Price::fmt($min_credits); ?> to cash out.</span><?php endif; ?>
-                        </div>
-                        <div class="payout-history">
-                        <?php if (empty($this->bank_payouts)): ?>
-                            <p class="settings__empty">No bank payouts yet.</p>
-                        <?php else: $po_labels = array('paid' => 'Paid', 'pending' => 'Pending', 'in_transit' => 'In transit', 'failed' => 'Failed', 'canceled' => 'Canceled');
-                            // stored UTC, shown in the creator's content_timezone.
-                            try { $po_tz = new DateTimeZone((string) ($this->user['content_timezone'] ?? '') !== '' ? (string) $this->user['content_timezone'] : 'UTC'); } catch (\Throwable $e) { $po_tz = new DateTimeZone('UTC'); }
-                            $po_date = function ($ts) use ($po_tz) { return (new DateTime('@' . (int) $ts))->setTimezone($po_tz)->format('M j, Y'); }; ?>
-                        <table class="ledger ledger--flush">
-                            <thead><tr><th>Date</th><th>Status</th><th>Expected Arrival</th><th class="ledger__num">Amount</th></tr></thead>
-                            <tbody>
-                                <?php foreach ($this->bank_payouts as $po): $po_st = (string) $po['status']; $po_why = (string) ($po['failure_message'] ?? ''); ?>
-                                <tr>
-                                    <td><?php echo (int) $po['created'] > 0 ? $po_date($po['created']) : ''; ?></td>
-                                    <td><span class="<?php echo $po_st === 'failed' ? 'ledger__neg' : ''; ?>"><?php echo htmlspecialchars($po_labels[$po_st] ?? ucfirst(str_replace('_', ' ', $po_st)), ENT_QUOTES, 'UTF-8'); ?></span><?php if ($po_st === 'failed' && $po_why !== ''): ?><br><span class="payout-actions__note"><?php echo htmlspecialchars($po_why, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?></td>
-                                    <td><?php echo ((int) $po['arrival'] > 0 && $po_st !== 'failed' && $po_st !== 'canceled') ? $po_date($po['arrival']) : ''; ?></td>
-                                    <td class="ledger__num">$<?php echo number_format(((int) $po['amount']) / 100, 2); ?></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                        <?php endif; ?>
-                        </div>
-                        <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
-                        <?php endif; ?>
-                    </div>
-                    <?php endif; ?>
-
-                    <div class="wallet-panel" data-wpanel="history">
-                        <div id="credit_history">
-                        <?php if (empty($this->credit_transactions)): ?>
-                            <p class="settings__empty">No wallet activity yet.</p>
-                        <?php else: ?>
-                        <table class="ledger">
-                            <thead><tr><th>Date</th><th>Activity</th><th class="ledger__num">Amount</th></tr></thead>
-                            <tbody>
-                                <?php foreach ($this->credit_transactions as $t): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars(date('M j, Y', strtotime($t['created_at'])), ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td>
-                                        <?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?>
-                                    </td>
-                                    <td class="ledger__num <?php echo ((int) $t['credits'] >= 0) ? 'ledger__pos' : 'ledger__neg'; ?>"><?php
-                                        $c = (int) $t['credits'];
-                                        echo ($c >= 0 ? '+' : '') . Price::credits($c);   // the wallet holds credits
-                                    ?></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                        <?php endif; ?>
-                        </div>
-                    </div>
-
-                    <div class="wallet-panel" data-wpanel="auto">
-                        <div class="wallet__ar-summary">
-                            <div class="wallet__ar-summary-info">
-                                <span class="wallet__ar-summary-badge <?php echo $ar_on ? 'is-on' : ''; ?>" id="ar_badge"><?php echo $ar_on ? 'On' : 'Off'; ?></span>
-                                <span class="wallet__ar-summary-status" id="ar_status"><?php echo htmlspecialchars($ar_status, ENT_QUOTES, 'UTF-8'); ?></span>
-                            </div>
-                            <button type="button" class="btn btn-secondary" id="ar_manage">Manage</button>
-                        </div>
+                    <div class="wallet__balance wallet__balance--ai">
+                        <span class="wallet__balance-label">AI credits<small>For creating images and videos</small></span>
+                        <span class="wallet__balance-side">
+                            <span class="wallet__balance-value wallet__balance-value--ai"><i class="fa-solid fa-wand-magic-sparkles"></i> <?php echo number_format((int) ($this->user['ai_credit_balance'] ?? 0)); ?></span>
+                            <?php if (Plan::has_paid_plan($this->user)): ?><a class="wallet__balance-link" href="/account/billing?tab=credits">Buy AI Credits</a><?php endif; ?>
+                        </span>
                     </div>
                 </div>
             </section>
-
-            <section class="settings__section" data-section="privacy">
-                <?php echo Tutorials::bar('12'); ?>
-                <div class="notif">
-                    <div class="notif__row notif__row--single">
-                        <div class="notif__label">
-                            <span class="notif__name">Show adult content</span>
-                            <?php
-                                // Age verification state (explicit content only). The toggle saves only once the account is verified.
-                                $age_rec = AgeVerification::record((int) $this->user['user_id']);
-                                $age_status = $age_rec ? (string) $age_rec['status'] : 'none';
-                            ?>
-                            <span class="notif__desc" id="adult_age_status" data-status="<?php echo $age_status; ?>"><?php
-                                if ($age_status === 'verified') { echo 'Age verified on ' . htmlspecialchars(date('M j, Y', strtotime((string) $age_rec['verified_at'] . ' UTC')), ENT_QUOTES, 'UTF-8') . '.'; }
-                                elseif ($age_status === 'pending') { echo 'Age verification in progress. <a href="#" id="adult_verify_again">Continue Verification</a>'; }
-                                elseif ($age_status === 'failed') { echo 'Age verification failed. <a href="#" id="adult_verify_again">Try Again</a>'; }
-                                else { echo 'Adult content is hidden by default. You must be 18 or older and in a permitted region to enable it. Turning it on starts a one-time age check.'; }
-                            ?></span>
-                        </div>
-                        <label class="notif__switch">
-                            <input type="checkbox" id="adult_content_toggle" <?php echo !empty($this->user['adult_content_enabled']) ? 'checked' : ''; ?>>
-                            <span class="notif__slider"></span>
-                        </label>
-                    </div>
-                </div>
-            </section>
+            <?php endif; ?>
 
             <section class="settings__section" data-section="blocked">
-                <?php echo Tutorials::bar('12'); ?>
                 <div class="acct-panel">
                 <div class="acct-list" id="block_list">
                     <?php if (empty($this->blocked_users)): ?>
@@ -960,7 +638,6 @@
 <?php endif; ?>
 
                     <div class="inbox-checks">
-                        <label class="inbox-check"><input class="form-check-input" type="checkbox" id="inboxUpsell" <?php echo !empty($is['upsell_enabled']) ? 'checked' : ''; ?>><span><strong>Allow gentle upsells</strong><small>May mention your paid content or tips when it fits naturally. Never on a first message.</small></span></label>
                         <label class="inbox-check"><input class="form-check-input" type="checkbox" id="inboxDisclose" <?php echo !empty($is['disclose_ai']) ? 'checked' : ''; ?>><span><strong>Admit AI When Asked</strong></span></label>
                     </div>
 
@@ -984,7 +661,7 @@
                 <div class="inbox-panel" data-tab="messages"<?php echo $inbox_ai ? ' hidden' : ''; ?>>
                 <div class="inbox-block">
                     <div class="inbox-block__head"><h3 class="inbox-block__title">Welcome &amp; trigger messages</h3></div>
-                    <p class="inbox-block__desc">Sent automatically as a direct message, once per fan. Attach media and set a price to sell from the first hello.</p>
+                    <p class="inbox-block__desc">Sent automatically as a direct message, once per fan.</p>
                     <div id="inboxTriggers" class="inbox-triggers">
                         <?php foreach (InboxAutomationService::trigger_meta() as $trig => $tm): ?>
                         <div class="inbox-trigger" data-trigger="<?php echo $trig; ?>">
@@ -999,7 +676,6 @@
                             <div class="inbox-trigger__media" data-role="media">
                                 <div class="inbox-trigger__thumbs" data-role="thumbs"></div>
                                 <button type="button" class="inbox-trigger__attach" data-role="attach"><i class="fa-solid fa-image"></i> Attach Media</button>
-                                <label class="inbox-trigger__price" data-role="pricewrap" hidden><span>Price</span><input type="number" class="form-control" min="0" max="5000" step="1" placeholder="Free" data-role="price" inputmode="numeric" aria-label="Price in credits, leave empty for free"><span>credits</span></label>
                             </div>
                             <div class="inbox-trigger__actions">
                                 <span class="inbox-trigger__sent" data-role="sent"></span>
@@ -1025,7 +701,7 @@
                         <i class="fa-solid fa-globe settings__upgrade-icon"></i>
                         <div>
                             <div class="settings__upgrade-title">Custom domains are on the <?php echo htmlspecialchars($this->domain_upgrade !== '' ? $this->domain_upgrade : 'Studio', ENT_QUOTES, 'UTF-8'); ?> plan</div>
-                            <p class="settings__upgrade-text">Upgrade to show your page, memberships, events and services at your own domain.</p>
+                            <p class="settings__upgrade-text">Upgrade to show your page at your own domain.</p>
                         </div>
                         <a href="/account/billing" class="btn btn-primary">View Plans</a>
                     </div>
@@ -1106,33 +782,10 @@
                     <p class="settings__section-desc">Connect the platforms you publish to and the tools that work on your behalf.</p>
                 </div>
 
-                <?php $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>
                 <?php $er = $this->eromify; $er_on = $er && ($er['status'] ?? '') === 'connected'; ?>
 
                 <h3 class="integ__group">Platforms &amp; tools</h3>
                 <div class="integ">
-
-                    <div class="integ__row">
-                        <span class="integ__icon"><i class="fa-solid fa-bolt"></i></span>
-                        <div class="integ__main">
-                            <div class="integ__name">Fanvue</div>
-                            <div class="integ__meta">
-                                <?php if ($fv_on): ?>
-                                    <span class="integ__dot is-on"></span><?php echo htmlspecialchars(!empty($fv['handle']) ? '@' . $fv['handle'] : (!empty($fv['display_name']) ? $fv['display_name'] : 'Connected'), ENT_QUOTES, 'UTF-8'); ?>
-                                    <span class="integ__sep">·</span>Cross-posting
-                                <?php elseif (!$this->fanvue_configured): ?>
-                                    <span class="integ__dot"></span>Not available yet
-                                <?php else: ?>
-                                    <span class="integ__dot"></span>Mirror posts and automate your Fanvue inbox
-                                <?php endif; ?>
-                            </div>
-                            <?php if ($fv_on && !empty($fv['last_error'])): ?><div class="integ__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                        </div>
-                        <div class="integ__actions">
-                            <?php if ($fv_on): ?><button type="button" class="btn btn-ghost btn-sm" id="fanvueDisconnect">Disconnect</button>
-                            <?php elseif ($this->fanvue_configured): ?><button type="button" class="btn btn-secondary btn-sm" id="fanvueConnect">Connect</button><?php endif; ?>
-                        </div>
-                    </div>
 
                     <?php if ($this->can_manage): ?>
                     <div class="integ__row">
@@ -1315,215 +968,6 @@
     </div>
 </div>
 
-<div class="modal fade" id="plan_modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="plan_modal_title">Add plan</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="plan_id" value="0">
-                <div class="link-field">
-                    <label for="plan_name">Plan Name</label>
-                    <input type="text" class="form-control" id="plan_name" maxlength="120" placeholder="Supporter">
-                </div>
-                <label class="plan-free-toggle">
-                    <input type="checkbox" id="plan_free"> This is a free tier
-                </label>
-                <div class="plan-field-row">
-                    <div class="link-field">
-                        <label for="plan_price">Price (USD)</label>
-                        <div class="plan-price-input">
-                            <span class="plan-price-input__prefix">$</span>
-                            <input type="number" class="form-control" id="plan_price" min="0" step="0.01" placeholder="9.99">
-                        </div>
-                    </div>
-                    <div class="link-field">
-                        <label for="plan_interval">Billed</label>
-                        <select class="form-control" id="plan_interval">
-                            <option value="week">Weekly</option>
-                            <option value="month">Monthly</option>
-                            <option value="year">Yearly</option>
-                        </select>
-                    </div>
-                </div>
-                <?php if (!empty($this->can_trials)): ?>
-                <label class="plan-free-toggle" style="margin-top:.1rem;">
-                    <input type="checkbox" id="plan_trial_enabled"> Offer a free trial
-                </label>
-                <div class="plan-field-row" id="plan_trial_row" hidden>
-                    <div class="link-field">
-                        <label for="plan_trial_value">Trial Length</label>
-                        <input type="number" class="form-control" id="plan_trial_value" min="1" max="365" step="1" value="7">
-                    </div>
-                    <div class="link-field">
-                        <label for="plan_trial_unit">Unit</label>
-                        <select class="form-control" id="plan_trial_unit">
-                            <option value="day">Days</option>
-                            <option value="week">Weeks</option>
-                            <option value="month">Months</option>
-                        </select>
-                    </div>
-                </div>
-                <?php endif; ?>
-                <div class="link-field">
-                    <label for="plan_description">Short Description <span class="plan-optional">(optional)</span></label>
-                    <input type="text" class="form-control" id="plan_description" maxlength="255" placeholder="Behind-the-scenes access and more">
-                </div>
-                <div class="link-field">
-                    <label for="plan_perks">Perks <span class="plan-optional">(one per line)</span></label>
-                    <textarea class="form-control" id="plan_perks" rows="4" placeholder="Exclusive posts&#10;Members-only chat&#10;Early access"></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="plan_save">Save Plan</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="promo_modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="promo_modal_title">Add Code</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="promo_id" value="0">
-                <div class="link-field">
-                    <label for="promo_code">Code</label>
-                    <input type="text" class="form-control" id="promo_code" maxlength="40" placeholder="SUMMER20" style="text-transform:uppercase;">
-                </div>
-                <div class="plan-field-row">
-                    <div class="link-field">
-                        <label for="promo_type">Discount Type</label>
-                        <select class="form-control" id="promo_type">
-                            <option value="percent">Percent Off</option>
-                            <option value="amount">Amount Off</option>
-                        </select>
-                    </div>
-                    <div class="link-field" id="promo_percent_wrap">
-                        <label for="promo_percent">Discount (%)</label>
-                        <input type="number" class="form-control" id="promo_percent" min="1" max="100" placeholder="20">
-                    </div>
-                    <div class="link-field" id="promo_amount_wrap" hidden>
-                        <label for="promo_amount">Amount Off (credits)</label>
-                        <input type="number" class="form-control" id="promo_amount" min="10" max="5000" step="1" inputmode="numeric" placeholder="50">
-                    </div>
-                </div>
-                <div class="plan-field-row">
-                    <div class="link-field">
-                        <label for="promo_applies">Applies To</label>
-                        <select class="form-control" id="promo_applies">
-                            <option value="all">Subscriptions &amp; PPV</option>
-                            <option value="subscription">Subscriptions</option>
-                            <option value="ppv">Pay-per-view</option>
-                        </select>
-                    </div>
-                    <div class="link-field">
-                        <label for="promo_min">Minimum Order (credits) <span class="plan-optional">(optional)</span></label>
-                        <input type="number" class="form-control" id="promo_min" min="10" max="5000" step="1" inputmode="numeric" placeholder="No minimum">
-                    </div>
-                </div>
-                <div class="plan-field-row">
-                    <div class="link-field">
-                        <label for="promo_max">Max Redemptions </label>
-                        <input type="number" class="form-control" id="promo_max" min="1" placeholder="Unlimited">
-                        <span class="plan-optional">(blank = unlimited)</span>
-                    </div>
-                    <div class="link-field">
-                        <label for="promo_expires">Expires <span class="plan-optional">(optional)</span></label>
-                        <input type="date" class="form-control" id="promo_expires">
-                    </div>
-                </div>
-                <div class="promo-first">
-                    <label class="promo-first__label" for="promo_first">
-                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="promo_first"></span>
-                        First Purchase Only
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="promo_save">Save Code</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="bundle_modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="bundle_modal_title">Add Bundle</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="bundle_id" value="0">
-                <div class="link-field">
-                    <label for="bundle_name">Name</label>
-                    <input type="text" class="form-control" id="bundle_name" maxlength="120" placeholder="Summer collection">
-                </div>
-                <div class="link-field">
-                    <label for="bundle_price">Price</label>
-                    <div class="bundle-price-row">
-                        <input type="number" class="form-control" id="bundle_price" min="10" max="5000" step="1" placeholder="150" inputmode="numeric">
-                        <span class="bundle-price-cur">credits</span>
-                    </div>
-                </div>
-                <div class="link-field">
-                    <label for="bundle_description">Description <span class="plan-optional">(optional)</span></label>
-                    <textarea class="form-control" id="bundle_description" maxlength="500" rows="2" placeholder="What's inside this bundle"></textarea>
-                </div>
-                <div class="link-field">
-                    <label>Content in This Bundle</label>
-                    <?php if (empty($this->bundle_media)): ?>
-                    <p class="settings__empty" style="margin:0;">Your Library is empty. Add photos or videos in the Content Studio first, then group them here.</p>
-                    <?php else: ?>
-                    <div class="bundle-grid" id="bundle_picker">
-                        <?php foreach ($this->bundle_media as $bm): ?>
-                        <label class="bundle-tile" title="<?php echo htmlspecialchars((string) $bm['title'], ENT_QUOTES, 'UTF-8'); ?>">
-                            <input type="checkbox" class="bundle-pick__cb" data-asset="<?php echo (int) $bm['id']; ?>">
-                            <span class="bundle-tile__thumb"<?php echo $bm['thumb'] !== '' ? ' style="background-image:url(\'' . htmlspecialchars($bm['thumb'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
-                                <?php if ($bm['type'] === 'video'): ?><i class="fa-solid fa-play bundle-tile__vid"></i><?php endif; ?>
-                                <i class="fa-solid fa-circle-check bundle-tile__check"></i>
-                            </span>
-                        </label>
-                        <?php endforeach; ?>
-                    </div>
-                    <p class="bundle-picker__sum" id="bundle_sum">0 items selected</p>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="bundle_save">Save Bundle</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="payout_disconnect_modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Disconnect Stripe account?</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-0">This unlinks your Stripe payout account. You won't be able to receive payouts until you set up payouts again.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="payout_disconnect_confirm">Disconnect</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <?php /* Pick a picture from the creator's own library for a profile photo or cover; it then goes through the same crop and upload as a file. */ ?>
 <div class="modal fade" id="gallery_modal" tabindex="-1" aria-hidden="true" aria-labelledby="gallery_modal_title">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
@@ -1568,7 +1012,6 @@
             </div>
             <div class="modal-body">
                 <p>This will <strong>permanently delete all of your creator content</strong> — it will not be recoverable. Your account will return to a regular user account.</p>
-                <p>Memberships end and members are not charged again. Upcoming paid events are canceled and open bookings refunded. Anything fans bought stays in their purchases.</p>
                 <p>Are you sure you want to continue?</p>
                 <div class="leave-why">
                     <div class="form-floating mb-2">
@@ -1585,113 +1028,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="leave_creator_confirm">Delete and Stop Being a Creator</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="ar_modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Auto-Replenishment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="wallet__note">Automatically buy credits when your balance runs low. Credits are non-refundable.</p>
-
-                <div class="wallet__ar-modal-toggle">
-                    <label class="notif__switch wallet__ar-switch">
-                        <input type="checkbox" id="ar_enabled" <?php echo $ar_on ? 'checked' : ''; ?>>
-                        <span class="notif__slider"></span>
-                    </label>
-                    <span>Enable Auto-Replenishment</span>
-                </div>
-
-                <div class="wallet__ar-body<?php echo $ar_on ? '' : ' is-hidden'; ?>" id="ar_fields">
-                    <div class="wallet__ar-field">
-                        <label for="ar_threshold">When My Balance Drops Below</label>
-                        <div class="wallet__ar-input">
-                            <input type="number" min="1" step="1" class="form-control" id="ar_threshold" inputmode="numeric" value="<?php echo (int) $ar['threshold'] > 0 ? (int) $ar['threshold'] : 100; ?>">
-                            <span class="wallet__ar-unit">credits</span>
-                        </div>
-                    </div>
-                    <div class="wallet__ar-field">
-                        <label for="ar_package">Automatically Add</label>
-                        <select class="form-select" id="ar_package">
-                            <?php foreach ($this->credit_packages as $pkg): ?>
-                            <option value="<?php echo (int) $pkg['dollars']; ?>" data-credits="<?php echo (int) $pkg['credits']; ?>" <?php echo ((int) $ar['amount_cents'] === (int) $pkg['dollars'] * 100) ? 'selected' : ''; ?>>
-                                <?php $ar_fee = round(((int) $pkg['dollars']) * Main::credit_fee_percent() / 100, 2); echo Price::credits((int) $pkg['credits']) . ' for $' . number_format((int) $pkg['dollars'], 2); ?><?php echo $ar_fee > 0 ? ' + $' . number_format($ar_fee, 2) . ' fee' : ''; ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="wallet__ar-field">
-                        <label for="ar_pm">Charge To</label>
-                        <?php if (empty($this->cards)): ?>
-                            <p class="wallet__note wallet__note--tight">No payment methods on file. <a href="/account/billing">Add one in billing</a>, then buy credits once to save a card.</p>
-                        <?php else: ?>
-                        <select class="form-select" id="ar_pm">
-                            <?php foreach ($this->cards as $card): ?>
-                            <?php
-                                if ($card['type'] === 'card') {
-                                    $label = $card['brand'] . ' •••• ' . $card['last4'];
-                                } elseif ($card['detail'] !== '') {
-                                    $label = $card['brand'] . ' · ' . $card['detail'];
-                                } else {
-                                    $label = $card['brand'];
-                                }
-                            ?>
-                            <option value="<?php echo htmlspecialchars($card['id'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($card['id'] === $ar['pm_id']) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="ar_save">Save</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="credit_payment_modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Buy Credits</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="wallet__pay-summary" id="credit_pay_summary"></p>
-                <div id="credit_payment_element"></div>
-                <p class="wallet__note">Credits are non-refundable.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="credit_pay_button">Pay</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="adult_confirm_modal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Enable Adult Content</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>Adult content may include mature and explicit material. By continuing you confirm that you are 18 years of age or older and that viewing this content is permitted in your region.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="adult_confirm_yes">I am 18 or older</button>
             </div>
         </div>
     </div>
@@ -1879,13 +1215,6 @@ $(function () {
         });
     });
     if (params.get('error') === '1') { toastr.error('Connection was not completed.' + (params.get('why') ? ' ' + params.get('why') : ''), '', { timeOut: 0, closeButton: true }); }
-    if (params.get('fanvue_connected') === '1') { toastr.success('Fanvue connected'); }
-    if (params.get('fanvue_error')) {
-        var fverr = { denied: 'Fanvue access was not granted.', state: 'The Fanvue sign-in expired. Try again.',
-                      token: 'Fanvue did not accept the sign-in. Try again.', profile: 'Could not read your Fanvue profile.' };
-        toastr.error(fverr[params.get('fanvue_error')] || 'Fanvue connection was not completed');
-    }
-    if (params.get('payout_return') === '1') { toastr.success('Payout details updated'); }
 
     function activateSection(section) {
         $('#settings_nav .settings__nav-item').removeClass('is-active');
@@ -1923,100 +1252,6 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
         });
-    });
-
-    var adultConfirmed = false;
-
-    function saveAdultContent(enabled, ageConfirmed) {
-        ApiDataSvc.apiCall('post', 'save_adult_content_pref', {
-            enabled: enabled ? 1 : 0,
-            age_confirmed: ageConfirmed ? 1 : 0
-        }, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) {
-                toastr.success(o.message);
-            } else if (o.need_age_verification && o.url) {
-                // Trigger 1: a one-time age check with the verification provider; the toggle stays off until they are back.
-                $('#adult_content_toggle').prop('checked', false);
-                toastr.info('One quick age check, then adult content turns on.');
-                window.location = o.url;
-            } else {
-                toastr.error(o.message);
-                $('#adult_content_toggle').prop('checked', false);
-            }
-        });
-    }
-
-    // The provider's result can land a few seconds after the person is back: poll until it does, then finish the toggle.
-    var age_poll_timer = null, age_poll_until = 0;
-    function ageVerified() {
-        $('#adult_age_status').attr('data-status', 'verified').text('Age verified.');
-        $('#adult_content_toggle').prop('checked', true);
-        saveAdultContent(true, true);   // verified now: the toggle saves and turns on
-    }
-    function ageFailed() {
-        $('#adult_age_status').attr('data-status', 'failed').html('Age verification failed. <a href="#" id="adult_verify_again">Try Again</a>');
-        $('#adult_content_toggle').prop('checked', false);
-        toastr.error('Age verification failed. You can try again.');
-    }
-    function pollAgeStatus(seconds) {
-        clearInterval(age_poll_timer);
-        age_poll_until = Date.now() + seconds * 1000;
-        $('#adult_age_status').attr('data-status', 'pending').text('Age verification in progress. This usually takes a few seconds.');
-        age_poll_timer = setInterval(function () {
-            if (Date.now() > age_poll_until) {
-                clearInterval(age_poll_timer);
-                $('#adult_age_status').attr('data-status', 'pending').html('Age verification in progress. <a href="#" id="adult_verify_again">Continue Verification</a>');
-                return;
-            }
-            ApiDataSvc.apiCall('post', 'age_verification_status', {}, function (data) {
-                var o = null; try { o = JSON.parse(data); } catch (e) { o = null; }
-                if (!o || !o.success) { return; }
-                if (o.status == 'verified') { clearInterval(age_poll_timer); ageVerified(); }
-                else if (o.status == 'failed') { clearInterval(age_poll_timer); ageFailed(); }
-            });
-        }, 3000);
-    }
-
-    // Back from the age check (/account/age_verification appends ?age_verification=<status>): finish what they started.
-    // `params` is the page's copy of the query from load time: the section deep-link code above strips the whole query
-    // string right after reading it, so window.location.search is already empty by the time this runs.
-    (function () {
-        var st = params.get('age_verification');
-        if (st == null) {
-            if ($('#adult_age_status').attr('data-status') == 'pending') { pollAgeStatus(60); }   // a check still open from before: keep looking briefly
-            return;
-        }
-        if (st == 'verified') { ageVerified(); }
-        else if (st == 'failed') { ageFailed(); }
-        else { toastr.info('Your age check is being processed. This page updates as soon as it is done.'); pollAgeStatus(180); }
-    })();
-
-    $(document).on('click', '#adult_verify_again', function (e) {
-        e.preventDefault();
-        saveAdultContent(true, true);   // not verified yet: the server answers with a fresh verification session
-    });
-
-    $('#adult_content_toggle').on('change', function () {
-        if (this.checked) {
-            adultConfirmed = false;
-            $('#adult_confirm_modal').modal('show');
-        } else {
-            saveAdultContent(false, false);
-        }
-    });
-
-    $('#adult_confirm_yes').on('click', function () {
-        adultConfirmed = true;
-        $('#adult_confirm_modal').modal('hide');
-        saveAdultContent(true, true);
-    });
-
-    // Cancelling the confirmation reverts the toggle back to off.
-    $('#adult_confirm_modal').on('hidden.bs.modal', function () {
-        if (!adultConfirmed) {
-            $('#adult_content_toggle').prop('checked', false);
-        }
     });
 
     function escapeHtml(s) {
@@ -2379,94 +1614,6 @@ $(function () {
         });
     });
 
-    var stripe = <?php echo !empty($this->stripe_pk) ? "Stripe('" . htmlspecialchars((string) $this->stripe_pk, ENT_QUOTES, 'UTF-8') . "')" : 'null'; ?>;
-    var creditElements = null;
-
-    // Wallet in-page tabs (balance stays pinned above them).
-    $('.wallet-tab').on('click', function () {
-        var t = $(this).data('wtab');
-        $('.wallet-tab').removeClass('is-active');
-        $(this).addClass('is-active');
-        $('.wallet-panel').removeClass('is-active').filter('[data-wpanel="' + t + '"]').addClass('is-active');
-    });
-    (function () {
-        // `params` was captured before the one-time query strip above; location.search is already empty here.
-        var m = (params.get('tab') || '').replace(/[^a-z]/g, '');
-        if (m && $('.wallet-tab[data-wtab="' + m + '"]').length) { $('.wallet-tab[data-wtab="' + m + '"]').trigger('click'); }
-    })();
-
-    $('.buy-credits').on('click', function () {
-        if (!stripe) { toastr.error('Payments are not available right now'); return; }
-        var dollars = $(this).data('dollars');
-        ApiDataSvc.apiCall('post', 'buy_credits', { dollars: dollars }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            $('#credit_pay_summary').html(
-                '<span class="pay-line pay-line--head">$' + (o.base_cents / 100).toFixed(2) + ' to your wallet</span>' +
-                '<span class="pay-line"><span>Subtotal</span><span>$' + (o.base_cents / 100).toFixed(2) + '</span></span>' +
-                '<span class="pay-line"><span>Processing fee (' + o.fee_percent + '%)</span><span>$' + (o.fee_cents / 100).toFixed(2) + '</span></span>' +
-                '<span class="pay-line pay-line--total"><span>Total</span><span>$' + (o.total_cents / 100).toFixed(2) + '</span></span>'
-            );
-            $('#credit_payment_element').html('');
-            $('#credit_pay_button').prop('disabled', false).text('Pay $' + (o.total_cents / 100).toFixed(2));
-            creditElements = stripe.elements({ clientSecret: o.client_secret });
-            creditElements.create('payment').mount('#credit_payment_element');
-            $('#credit_payment_modal').modal('show');
-        });
-    });
-
-    $('#credit_pay_button').on('click', function () {
-        if (!creditElements) { return; }
-        $('#credit_pay_button').prop('disabled', true);
-        stripe.confirmPayment({ elements: creditElements, redirect: 'if_required' }).then(function (result) {
-            if (result.error) {
-                $('#credit_pay_button').prop('disabled', false);
-                toastr.error(result.error.message);
-                return;
-            }
-            ApiDataSvc.apiCall('post', 'confirm_credit_purchase', { payment_intent_id: result.paymentIntent.id }, function (data) {
-                var o = JSON.parse(data);
-                if (!o.success) { toastr.error(o.message); return; }
-                toastr.success(o.message);
-                $('#credit_payment_modal').modal('hide');
-                setTimeout(function () { window.location.href = '/account/settings?section=wallet'; }, 1000);
-            });
-        });
-    });
-
-    $('#ar_manage').on('click', function () {
-        $('#ar_modal').modal('show');
-    });
-
-    $('#ar_enabled').on('change', function () {
-        $('#ar_fields').toggleClass('is-hidden', !this.checked);
-    });
-
-    function arStatusText() {
-        if (!$('#ar_enabled').is(':checked')) { return 'Automatically top up when your balance runs low.'; }
-        var add = (parseInt($('#ar_package').val(), 10) || 0) * 10;   // the package is dollars charged; it adds $1 = 10 credits
-        var thr = parseInt($('#ar_threshold').val(), 10) || 0;
-        var c = function (n) { return n.toLocaleString('en-US') + (n === 1 ? ' credit' : ' credits'); };
-        return 'Add ' + c(add) + ' when your balance drops below ' + c(thr);
-    }
-
-    $('#ar_save').on('click', function () {
-        ApiDataSvc.apiCall('post', 'save_autoreplenishment', {
-            enabled: $('#ar_enabled').is(':checked') ? 1 : 0,
-            threshold: parseInt($('#ar_threshold').val(), 10) || 0,   // credits
-            dollars: parseInt($('#ar_package').val(), 10) || 0,
-            payment_method_id: $('#ar_pm').val() || ''
-        }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            toastr.success(o.message);
-            var on = $('#ar_enabled').is(':checked');
-            $('#ar_badge').text(on ? 'On' : 'Off').toggleClass('is-on', on);
-            $('#ar_status').text(arStatusText());
-            $('#ar_modal').modal('hide');
-        });
-    });
-
     $('#become_creator_btn').on('click', function () {
         if ($('#creator_agree').length && !$('#creator_agree').is(':checked')) {   // the backstop box for a creator who never accepted; becoming a creator asks nothing
             toastr.error('Please accept the Creator Agreement and Content Policy');
@@ -2709,53 +1856,6 @@ $(function () {
         });
     });
 
-    $('#payout_setup_btn').on('click', function () {
-        var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'start_payout_onboarding', {}, function (data) {
-            var o = JSON.parse(data);
-            if (window.cls_need_agreement(o)) { $btn.prop('disabled', false); return; }
-            if (o.success) {
-                window.location = o.url;
-            } else {
-                toastr.error(o.message);
-                $btn.prop('disabled', false);
-            }
-        });
-    });
-
-    $('#payout_request_btn').on('click', function () {
-        var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'request_payout', {}, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) {
-                toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=wallet&tab=cashout'; }, 1000);
-            } else {
-                toastr.error(o.message);
-                $btn.prop('disabled', false);
-            }
-        });
-    });
-
-    $('#payout_disconnect_btn').on('click', function () {
-        $('#payout_disconnect_modal').modal('show');
-    });
-
-    $('#payout_disconnect_confirm').on('click', function () {
-        var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'disconnect_payout_account', {}, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) {
-                toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=wallet&tab=cashout'; }, 900);
-            } else {
-                toastr.error(o.message);
-                $btn.prop('disabled', false);
-                $('#payout_disconnect_modal').modal('hide');
-            }
-        });
-    });
-
     function renderLinkRow(id, title, url, enabled) {
         return '<div class="link-row" data-id="' + id + '">'
             + '<span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>'
@@ -2948,346 +2048,6 @@ $(function () {
 
     if (params.get('import') === '1' && $('.imp-open').length) { imp_open(); }
 
-    /* ---- membership plans ---- */
-    function intervalAbbr(interval) { return interval === 'year' ? 'yr' : (interval === 'week' ? 'wk' : 'mo'); }
-    function planPriceLabel(price, interval) {
-        if (parseFloat(price) === 0) { return 'Free'; }
-        return '$' + parseFloat(price).toFixed(2) + '<span class="plan-row__unit">/' + intervalAbbr(interval) + '</span>';
-    }
-    function setPlanFreeState(free) {
-        $('#plan_price').prop('disabled', free);
-        $('#plan_interval').prop('disabled', free);
-        $('#plan_trial_enabled').prop('disabled', free);
-        if (free) { $('#plan_price').val('0'); $('#plan_trial_enabled').prop('checked', false); setPlanTrialState(false); }
-    }
-    $('#plan_free').on('change', function () { setPlanFreeState($(this).is(':checked')); });
-    function setPlanTrialState(on) { $('#plan_trial_row').prop('hidden', !on); }
-    $('#plan_trial_enabled').on('change', function () { setPlanTrialState($(this).is(':checked')); });
-    function renderPlanRow(p) {
-        return '<div class="plan-row' + (p.active ? '' : ' is-inactive') + '" data-id="' + p.id + '"'
-            + ' data-name="' + escapeHtml(p.name) + '" data-price="' + escapeHtml(p.price) + '"'
-            + ' data-interval="' + escapeHtml(p.interval) + '" data-trial-enabled="' + (p.trial_enabled ? 1 : 0) + '" data-trial-value="' + (parseInt(p.trial_value, 10) || 7) + '" data-trial-unit="' + escapeHtml(p.trial_unit || 'day') + '" data-description="' + escapeHtml(p.description) + '"'
-            + ' data-perks="' + escapeHtml(p.perks) + '">'
-            + '<span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>'
-            + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(p.name) + '</span>'
-            + '<span class="plan-row__price">' + planPriceLabel(p.price, p.interval) + (p.trial_enabled ? ' <span class="plan-row__trial">' + (parseInt(p.trial_value, 10) || 1) + '-' + (p.trial_unit || 'day') + ' trial</span>' : '') + '</span></div>'
-            + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="plan-toggle"' + (p.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
-            + '<button type="button" class="link-row__btn plan-edit" aria-label="Edit plan"><i class="fa-solid fa-pen"></i></button>'
-            + '<button type="button" class="link-row__btn plan-delete" aria-label="Remove plan"><i class="fa-solid fa-trash"></i></button>'
-            + '</div>';
-    }
-
-    if (window.Sortable && document.getElementById('plans_list')) {
-        Sortable.create(document.getElementById('plans_list'), {
-            handle: '.link-row__handle', animation: 150,
-            onEnd: function () {
-                var ids = $('#plans_list .plan-row').map(function () { return $(this).data('id'); }).get();
-                ApiDataSvc.apiCall('post', 'reorder_creator_plans', { ids: ids }, function () {});
-            }
-        });
-    }
-
-    // ---- Discount codes ----
-    function renderPromoRow(p) {
-        var applies = p.applies === 'ppv' ? 'Pay-per-view' : (p.applies === 'subscription' ? 'Subscriptions' : 'Subs & PPV');
-        var cr = function (n) { return (parseInt(n, 10) || 0).toLocaleString('en-US') + ' credits'; };
-        var label = p.amount ? cr(p.amount) + ' off' : (parseInt(p.percent, 10) || 0) + '% off';
-        var extra = (p.min ? ' · Min ' + cr(p.min) : '') + (p.first ? ' · First purchase' : '');
-        return '<div class="plan-row' + (p.active ? '' : ' is-inactive') + '" data-id="' + p.id + '"'
-            + ' data-code="' + escapeHtml(p.code) + '" data-percent="' + (parseInt(p.percent, 10) || 0) + '"'
-            + ' data-amount="' + escapeHtml(p.amount || '') + '" data-min="' + escapeHtml(p.min || '') + '" data-first="' + (p.first ? 1 : 0) + '"'
-            + ' data-applies="' + escapeHtml(p.applies) + '" data-max="' + escapeHtml(p.max || '') + '" data-expires="' + escapeHtml(p.expires || '') + '">'
-            + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(p.code) + '</span>'
-            + '<span class="plan-row__price">' + escapeHtml(label) + '<span class="plan-row__unit"> · ' + applies + escapeHtml(extra) + '</span></span></div>'
-            + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="promo-toggle"' + (p.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
-            + '<button type="button" class="link-row__btn promo-edit" aria-label="Edit code"><i class="fa-solid fa-pen"></i></button>'
-            + '<button type="button" class="link-row__btn promo-delete" aria-label="Remove code"><i class="fa-solid fa-trash"></i></button>'
-            + '</div>';
-    }
-    function promoType(t) {   // Percent Off or Amount Off: one value field at a time
-        $('#promo_type').val(t);
-        $('#promo_percent_wrap').prop('hidden', t !== 'percent');
-        $('#promo_amount_wrap').prop('hidden', t !== 'amount');
-    }
-    $('#promo_type').on('change', function () { promoType($(this).val()); });
-    $('#promo_add_btn').on('click', function () {
-        $('#promo_id').val(0);
-        $('#promo_code').val(''); $('#promo_percent').val(''); $('#promo_amount').val(''); $('#promo_applies').val('all');
-        $('#promo_max').val(''); $('#promo_expires').val(''); $('#promo_min').val(''); $('#promo_first').prop('checked', false);
-        promoType('percent');
-        $('#promo_modal_title').text('Add Code');
-        $('#promo_modal').modal('show');
-    });
-    $('#promos_list').on('click', '.promo-edit', function () {
-        var $row = $(this).closest('.plan-row');
-        $('#promo_id').val($row.data('id'));
-        $('#promo_code').val($row.data('code'));
-        $('#promo_percent').val($row.data('percent'));
-        $('#promo_applies').val($row.data('applies'));
-        $('#promo_max').val($row.data('max') || '');
-        $('#promo_expires').val($row.data('expires') || '');
-        $('#promo_amount').val($row.data('amount') || '');
-        $('#promo_min').val($row.data('min') || '');
-        $('#promo_first').prop('checked', String($row.data('first')) === '1');
-        promoType($row.data('amount') ? 'amount' : 'percent');
-        $('#promo_modal_title').text('Edit code');
-        $('#promo_modal').modal('show');
-    });
-    $('#promo_save').on('click', function () {
-        var id = $('#promo_id').val();
-        var code = ($('#promo_code').val() || '').trim().toUpperCase();
-        var type = $('#promo_type').val(), percent = parseInt($('#promo_percent').val(), 10) || 0;
-        var amount = ($('#promo_amount').val() || '').trim().replace('$', ''), min = ($('#promo_min').val() || '').trim().replace('$', ''), first = $('#promo_first').is(':checked');
-        if (code.length < 3) { toastr.error('Enter a code of at least 3 characters'); return; }
-        if (type === 'percent' && !(percent >= 1 && percent <= 100)) { toastr.error('Discount must be 1–100%'); return; }
-        if (type === 'amount' && !(parseInt(amount, 10) > 0)) { toastr.error('Enter the credits off, like 50'); return; }
-        var applies = $('#promo_applies').val(), max = ($('#promo_max').val() || ''), expires = ($('#promo_expires').val() || '');
-        ApiDataSvc.apiCall('post', 'save_promo_code', { id: id, code: code, discount_type: type, percent_off: type === 'percent' ? percent : 0, amount_off: type === 'amount' ? amount : '',
-            min_order: min, first_purchase_only: first ? 1 : 0, applies_to: applies, max_redemptions: max, expires_at: expires }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            toastr.success(o.message);
-            var $existing = $('#promos_list .plan-row[data-id="' + o.id + '"]');
-            var p = { id: o.id, code: o.code || code, percent: type === 'percent' ? percent : 0, amount: type === 'amount' ? (parseInt(amount, 10) || 0) : '', min: min ? (parseInt(min, 10) || 0) : '',
-                      first: first, applies: applies, max: max, expires: expires, active: true };
-            if ($existing.length) { p.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderPromoRow(p)); }
-            else { $('#promos_list').append(renderPromoRow(p)); $('#promos_empty').attr('hidden', true); }
-            $('#promo_modal').modal('hide');
-        });
-    });
-    $('#promos_list').on('change', '.promo-toggle', function () {
-        var $row = $(this).closest('.plan-row');
-        var active = $(this).is(':checked');
-        $row.toggleClass('is-inactive', !active);
-        ApiDataSvc.apiCall('post', 'toggle_promo_code', { id: $row.data('id'), active: active ? 1 : 0 }, function () {});
-    });
-    $('#promos_list').on('click', '.promo-delete', function () {
-        var $row = $(this).closest('.plan-row');
-        if (!confirm('Remove this discount code?')) { return; }
-        ApiDataSvc.apiCall('post', 'delete_promo_code', { id: $row.data('id') }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            $row.remove();
-            if (!$('#promos_list .plan-row').length) { $('#promos_empty').attr('hidden', false); }
-            toastr.success('Code removed');
-        });
-    });
-
-    // ---- Content bundles ----
-    function renderBundleRow(b) {
-        var price = (parseInt(b.price, 10) || 0).toLocaleString('en-US') + ' credits';   // b.price is credits
-        var n = String(b.asset_ids || '').split(',').filter(function (x) { return x !== ''; }).length;
-        return '<div class="plan-row' + (b.active ? '' : ' is-inactive') + '" data-id="' + b.id + '"'
-            + ' data-name="' + escapeHtml(b.name) + '" data-description="' + escapeHtml(b.description || '') + '"'
-            + ' data-price="' + (parseInt(b.price, 10) || 0) + '" data-assets="' + escapeHtml(String(b.asset_ids || '')) + '">'
-            + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(b.name) + '</span>'
-            + '<span class="plan-row__price">' + price + '<span class="plan-row__unit"> · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></span></div>'
-            + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle"' + (b.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
-            + '<button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>'
-            + '<button type="button" class="link-row__btn bundle-delete" aria-label="Remove bundle"><i class="fa-solid fa-trash"></i></button>'
-            + '</div>';
-    }
-    function bundleUpdateHints() {
-        var n = $('#bundle_picker .bundle-pick__cb:checked').length;
-        $('#bundle_sum').text(n + ' item' + (n === 1 ? '' : 's') + ' selected');
-    }
-    function bundleSetAssets(ids) {
-        var set = {}; (ids || []).forEach(function (x) { set[String(x)] = 1; });
-        $('#bundle_picker .bundle-pick__cb').each(function () {
-            this.checked = !!set[String($(this).data('asset'))];
-            $(this).closest('.bundle-tile').toggleClass('is-on', this.checked);
-        });
-    }
-    $('#bundle_price').on('input', bundleUpdateHints);
-    $('#bundle_picker').on('change', '.bundle-pick__cb', function () {
-        $(this).closest('.bundle-tile').toggleClass('is-on', this.checked);
-        bundleUpdateHints();
-    });
-    $('#bundle_add_btn').on('click', function () {
-        $('#bundle_id').val(0);
-        $('#bundle_name').val(''); $('#bundle_price').val(''); $('#bundle_description').val('');
-        bundleSetAssets([]); bundleUpdateHints();
-        $('#bundle_modal_title').text('Add Bundle');
-        $('#bundle_modal').modal('show');
-    });
-    $('#bundles_list').on('click', '.bundle-edit', function () {
-        var $row = $(this).closest('.plan-row');
-        $('#bundle_id').val($row.data('id'));
-        $('#bundle_name').val($row.data('name'));
-        $('#bundle_description').val($row.data('description') || '');
-        var credits = parseInt($row.data('price'), 10) || 0;   // data-price is credits; the field is dollars
-        $('#bundle_price').val(credits > 0 ? credits : '');
-        var assets = String($row.data('assets') || '').split(',').filter(function (x) { return x !== ''; });
-        bundleSetAssets(assets); bundleUpdateHints();
-        $('#bundle_modal_title').text('Edit bundle');
-        $('#bundle_modal').modal('show');
-    });
-    $('#bundle_save').on('click', function () {
-        var id = $('#bundle_id').val();
-        var name = ($('#bundle_name').val() || '').trim();
-        var bprice = ($('#bundle_price').val() || '').trim();   // credits
-        if (name === '') { toastr.error('Give the bundle a name'); return; }
-        if (bprice == '') { toastr.error('Set a price'); return; }
-        var assets = $('#bundle_picker .bundle-pick__cb:checked').map(function () { return String($(this).data('asset')); }).get();
-        if (!assets.length) { toastr.error('Add at least one piece of content to the bundle'); return; }
-        var desc = ($('#bundle_description').val() || '').trim();
-        ApiDataSvc.apiCall('post', 'save_bundle', { id: id, name: name, price: bprice, description: desc, asset_ids: assets }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { if (window.cls_need_agreement(o)) { return; } toastr.error(o.message); return; }
-            toastr.success(o.message);
-            var b = { id: o.id, name: name, description: desc, price: parseInt(bprice, 10) || 0, asset_ids: assets.join(','), active: true };
-            var $existing = $('#bundles_list .plan-row[data-id="' + o.id + '"]');
-            if ($existing.length) { b.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderBundleRow(b)); }
-            else { $('#bundles_list').append(renderBundleRow(b)); $('#bundles_empty').attr('hidden', true); }
-            $('#bundle_modal').modal('hide');
-        });
-    });
-    $('#bundles_list').on('change', '.bundle-toggle', function () {
-        var $row = $(this).closest('.plan-row');
-        var active = $(this).is(':checked');
-        $row.toggleClass('is-inactive', !active);
-        ApiDataSvc.apiCall('post', 'toggle_bundle', { id: $row.data('id'), active: active ? 1 : 0 }, function () {});
-    });
-    $('#bundles_list').on('click', '.bundle-delete', function () {
-        var $row = $(this).closest('.plan-row');
-        if (!confirm('Remove this bundle? Posts in it stay; only the bundle is deleted.')) { return; }
-        ApiDataSvc.apiCall('post', 'delete_bundle', { id: $row.data('id') }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            if (o.archived) {   // it has sold: taken off sale, buyers keep it
-                $row.addClass('is-inactive').find('.bundle-toggle').prop('checked', false);
-                toastr.info(o.message);
-                return;
-            }
-            $row.remove();
-            if (!$('#bundles_list .plan-row').length) { $('#bundles_empty').attr('hidden', false); }
-            toastr.success('Bundle removed');
-        });
-    });
-
-    $('#plan_add_btn').on('click', function () {
-        $('#plan_id').val(0);
-        $('#plan_name').val(''); $('#plan_price').val(''); $('#plan_interval').val('month');
-        $('#plan_trial_enabled').prop('checked', false); $('#plan_trial_value').val('7'); $('#plan_trial_unit').val('day'); setPlanTrialState(false);
-        $('#plan_description').val(''); $('#plan_perks').val('');
-        $('#plan_free').prop('checked', false); setPlanFreeState(false);
-        $('#plan_modal_title').text('Add plan');
-        $('#plan_modal').modal('show');
-    });
-
-    $('#plans_list').on('click', '.plan-edit', function () {
-        var $row = $(this).closest('.plan-row');
-        var isFree = parseFloat($row.data('price')) === 0;
-        $('#plan_id').val($row.data('id'));
-        $('#plan_name').val($row.data('name'));
-        $('#plan_price').val($row.data('price'));
-        $('#plan_interval').val($row.data('interval'));
-        var tEnabled = String($row.data('trial-enabled')) === '1';
-        $('#plan_trial_enabled').prop('checked', tEnabled);
-        $('#plan_trial_value').val($row.data('trial-value') || 7);
-        $('#plan_trial_unit').val($row.data('trial-unit') || 'day');
-        setPlanTrialState(tEnabled);
-        $('#plan_description').val($row.data('description'));
-        $('#plan_perks').val($row.data('perks'));
-        $('#plan_free').prop('checked', isFree); setPlanFreeState(isFree);
-        $('#plan_modal_title').text('Edit plan');
-        $('#plan_modal').modal('show');
-    });
-
-    $('#plan_save').on('click', function () {
-        var id = $('#plan_id').val();
-        var name = ($('#plan_name').val() || '').trim();
-        var free = $('#plan_free').is(':checked');
-        var price = free ? '0' : $('#plan_price').val();
-        var interval = $('#plan_interval').val();
-        var description = ($('#plan_description').val() || '').trim();
-        var perks = $('#plan_perks').val() || '';
-        var trialEnabled = !free && $('#plan_trial_enabled').is(':checked');
-        var trialValue = parseInt($('#plan_trial_value').val(), 10) || 1;
-        var trialUnit = $('#plan_trial_unit').val();
-        if (name == '') { toastr.error('Enter a plan name'); return; }
-        if (!free && !(parseFloat(price) >= 1)) { toastr.error('Enter a price of at least $1.00, or make it a free tier'); return; }
-
-        ApiDataSvc.apiCall('post', 'save_creator_plan', { id: id, name: name, price: price, is_free: free ? 1 : 0, billing_interval: interval, trial_enabled: trialEnabled ? 1 : 0, trial_value: trialValue, trial_unit: trialUnit, description: description, perks: perks }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { if (window.cls_need_agreement(o)) { return; } toastr.error(o.message); return; }
-            toastr.success(o.message);
-            var $existing = $('#plans_list .plan-row[data-id="' + o.id + '"]');
-            var p = { id: o.id, name: name, price: (free ? '0.00' : parseFloat(price).toFixed(2)), interval: interval, trial_enabled: trialEnabled, trial_value: trialValue, trial_unit: trialUnit, description: description, perks: perks, active: true };
-            if ($existing.length) {
-                p.active = !$existing.hasClass('is-inactive');
-                $existing.replaceWith(renderPlanRow(p));
-            } else {
-                $('#plans_list').append(renderPlanRow(p));
-                $('#plans_empty').attr('hidden', true);
-            }
-            $('#plan_modal').modal('hide');
-        });
-    });
-
-    $('#plans_list').on('change', '.plan-toggle', function () {
-        var $row = $(this).closest('.plan-row');
-        var active = $(this).is(':checked');
-        $row.toggleClass('is-inactive', !active);
-        ApiDataSvc.apiCall('post', 'toggle_creator_plan', { id: $row.data('id'), active: active ? 1 : 0 }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { if (window.cls_need_agreement(o)) { $row.addClass('is-inactive').find('.plan-toggle').prop('checked', false); return; } toastr.error(o.message); }
-        });
-    });
-
-    $('#plans_list').on('click', '.plan-delete', function () {
-        var $row = $(this).closest('.plan-row');
-        ApiDataSvc.apiCall('post', 'delete_creator_plan', { id: $row.data('id') }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            toastr.success(o.message);
-            $row.remove();
-            if ($('#plans_list .plan-row').length === 0) { $('#plans_empty').removeAttr('hidden'); }
-        });
-    });
-
-    /* ---- my subscriptions ---- */
-    function subApply($row, state) {
-        var isFree = $row.data('free') == 1;
-        var period = $row.data('period') || '';
-        var handle = $row.data('handle') || '';
-        var status, action;
-        if (state === 'canceled') {
-            status = 'Canceled';
-            action = isFree
-                ? '<button type="button" class="btn btn-secondary sub-reactivate">Rejoin</button>'
-                : '<a class="btn btn-secondary" href="/@' + handle + '" target="_blank" rel="noopener">Subscribe Again</a>';
-        } else if (state === 'canceling') {
-            status = period ? 'Ends ' + period : 'Ending';
-            action = '<button type="button" class="btn btn-secondary sub-reactivate">Resume</button>';
-        } else {
-            status = isFree ? 'Active' : (period ? 'Renews ' + period : 'Active');
-            action = '<button type="button" class="btn btn-secondary sub-cancel">' + (isFree ? 'Leave' : 'Cancel') + '</button>';
-        }
-        $row.find('[data-status]').text(status);
-        $row.find('[data-actions]').html(action);
-    }
-
-    $('#subs_list').on('click', '.sub-cancel', function () {
-        var $row = $(this).closest('.sub-row');
-        ApiDataSvc.apiCall('post', 'cancel_creator_subscription', { id: $row.data('id') }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            toastr.success(o.message);
-            subApply($row, o.state);
-        });
-    });
-
-    $('#subs_list').on('click', '.sub-reactivate', function () {
-        var $row = $(this).closest('.sub-row');
-        ApiDataSvc.apiCall('post', 'reactivate_creator_subscription', { id: $row.data('id') }, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
-            toastr.success(o.message);
-            subApply($row, o.state);
-        });
-    });
-
     $('#leave_creator_btn').on('click', function () {
         $('#leave_creator_modal').modal('show');
     });
@@ -3346,15 +2106,6 @@ $(function () {
             }
         }).then(function (r) { if (r.isConfirmed && r.value) { start_social_connect(r.value); } });
     });
-
-    function fanvue_connect(return_section, $btn) {
-        if ($btn) { $btn.prop('disabled', true); }
-        ApiDataSvc.apiCall('post', 'fanvue_connect', { return_section: return_section || 'connected' }, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) { window.location = o.url; } else { toastr.error(o.message); if ($btn) { $btn.prop('disabled', false); } }
-        });
-    }
-    $('#fanvueConnect').on('click', function () { fanvue_connect('connected', $(this)); });
 
     // ---- Inbox automation -------------------------------------------------------
     var inbox_timer = null;
@@ -3435,7 +2186,6 @@ $(function () {
                 var it = o.items[t];
                 $row.find('[data-role="text"]').val(it.text || '');
                 inbox_trigger_media[t] = it.assets || [];
-                $row.find('[data-role="price"]').val(it.price > 0 ? it.price : '');
                 $row.find('[data-role="sent"]').text(it.sent > 0 ? ('Sent ' + it.sent + ' time' + (it.sent === 1 ? '' : 's')) : (it.is_default ? 'Default message' : ''));
                 inbox_trigger_state($row, !!it.enabled);
                 inbox_trigger_thumbs($row);
@@ -3452,7 +2202,6 @@ $(function () {
         list.forEach(function (a) {
             $th.append('<span class="inbox-trigger__thumb" style="background-image:url(\'' + inbox_esc(a.thumb) + '\')">' + (a.type === 'video' ? '<i class="fa-solid fa-play"></i>' : '') + '<button type="button" class="inbox-trigger__rm" data-rm="' + a.id + '" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>');
         });
-        $row.find('[data-role="pricewrap"]').prop('hidden', !list.length);
         $row.find('[data-role="attach"]').html('<i class="fa-solid fa-image"></i> ' + (list.length ? 'Change Media' : 'Attach Media'));
     }
     $('#inboxTriggers').on('click', '[data-rm]', function () {
@@ -3502,8 +2251,7 @@ $(function () {
     $('#inboxTriggers').on('click', '[data-role="save"]', function () {
         var $row = $(this).closest('.inbox-trigger'), t = $row.data('trigger'); var $btns = $row.find('button').prop('disabled', true);
         var ids = (inbox_trigger_media[t] || []).map(function (a) { return a.id; });
-        var price = ($row.find('[data-role="price"]').val() || '').trim();   // credits; the server checks 10-5,000
-        ApiDataSvc.apiCall('post', 'auto_message_save', { trigger: t, text: $row.find('[data-role="text"]').val(), asset_ids: ids, price: price }, function (data) {
+        ApiDataSvc.apiCall('post', 'auto_message_save', { trigger: t, text: $row.find('[data-role="text"]').val(), asset_ids: ids }, function (data) {
             var o = JSON.parse(data); $btns.prop('disabled', false);
             if (o.success) { toastr.success(o.message); inbox_trigger_state($row, true); } else { toastr.error(o.message); }
         });
@@ -3564,7 +2312,6 @@ $(function () {
             max_consecutive: $('#inboxMaxConsecutive').val(),
             persona:         $('#inboxPersona').val(),
             avoid_topics:    $('#inboxAvoid').val(),
-            upsell_enabled:  $('#inboxUpsell').is(':checked') ? 1 : 0,
             disclose_ai:     $('#inboxDisclose').is(':checked') ? 1 : 0,
             ai_disclosure_text: $('#inboxAiDisclosure').val(),
             persona_influencer_id: $('#inboxPersonaInfluencer').val() || 0
@@ -3586,7 +2333,7 @@ $(function () {
         var $btn = $(this).prop('disabled', true);
         var f = inbox_form();
         var $out = $('#inboxTestOut').prop('hidden', false).removeClass('is-hold').text('Thinking…');
-        ApiDataSvc.apiCall('post', 'inbox_test_draft', { sample_text: $('#inboxTestText').val(), persona: f.persona, avoid_topics: f.avoid_topics, upsell_enabled: f.upsell_enabled, disclose_ai: f.disclose_ai }, function (data) {
+        ApiDataSvc.apiCall('post', 'inbox_test_draft', { sample_text: $('#inboxTestText').val(), persona: f.persona, avoid_topics: f.avoid_topics, disclose_ai: f.disclose_ai }, function (data) {
             var o = JSON.parse(data);
             $btn.prop('disabled', false);
             if (!o.success) { $out.prop('hidden', true); toastr.error(o.message); return; }
@@ -3594,18 +2341,6 @@ $(function () {
         });
     });
     $('#inboxTestText').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#inboxTest').trigger('click'); } });
-
-    $('#fanvueDisconnect').on('click', function () {
-        ApiDataSvc.apiCall('post', 'fanvue_disconnect', {}, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) {
-                toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800);
-            } else {
-                toastr.error(o.message);
-            }
-        });
-    });
 
     // Connect sits on the right like every other row: the first click opens the key field, the next one connects.
     $('#eromifyConnect').on('click', function () {

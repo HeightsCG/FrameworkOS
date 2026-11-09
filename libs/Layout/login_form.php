@@ -9,7 +9,7 @@
     <?php
         $seo_site  = htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8');
         $seo_base  = htmlspecialchars(Main::get_base_domain(), ENT_QUOTES, 'UTF-8');
-        $seo_title = $seo_site . ': Creator Monetization Platform';   // search keywords in the title; the slogan stays in the page
+        $seo_title = $seo_site . ': AI Content Studio for Creators';   // search keywords in the title; the slogan stays in the page
         $seo_desc  = htmlspecialchars(SeoMeta::brand_tagline(), ENT_QUOTES, 'UTF-8');
     ?>
     <title><?php echo $seo_title; ?></title>
@@ -49,7 +49,7 @@
                     '@type' => 'WebPage',
                     '@id' => $seo_base_raw . '/#webpage',
                     'url' => $seo_base_raw . '/',
-                    'name' => Main::site_name() . ': Creator Monetization Platform',   // names the buyer, same as the page title (HeyCatch D1.1)
+                    'name' => Main::site_name() . ': AI Content Studio for Creators',   // names the buyer, same as the page title (HeyCatch D1.1)
                     'description' => SeoMeta::brand_tagline(),
                     'inLanguage' => 'en-US',
                     'isPartOf' => SeoMeta::website_ref(),

@@ -1,15 +1,13 @@
 <?php
 /**
- * Didit (https://docs.didit.me) as the age-verification vendor: one hosted session per attempt, the result by a signed
- * webhook. The workflow (selfie age estimation with ID fallback, "Adaptive Age Verification") is configured in the
- * Didit console; this class only opens sessions and reads outcomes.
+ * Didit (https://docs.didit.me) for the creator ID check (IdentityVerification): one hosted session per attempt on the
+ * identity workflow (didit_identity_workflow_id), the result by a signed webhook. This class only opens sessions and
+ * reads outcomes; no images, documents or birth dates reach this codebase.
  *
- * Also runs the creator ID check (IdentityVerification): a second workflow, didit_identity_workflow_id.
- *
- * app.ini [global]: didit_api_key, didit_workflow_id, didit_identity_workflow_id, didit_webhook_secret (the destination's secret_shared_key),
+ * app.ini [global]: didit_api_key, didit_identity_workflow_id, didit_webhook_secret (the destination's secret_shared_key),
  * didit_sandbox_scenario (dev only: forces an outcome in the sandbox, e.g. "approved" / "declined").
  */
-class DiditProvider implements AgeVerificationProvider {
+class DiditProvider {
 
     const BASE = 'https://verification.didit.me/v3';
     const WEBHOOK_TOLERANCE = 300;   // seconds between X-Timestamp and now
@@ -22,12 +20,7 @@ class DiditProvider implements AgeVerificationProvider {
         return trim((string) ($c['global'][$key] ?? ''));
     }
 
-    public static function start(int $user_id, string $return_url): array {
-        if (self::cfg('didit_workflow_id') === '') { return array('ok' => false, 'ref' => '', 'url' => '', 'error' => 'Age verification is not configured.'); }
-        return self::start_workflow($user_id, $return_url, self::cfg('didit_workflow_id'));
-    }
-
-    /** A session on any Didit workflow: the age check (start) or the creator ID check (IdentityVerification, didit_identity_workflow_id). Same answer shape as start(). */
+    /** A session on a Didit workflow (the creator ID check). Returns array('ok', 'ref' => session id, 'url' => hosted URL, 'error'). */
     public static function start_workflow(int $user_id, string $return_url, string $workflow_id): array {
         if (self::cfg('didit_api_key') === '' || $workflow_id === '') {
             return array('ok' => false, 'ref' => '', 'url' => '', 'error' => 'Verification is not configured.');

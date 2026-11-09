@@ -1,8 +1,7 @@
 <?php
 /**
  * Creator analytics — read-only aggregations over the data the platform already
- * tracks (posts, ppv_unlocks, follows, subscriptions, post_views) for the creator
- * dashboard. All money is reported in cents; PPV earnings come from posts.earnings_cents.
+ * tracks (posts, follows, post_views, cross-posts) for the creator dashboard.
  */
 class AnalyticsModel extends Model {
 
@@ -12,7 +11,6 @@ class AnalyticsModel extends Model {
         $p = parent::select(
             "SELECT
                 COUNT(*)                               AS published_posts,
-                COALESCE(SUM(earnings_cents),0)        AS ppv_cents,
                 COALESCE(SUM(views),0)                 AS views,
                 COALESCE(SUM(likes),0)                 AS likes,
                 COALESCE(SUM(comments),0)              AS comments
@@ -20,14 +18,7 @@ class AnalyticsModel extends Model {
             array('c' => $c));
         $p = (is_array($p) && count($p)) ? $p[0] : array();
 
-        $subs = parent::select(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(" . CreatorSubscriptionsModel::MONTHLY_CENTS_SQL . "),0) AS mrr_cents
-             FROM creator_subscriptions WHERE creator_id = :c AND status = 'active'",
-            array('c' => $c));
-        $subs = (is_array($subs) && count($subs)) ? $subs[0] : array('n' => 0, 'mrr_cents' => 0);
-
         $followers = parent::select("SELECT COUNT(*) AS n FROM follows WHERE creator_id = :c", array('c' => $c));
-        $unlocks   = parent::select("SELECT COUNT(*) AS n FROM ppv_unlocks WHERE creator_id = :c", array('c' => $c));
 
         // Unique visitors = distinct viewer fingerprints across this creator's posts.
         $uv = parent::select(
@@ -38,57 +29,11 @@ class AnalyticsModel extends Model {
 
         return array(
             'published_posts' => (int) ($p['published_posts'] ?? 0),
-            'ppv_cents'       => (int) ($p['ppv_cents'] ?? 0),
             'views'           => (int) ($p['views'] ?? 0),
             'likes'           => (int) ($p['likes'] ?? 0),
             'comments'        => (int) ($p['comments'] ?? 0),
-            'subscribers'     => (int) ($subs['n'] ?? 0),
-            'mrr_cents'       => (int) ($subs['mrr_cents'] ?? 0),
             'followers'       => (int) (is_array($followers) && count($followers) ? $followers[0]['n'] : 0),
-            'unlocks'         => (int) (is_array($unlocks) && count($unlocks) ? $unlocks[0]['n'] : 0),
             'unique_visitors' => (int) (is_array($uv) && count($uv) ? $uv[0]['n'] : 0),
-        );
-    }
-
-    /**
-     * The creator's revenue rows in the credit ledger: every sale's earning (already net of the platform fee) and every
-     * refund's clawback (a negative refund_reversal). Revenue = their sum, so refunds come off what was earned.
-     */
-    const REVENUE_TYPES = "('ppv_earning','bundle_earning','message_earning','event_earning','service_earning','tip_earning','replay_earning','refund_reversal')";
-
-    /**
-     * Which offering a revenue row belongs to. A clawback carries no reference, but its description is written by the
-     * refund code and names the item ("Refund reversal: event ticket"), so it comes off the right offering.
-     */
-    const REVENUE_OFFERING = "CASE type
-            WHEN 'ppv_earning' THEN 'ppv' WHEN 'bundle_earning' THEN 'bundle' WHEN 'message_earning' THEN 'message'
-            WHEN 'event_earning' THEN 'event' WHEN 'service_earning' THEN 'service' WHEN 'tip_earning' THEN 'tip' WHEN 'replay_earning' THEN 'replay'
-            ELSE CASE WHEN description LIKE '%pay-per-view%' THEN 'ppv' WHEN description LIKE '%bundle%' THEN 'bundle'
-                      WHEN description LIKE '%message%' THEN 'message' WHEN description LIKE '%event%' THEN 'event'
-                      WHEN description LIKE '%service%' THEN 'service' ELSE 'other' END END";
-
-    /**
-     * Net revenue split by offering (PRD §41.1 "revenue by offering"): earnings net of the platform fee, minus refunds.
-     * 1 credit = 10 cents ($1 = 10 credits). Pass $start_utc to scope to a date range.
-     */
-    public function revenue_breakdown($creator_id, $start_utc = null){
-        $params = array('c' => (int) $creator_id);
-        $where  = "user_id = :c AND type IN " . self::REVENUE_TYPES;
-        if ($start_utc !== null) { $where .= " AND created_at >= :start"; $params['start'] = $start_utc; }
-        $rows = parent::select(
-            "SELECT " . self::REVENUE_OFFERING . " AS k, COALESCE(SUM(credits),0) AS credits FROM credit_transactions WHERE $where GROUP BY k",
-            $params);
-        $m = array('ppv' => 0, 'bundle' => 0, 'message' => 0, 'event' => 0, 'service' => 0, 'tip' => 0, 'replay' => 0, 'other' => 0);
-        foreach ((array) $rows as $r) { if (isset($m[$r['k']])) { $m[$r['k']] = (int) $r['credits'] * 10; } }
-        return array(
-            'ppv_cents'     => $m['ppv'],
-            'bundle_cents'  => $m['bundle'],
-            'message_cents' => $m['message'],
-            'event_cents'   => $m['event'],
-            'service_cents' => $m['service'],
-            'tip_cents'     => $m['tip'],   // tips sent in CLS Video calls
-            'replay_cents'  => $m['replay'],   // event replays sold on the event page
-            'total_cents'   => array_sum($m),
         );
     }
 
@@ -108,20 +53,6 @@ class AnalyticsModel extends Model {
         return $this->fill_days($rows, $start, $days);
     }
 
-    /** Daily net revenue in CENTS over the window (revenue by date range), zero-filled. */
-    public function revenue_series($creator_id, $days = 30, $tz = 'UTC'){
-        list($start, $start_utc, $off, $days) = $this->day_window($days, $tz);
-        $rows = parent::select(
-            "SELECT DATE(CONVERT_TZ(created_at, '+00:00', :off)) AS d, COALESCE(SUM(credits),0) * 10 AS n
-             FROM credit_transactions
-             WHERE user_id = :c AND created_at >= :start
-               AND type IN " . self::REVENUE_TYPES . "
-             GROUP BY d",
-            array('c' => (int) $creator_id, 'off' => $off, 'start' => $start_utc));
-        return $this->fill_days($rows, $start, $days);
-    }
-
-    /** Daily NEW followers over the window (follower growth), zero-filled. */
     public function follower_series($creator_id, $days = 30, $tz = 'UTC'){
         list($start, $start_utc, $off, $days) = $this->day_window($days, $tz);
         $rows = parent::select(
@@ -187,29 +118,22 @@ class AnalyticsModel extends Model {
         return array('grid' => $grid, 'max' => $max);
     }
 
-    /** Content mix: posts / views / revenue split by audience type (free / subscribers / ppv). */
+    /** Content mix: published posts and their views split by what they carry (image / video / text only, by the cover). */
     public function content_mix($creator_id){
         $rows = parent::select(
-            "SELECT audience, COUNT(*) AS posts, COALESCE(SUM(views),0) AS views, COALESCE(SUM(earnings_cents),0) AS earnings
-             FROM posts WHERE creator_id = :c AND state = 'published' GROUP BY audience",
+            "SELECT COALESCE((SELECT ma.type FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                              WHERE pa.post_id = p.id ORDER BY pa.is_cover DESC, pa.asset_id ASC LIMIT 1), 'text') AS kind,
+                    COUNT(*) AS posts, COALESCE(SUM(p.views),0) AS views
+             FROM posts p WHERE p.creator_id = :c AND p.state = 'published' GROUP BY kind",
             array('c' => (int) $creator_id));
         $mix = array();
         foreach ((array) $rows as $r) {
-            $mix[(string) $r['audience']] = array(
-                'posts'    => (int) $r['posts'],
-                'views'    => (int) $r['views'],
-                'earnings' => (int) $r['earnings'],
-            );
+            $k = in_array((string) $r['kind'], array('image', 'video'), true) ? (string) $r['kind'] : 'text';
+            if (!isset($mix[$k])) { $mix[$k] = array('posts' => 0, 'views' => 0); }
+            $mix[$k]['posts'] += (int) $r['posts'];
+            $mix[$k]['views'] += (int) $r['views'];
         }
         return $mix;
-    }
-
-    /** Full credit-ledger rows for the CSV export (newest first). */
-    public function export_rows($creator_id){
-        return (array) parent::select(
-            "SELECT created_at, type, credits, balance_after, description
-             FROM credit_transactions WHERE user_id = :c ORDER BY id DESC",
-            array('c' => (int) $creator_id));
     }
 
     /** The UTC start of a range window (for scoping breakdowns to the selected range). */
@@ -240,21 +164,15 @@ class AnalyticsModel extends Model {
         return array('current' => $cur, 'previous' => $prev, 'delta' => $delta, 'start_utc' => $start_utc);
     }
 
-    /** Revenue (cents) / views / new followers / new subscribers within [start, end). */
+    /** Views / new followers / posts / engagement within [start, end). */
     private function window_totals($creator_id, $start_utc, $end_utc){
         $c = (int) $creator_id;
         $p = array('c' => $c, 's' => $start_utc, 'e' => $end_utc);
-        $rev = parent::select(
-            "SELECT COALESCE(SUM(credits),0) * 10 AS n FROM credit_transactions
-             WHERE user_id = :c AND type IN " . self::REVENUE_TYPES . "
-               AND created_at >= :s AND created_at < :e", $p);
         $views = parent::select(
             "SELECT COUNT(*) AS n FROM post_views pv JOIN posts po ON po.id = pv.post_id
              WHERE po.creator_id = :c AND pv.created_at >= :s AND pv.created_at < :e", $p);
         $fol = parent::select(
             "SELECT COUNT(*) AS n FROM follows WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
-        $sub = parent::select(
-            "SELECT COUNT(*) AS n FROM creator_subscriptions WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
         $posts = parent::select(
             "SELECT COUNT(*) AS n FROM posts WHERE creator_id = :c AND state = 'published' AND published_at >= :s AND published_at < :e", $p);
         $likes = parent::select(
@@ -263,28 +181,22 @@ class AnalyticsModel extends Model {
         $comments = parent::select(
             "SELECT COUNT(*) AS n FROM post_comments pc JOIN posts po ON po.id = pc.post_id
              WHERE po.creator_id = :c AND pc.deleted_at IS NULL AND pc.created_at >= :s AND pc.created_at < :e", $p);
-        $unlocks = parent::select(
-            "SELECT COUNT(*) AS n FROM ppv_unlocks WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
-        $ppv_views = parent::select(
-            "SELECT COUNT(*) AS n FROM post_views pv JOIN posts po ON po.id = pv.post_id
-             WHERE po.creator_id = :c AND po.audience = 'ppv' AND pv.created_at >= :s AND pv.created_at < :e", $p);
         $g = function ($r) { return (int) (is_array($r) && count($r) ? $r[0]['n'] : 0); };
-        $v = $g($views); $l = $g($likes); $cm = $g($comments); $u = $g($unlocks); $pvv = $g($ppv_views);
+        $v = $g($views); $l = $g($likes); $cm = $g($comments);
         return array(
-            'revenue_cents' => $g($rev), 'views' => $v, 'followers' => $g($fol), 'subscribers' => $g($sub),
-            'posts' => $g($posts), 'likes' => $l, 'comments' => $cm, 'unlocks' => $u, 'ppv_views' => $pvv,
-            // Rates (percent, 1 dp): interactions per view, and PPV unlocks per PPV view.
+            'views' => $v, 'followers' => $g($fol),
+            'posts' => $g($posts), 'likes' => $l, 'comments' => $cm,
+            // Rate (percent, 1 dp): interactions per view.
             'engagement'  => $v > 0 ? round(($l + $cm) / $v * 100, 1) : 0,
-            'unlock_rate' => $pvv > 0 ? round($u / $pvv * 100, 1) : 0,
         );
     }
 
-    /** Font Awesome brand icon per Post for Me platform key (Fanvue is not a brand icon). */
+    /** Font Awesome brand icon per Post for Me platform key. */
     public static function platform_icon($platform){
         $m = array('x' => 'fa-brands fa-x-twitter', 'facebook' => 'fa-brands fa-facebook', 'instagram' => 'fa-brands fa-instagram',
                    'tiktok' => 'fa-brands fa-tiktok', 'tiktok_business' => 'fa-brands fa-tiktok', 'youtube' => 'fa-brands fa-youtube',
                    'pinterest' => 'fa-brands fa-pinterest', 'linkedin' => 'fa-brands fa-linkedin', 'threads' => 'fa-brands fa-threads',
-                   'bluesky' => 'fa-brands fa-bluesky', 'fanvue' => 'fa-solid fa-bolt');
+                   'bluesky' => 'fa-brands fa-bluesky');
         return $m[strtolower((string) $platform)] ?? 'fa-solid fa-share-nodes';
     }
 
@@ -308,15 +220,13 @@ class AnalyticsModel extends Model {
 
     /**
      * Every published or scheduled post with lifetime counters, views inside the window,
-     * PPV unlocks, and where it was cross-posted (social platforms + Fanvue). Newest first.
+     * and where it was cross-posted (social platforms). Newest first.
      */
     public function posts_table($creator_id, $start_utc, $limit = 200){
         $c = (int) $creator_id; $limit = max(1, min(500, (int) $limit));
         $rows = (array) parent::select(
             "SELECT p.id, p.caption, p.audience, p.state, p.published_at, p.scheduled_at, p.views, p.likes, p.comments,
-                    p.earnings_cents, p.ppv_price_credits, p.fanvue_post_uuid,
-                    (SELECT COUNT(*) FROM post_views pv WHERE pv.post_id = p.id AND pv.created_at >= :s) AS views_period,
-                    (SELECT COUNT(*) FROM ppv_unlocks u WHERE u.post_id = p.id) AS unlocks
+                    (SELECT COUNT(*) FROM post_views pv WHERE pv.post_id = p.id AND pv.created_at >= :s) AS views_period
              FROM posts p
              WHERE p.creator_id = :c AND p.state IN ('published', 'scheduled')
              ORDER BY COALESCE(p.published_at, p.scheduled_at) DESC, p.id DESC
@@ -352,12 +262,10 @@ class AnalyticsModel extends Model {
         foreach ($rows as &$r) {
             $pid   = (int) $r['id'];
             $plats = isset($by_post[$pid]) ? array_values($by_post[$pid]['platforms']) : array();
-            if (!empty($r['fanvue_post_uuid'])) { $plats[] = 'fanvue'; }
             $r['platforms']    = $plats;
-            $r['share_status'] = isset($by_post[$pid]) ? $by_post[$pid]['status'] : (!empty($r['fanvue_post_uuid']) ? 'delivered' : '');
+            $r['share_status'] = isset($by_post[$pid]) ? $by_post[$pid]['status'] : '';
             $r['social']       = $social[$pid] ?? null;
             $views = (int) $r['views'];
-            $r['unlock_rate']  = ($r['audience'] === 'ppv' && $views > 0) ? round((int) $r['unlocks'] / $views * 100, 1) : null;
             $r['engagement']   = $views > 0 ? round(((int) $r['likes'] + (int) $r['comments']) / $views * 100, 1) : null;
         }
         unset($r);
@@ -366,7 +274,7 @@ class AnalyticsModel extends Model {
 
     /**
      * Cross-posting within the window: share jobs per platform, delivery buckets, distinct posts
-     * shared (social + Fanvue), and the latest jobs. `metrics` adds lifetime engagement per
+     * shared, and the latest jobs. `metrics` adds lifetime engagement per
      * platform for everything shared through us, pulled from the platforms' feeds via Post for Me.
      */
     public function share_stats($creator_id, $start_utc, $recent = 6){
@@ -395,16 +303,6 @@ class AnalyticsModel extends Model {
                                 'bucket' => self::share_bucket($j['status']), 'created_at' => (string) $j['created_at']);
             }
         }
-        $fv = parent::select(
-            "SELECT COUNT(*) AS n FROM posts WHERE creator_id = :c AND fanvue_post_uuid IS NOT NULL
-               AND COALESCE(published_at, created_at) >= :s",
-            array('c' => $c, 's' => (string) $start_utc));
-        $fanvue = (int) (is_array($fv) && count($fv) ? $fv[0]['n'] : 0);
-        if ($fanvue > 0) { $per_platform['fanvue'] = $fanvue; $targets += $fanvue; }
-        $fv_posts = (array) parent::select(
-            "SELECT id FROM posts WHERE creator_id = :c AND fanvue_post_uuid IS NOT NULL AND COALESCE(published_at, created_at) >= :s",
-            array('c' => $c, 's' => (string) $start_utc));
-        foreach ($fv_posts as $r) { $posts_shared[(int) $r['id']] = true; }
         arsort($per_platform);
         $metrics = array();
         foreach ((new SocialPostMetricsModel())->totals_by_platform($c) as $m) {
@@ -413,7 +311,7 @@ class AnalyticsModel extends Model {
                 'comments' => (int) $m['comments'], 'shares' => (int) $m['shares'], 'fetched_at' => (string) $m['fetched_at']);
         }
         return array(
-            'jobs'         => count($jobs) + $fanvue,
+            'jobs'         => count($jobs),
             'targets'      => $targets,
             'posts_shared' => count($posts_shared),
             'per_platform' => $per_platform,
@@ -452,80 +350,16 @@ class AnalyticsModel extends Model {
         return $out;
     }
 
-    /** Top published posts, ranked by earnings first then views (top-earning content). */
+    /** Top published posts, ranked by views then likes. */
     public function top_posts($creator_id, $limit = 5){
         $limit = max(1, min(20, (int) $limit));
         return parent::select(
-            "SELECT id, caption, audience, views, likes, comments, earnings_cents, published_at
+            "SELECT id, caption, views, likes, comments, published_at
              FROM posts
              WHERE creator_id = :c AND state = 'published'
-             ORDER BY earnings_cents DESC, views DESC
+             ORDER BY views DESC, likes DESC
              LIMIT $limit",
             array('c' => (int) $creator_id));
-    }
-
-    /**
-     * Unified recent sales across every paid offering (PPV, bundles, events, services).
-     * Amounts are the gross price the buyer paid, in credits. COLLATE reconciles the
-     * differing text collations across the joined title columns.
-     */
-    /**
-     * What fans paid the creator since $since_utc, in CENTS, before the platform take rate:
-     * pay-per-view, bundles, paid messages, events and services (credits, $1 = 10), plus one
-     * month of every paid membership that is active now (weekly/yearly prices scaled to a month).
-     */
-    public function gross_sales_cents($creator_id, $since_utc){
-        $c = (int) $creator_id; $s = (string) $since_utc;
-        $r = parent::select(
-            "SELECT COALESCE(SUM(credits), 0) AS n FROM (
-                SELECT pu.price_credits AS credits FROM ppv_unlocks pu WHERE pu.creator_id = :c1 AND pu.created_at >= :s1
-                UNION ALL SELECT bu.price_credits FROM bundle_unlocks bu WHERE bu.creator_id = :c2 AND bu.created_at >= :s2
-                UNION ALL SELECT mu.price_credits FROM message_unlocks mu WHERE mu.creator_id = :c3 AND mu.created_at >= :s3
-                UNION ALL SELECT er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c4 AND er.status <> 'refunded' AND er.created_at >= :s4
-                UNION ALL SELECT sp.price_credits FROM service_purchases sp JOIN services sv ON sv.id = sp.service_id WHERE sv.creator_id = :c5 AND sp.status = 'paid' AND sp.created_at >= :s5
-             ) x",
-            array('c1' => $c, 's1' => $s, 'c2' => $c, 's2' => $s, 'c3' => $c, 's3' => $s, 'c4' => $c, 's4' => $s, 'c5' => $c, 's5' => $s));
-        $cents = (int) ((is_array($r) && count($r)) ? $r[0]['n'] : 0) * 10;
-        $m = parent::select(
-            "SELECT COALESCE(SUM(CASE billing_interval WHEN 'week' THEN price_cents * 52 / 12 WHEN 'year' THEN price_cents / 12 ELSE price_cents END), 0) AS n
-             FROM creator_subscriptions WHERE creator_id = :c AND status = 'active' AND is_free = 0",
-            array('c' => $c));
-        return $cents + (int) round((float) ((is_array($m) && count($m)) ? $m[0]['n'] : 0));
-    }
-
-    public function recent_sales($creator_id, $limit = 8){
-        $limit = max(1, min(50, (int) $limit));
-        $c = (int) $creator_id;
-        return (array) parent::select(
-            "SELECT x.kind, x.credits, x.created_at, x.item FROM (
-                SELECT 'ppv' AS kind, pu.price_credits AS credits, pu.created_at AS created_at, p.caption COLLATE utf8mb4_unicode_ci AS item
-                  FROM ppv_unlocks pu JOIN posts p ON p.id = pu.post_id
-                  WHERE pu.creator_id = :c1 AND pu.price_credits > 0
-                UNION ALL
-                SELECT 'bundle', bu.price_credits, bu.created_at, b.name COLLATE utf8mb4_unicode_ci
-                  FROM bundle_unlocks bu JOIN content_bundles b ON b.id = bu.bundle_id
-                  WHERE bu.creator_id = :c2 AND bu.price_credits > 0
-                UNION ALL
-                SELECT 'event', er.price_credits, er.created_at, e.title COLLATE utf8mb4_unicode_ci
-                  FROM event_registrations er JOIN events e ON e.id = er.event_id
-                  WHERE e.creator_id = :c3 AND er.status <> 'refunded' AND er.price_credits > 0
-                UNION ALL
-                SELECT 'service', sp.price_credits, sp.created_at, s.name COLLATE utf8mb4_unicode_ci
-                  FROM service_purchases sp JOIN services s ON s.id = sp.service_id
-                  WHERE s.creator_id = :c4 AND sp.status = 'paid' AND sp.price_credits > 0
-                UNION ALL
-                SELECT 'tip', lt.credits, lt.created_at, CONCAT('Tip in ', COALESCE(e.title, s2.name, 'a call')) COLLATE utf8mb4_unicode_ci
-                  FROM live_tips lt
-                  LEFT JOIN events e ON lt.kind = 'event' AND e.id = lt.ref_id
-                  LEFT JOIN service_purchases sp2 ON lt.kind = 'booking' AND sp2.id = lt.ref_id
-                  LEFT JOIN services s2 ON s2.id = sp2.service_id
-                  WHERE lt.creator_id = :c5
-                UNION ALL
-                SELECT 'replay', ru.price_credits, ru.created_at, CONCAT('Replay: ', e.title) COLLATE utf8mb4_unicode_ci
-                  FROM replay_unlocks ru JOIN events e ON e.id = ru.event_id
-                  WHERE ru.creator_id = :c6
-             ) x ORDER BY x.created_at DESC LIMIT $limit",
-            array('c1' => $c, 'c2' => $c, 'c3' => $c, 'c4' => $c, 'c5' => $c, 'c6' => $c));
     }
 
     /** Accounts that signed up from this creator's page (?ref=), and how many of them are on a paid plan now. */
@@ -540,48 +374,4 @@ class AnalyticsModel extends Model {
         return array('signups' => (int) ($r['n'] ?? 0), 'paid' => (int) ($r['paid'] ?? 0), 'credits' => (is_array($c) && count($c)) ? (int) $c[0]['n'] : 0);
     }
 
-    /** Paying-customer metrics across all offerings: distinct buyers, repeat rate, avg spend. */
-    public function customer_stats($creator_id){
-        $c = (int) $creator_id;
-        $rows = (new FanSpendModel())->by_fan($c);   // the one definition of what a fan has spent (now includes paid messages)
-        $customers = 0; $repeat = 0; $credits = 0;
-        foreach ((array) $rows as $r) {
-            $customers++;
-            if ((int) $r['purchases'] > 1) { $repeat++; }
-            $credits += (int) $r['credits'];
-        }
-        return array(
-            'customers'   => $customers,
-            'repeat'      => $repeat,
-            'repeat_pct'  => $customers > 0 ? (int) round($repeat / $customers * 100) : 0,
-            'arpu_cents'  => $customers > 0 ? (int) round($credits * 10 / $customers) : 0,
-            'gross_cents' => $credits * 10,
-        );
-    }
-
-    /** New vs. churned subscribers within the window, and the net change. */
-    public function subscriber_movement($creator_id, $days, $tz){
-        list(, $start_utc) = $this->day_window($days, $tz);
-        $c = (int) $creator_id;
-        $new = parent::select(
-            "SELECT COUNT(*) AS n FROM creator_subscriptions WHERE creator_id = :c AND created_at >= :s",
-            array('c' => $c, 's' => $start_utc));
-        $churn = parent::select(
-            "SELECT COUNT(*) AS n FROM creator_subscriptions WHERE creator_id = :c AND canceled_at IS NOT NULL AND canceled_at >= :s",
-            array('c' => $c, 's' => $start_utc));
-        $g = function ($r) { return (int) (is_array($r) && count($r) ? $r[0]['n'] : 0); };
-        $n = $g($new); $ch = $g($churn);
-        return array('new' => $n, 'churned' => $ch, 'net' => $n - $ch);
-    }
-
-    /** Recent PPV unlocks (earning events) for the activity feed. */
-    public function recent_unlocks($creator_id, $limit = 8){
-        $limit = max(1, min(50, (int) $limit));
-        return parent::select(
-            "SELECT u.price_credits, u.created_at, p.caption
-             FROM ppv_unlocks u JOIN posts p ON p.id = u.post_id
-             WHERE u.creator_id = :c
-             ORDER BY u.id DESC LIMIT $limit",
-            array('c' => (int) $creator_id));
-    }
 }

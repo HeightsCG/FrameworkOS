@@ -3,9 +3,7 @@
  * Creator verification by ID check (2026-10-21, replacing the typed-name request an admin approved by hand). The creator
  * opens a Didit session on the identity workflow (WORKFLOW_ID: ID document + live selfie + face match); Didit's decision turns the verified badge on or off, with no admin step. The admin Verification list is the
  * record: result, the name read from the ID, when. Staff can remove a badge (revoke).
- *
- * The age check (AgeVerification) is separate: it estimates age from a selfie and never reads an ID, so it does not verify
- * identity. Both arrive on the same Didit webhook (WebhookController::diditAction tries the age check first).
+ * Results arrive on the Didit webhook (WebhookController::diditAction).
  */
 class IdentityVerification {
 
@@ -51,7 +49,7 @@ class IdentityVerification {
         return array('ok' => true, 'url' => (string) $s['url'], 'error' => '');
     }
 
-    /** A Didit webhook the age check didn't recognise (signature already verified). True when the session was ours. */
+    /** A Didit webhook (signature already verified). True when the session was ours. */
     public static function apply_payload(array $payload): bool {
         $r = DiditProvider::parse_webhook($payload);
         return self::apply_result((string) $r['ref'], (string) $r['status'], (int) $r['user_id']);

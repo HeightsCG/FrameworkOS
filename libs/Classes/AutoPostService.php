@@ -67,8 +67,7 @@ class AutoPostService {
             $acct = (new EromifyAccountsModel())->get_connected_for_user($creator_id);
             if (!$acct) { return self::fail(null, 'Eromify is not connected. Connect it in Settings > Integrations.', $meta); }
             if (trim((string) ($rule['character_id'] ?? '')) === '') { return self::fail(null, 'This automation has no character selected.', $meta); }
-            $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
-            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $image_brief, $size, $level);
+            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $image_brief, $size);   // always the safe model order
             if (!$er['ok']) {
                 (new EromifyAccountsModel())->set_error($creator_id, $er['error']);
                 return self::fail(null, 'Character image failed: ' . $er['error'], $meta);
@@ -262,15 +261,11 @@ class AutoPostService {
         $caption    = (string) $caption;
 
         // 4) Create the post.
-        $audience = (($rule['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
         $posts    = new PostsModel();
-        $post_id  = (int) $posts->create_draft($creator_id, $caption, $audience);
+        $post_id  = (int) $posts->create_draft($creator_id, $caption);
         if ($post_id <= 0) { return self::fail(null, 'Could not create the post.'); }
         $posts->update_fields($creator_id, $post_id, array(
             'caption'          => $caption,
-            'audience'         => $audience,
-            'tier_id'          => 0,
-            'tier_ids'         => ($audience === 'subscribers' && (int) ($rule['tier_id'] ?? 0) > 0) ? array((int) $rule['tier_id']) : array(),
             'comments_enabled' => !empty($rule['comments_enabled']) ? 1 : 0,
             'on_cls'           => (isset($rule['on_cls']) && (int) $rule['on_cls'] === 0) ? 0 : 1,   // off = socials-only post, never on the page or the Home feed
         ));

@@ -1,27 +1,24 @@
 <?php
 /**
  * Welcome / trigger messages a creator sends automatically on Creator Link Studio events
- * (new follower, new subscriber, first message, new purchase). One row per trigger per
- * creator; auto_message_sends records each delivery so a fan gets a trigger once
- * (purchases append the purchase reference so they can repeat).
+ * (new follower, first message). One row per trigger per creator; auto_message_sends
+ * records each delivery so a fan gets a trigger once.
  */
 class AutoMessagesModel extends Model {
 
-    const TRIGGERS = array('new_follower', 'new_subscriber', 'first_message', 'new_purchase');
+    const TRIGGERS = array('new_follower', 'first_message');
 
     /** Every account starts with these, switched on. A saved row (even a disabled one) replaces the default. */
     const DEFAULTS = array(
         'new_follower'   => 'Thanks for the follow! I post new content here all the time. Message me anytime, I read everything.',
-        'new_subscriber' => 'Welcome in! You now have full access to everything I post. Say hi anytime, I love hearing from you.',
         'first_message'  => 'Hey! Thanks for reaching out. I read every message and reply as soon as I can.',
-        'new_purchase'   => 'Thank you for the support! Enjoy, and let me know what you think.',
     );
 
     public static function is_trigger($key){ return in_array((string) $key, self::TRIGGERS, true); }
 
     private static function default_row($creator_id, $trigger){
         return array('id' => 0, 'creator_id' => (int) $creator_id, 'trigger_key' => (string) $trigger, 'enabled' => 1,
-            'text' => (string) (self::DEFAULTS[$trigger] ?? ''), 'price_credits' => 0, 'asset_ids' => array(), 'updated_at' => null, 'is_default' => true);
+            'text' => (string) (self::DEFAULTS[$trigger] ?? ''), 'asset_ids' => array(), 'updated_at' => null, 'is_default' => true);
     }
 
     /** trigger_key => row for a creator: the saved row, or the built-in default. */
@@ -56,13 +53,12 @@ class AutoMessagesModel extends Model {
     }
 
     /** Upsert one trigger. $asset_ids are trusted (the caller verifies ownership). */
-    public function save($creator_id, $trigger, $text, $enabled, array $asset_ids = array(), $price_credits = 0){
+    public function save($creator_id, $trigger, $text, $enabled, array $asset_ids = array()){
         if (!self::is_trigger($trigger)) { return false; }
         $asset_ids = array_values(array_unique(array_filter(array_map('intval', $asset_ids))));
         $data = array(
             'enabled'       => $enabled ? 1 : 0,
             'text'          => mb_substr((string) $text, 0, 2000),
-            'price_credits' => empty($asset_ids) ? 0 : max(0, (int) $price_credits),
             'asset_ids'     => empty($asset_ids) ? null : json_encode($asset_ids),
             'updated_at'    => date('Y-m-d H:i:s'),
         );
@@ -78,7 +74,7 @@ class AutoMessagesModel extends Model {
     public function delete_one($creator_id, $trigger){
         $cur = $this->get_one($creator_id, $trigger);
         if (!$cur) { return false; }
-        return $this->save($creator_id, $trigger, (string) $cur['text'], false, (array) $cur['asset_ids'], (int) $cur['price_credits']);
+        return $this->save($creator_id, $trigger, (string) $cur['text'], false, (array) $cur['asset_ids']);
     }
 
     /** Claim a delivery slot. False when this fan already got this trigger (ref). */

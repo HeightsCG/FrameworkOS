@@ -59,7 +59,7 @@ if (!empty($page['compare']['points'])) {
     echo Sections::close();
 }
 
-// How to set it up, in order; what the fan sees; what each plan includes for this feature (SEO audit 2026-10-12: these pages were thin).
+// How to set it up, in order; what the audience sees; what each plan includes for this feature (SEO audit 2026-10-12: these pages were thin).
 if (!empty($page['steps'])) {
     $st = (array) $page['steps']; $last = count($st) - 1;
     echo Sections::open('alt', (string) ($page['steps_title'] ?? 'How do you set up ' . (string) ($page['nav_title'] ?? 'it') . '?'));
@@ -68,10 +68,10 @@ if (!empty($page['steps'])) {
     echo '</ol>' . Sections::close();
 }
 if (!empty($page['fan_side'])) {
-    echo Sections::prose('white', (string) ($page['fan_side_title'] ?? 'What does the fan see?'), array((string) $page['fan_side']));
+    echo Sections::prose('white', (string) ($page['fan_side_title'] ?? 'What does your audience see?'), array((string) $page['fan_side']));
 }
 if (!empty($page['limits'])) {
-    $tiers = PagesController::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+    $tiers = PagesController::paid_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
     $labels = array(); foreach (PlanTiers::ROWS as $r) { $labels[$r['key']] = $r['label']; }
     $head = array(''); foreach ($tiers as $t) { $head[] = Sections::e($t['name']); }
     $trows = array();
@@ -98,7 +98,7 @@ if (!empty($siblings)) {
     foreach ($siblings as $s_slug => $s) {
         $cards[] = array('icon' => 'layers', 'title' => $s['title'], 'text' => $s['description'], 'link' => array('Explore ' . Sections::tc((string) ($s['nav_title'] ?? $s['title'])), (string) ($s['path'] ?? '/features/' . $s_slug)));   // descriptive anchor text, not "Read More"
     }
-    $cards[] = array('icon' => 'list', 'title' => 'Everything else', 'text' => 'The full feature list: your page, ways to get paid, publishing, the inbox and analytics.', 'link' => array('See All Features', '/features'));
+    $cards[] = array('icon' => 'list', 'title' => 'Everything else', 'text' => 'The full feature list: AI influencers, your page, publishing, automations, the inbox and analytics.', 'link' => array('See All Features', '/features'));
     echo Sections::open('alt', 'Explore more features');
     echo Sections::cards($cards, count($cards) % 4 === 0 ? 4 : 3);   // related pages + "Everything else" fill whole rows
     echo Sections::close();

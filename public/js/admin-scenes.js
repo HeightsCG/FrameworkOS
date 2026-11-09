@@ -32,7 +32,6 @@
         $('#admSceneSort').val(s ? s.sort_order : 0);
         $('#admScenePrompt').val(s ? s.base_prompt : '');
         $('#admSceneActive').prop('checked', s ? !!s.is_active : true);
-        $('#admSceneAdult').prop('checked', s ? !!s.is_adult : false);
         $('#admSceneThumb').val('');
         set_thumb(s ? s.thumb_url : '');
         modal.show();
@@ -61,7 +60,7 @@
     $('#admSceneSave').on('click', function () {
         clear_errors(); busy(true);
         var body = { id: $('#admSceneId').val(), title: $('#admSceneName').val(), category: $('#admSceneCat').val(), default_aspect: $('#admSceneAspect').val(),
-            sort_order: $('#admSceneSort').val(), base_prompt: $('#admScenePrompt').val(), is_active: $('#admSceneActive').prop('checked') ? 1 : 0, is_adult: $('#admSceneAdult').prop('checked') ? 1 : 0 };
+            sort_order: $('#admSceneSort').val(), base_prompt: $('#admScenePrompt').val(), is_active: $('#admSceneActive').prop('checked') ? 1 : 0 };
         ApiDataSvc.apiCall('post', 'admin_scene_save', body, function (r) {
             var o = parse(r);
             if (!o || !o.success) {

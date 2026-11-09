@@ -48,6 +48,55 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['status' => $status, 'message' => $status === 'Disabled' ? 'Account suspended' : 'Account reactivated']);
     }
 
+    /**
+     * Delete a user account, the same way "Delete Account" in their settings does: every recurring charge stops first
+     * (plan, add-ons), then the row is soft-deleted and the handle freed. Their sessions end on the next request.
+     */
+    public function admin_delete_userAction(){
+        $this->admin_guard();
+        $me  = (int) Session::get('user_id');
+        $uid = (int) ($this->post['user_id'] ?? 0);
+        if ($uid <= 0) { $this->jsonError('Invalid request'); }
+        if ($uid === $me) { $this->jsonError('You cannot delete your own account here.'); }
+        if (PlatformAccount::is($uid)) { $this->jsonError('This account cannot be deleted.'); }
+        $rows = $this->userModel->get_user_by_id($uid);
+        $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$u || (int) ($u['deleted'] ?? 0) === 1) { $this->jsonError('User not found'); }
+        if (!empty($u['is_admin'])) { $this->jsonError('You cannot delete another admin.'); }
+        AccountBilling::on_delete($uid);   // stop every recurring charge first
+        $this->userModel->delete_account($uid, $me);
+        PublicThumbService::queue_purge(array('creator' => $uid));   // their public copies come down
+        $this->jsonSuccess(['message' => 'Account deleted', 'redirect' => '/admin/users']);
+    }
+
+    /** Edit a user's name, username, email, phone, business and website (Edit User on /admin/user/<id>). Staff skip the username cooldown and the password check on email changes. */
+    public function admin_update_userAction(){
+        $this->admin_guard();
+        $uid  = (int) ($this->post['user_id'] ?? 0);
+        $rows = $uid > 0 ? $this->userModel->get_user_by_id($uid) : null;
+        $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$u || (int) ($u['deleted'] ?? 0) === 1) { $this->jsonError('User not found'); }
+        $t = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };   // POST arrives html-encoded
+        $first = $t('first_name'); $last = $t('last_name'); $email = $t('user_email');
+        $uname = ltrim(strtolower($t('u_name')), '@');
+        if ($first === '') { $this->jsonError('First name is required', ['errors' => [['input' => 'eu_first_name', 'msg' => 'First name is required']]]); }
+        if ($last === '')  { $this->jsonError('Last name is required', ['errors' => [['input' => 'eu_last_name', 'msg' => 'Last name is required']]]); }
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) { $this->jsonError('A valid email is required', ['errors' => [['input' => 'eu_user_email', 'msg' => 'A valid email is required']]]); }
+        if (strtolower($email) !== strtolower((string) $u['user_email']) && $this->userModel->email_exists($email)) {
+            $this->jsonError('That email is already in use', ['errors' => [['input' => 'eu_user_email', 'msg' => 'That email is already in use']]]);
+        }
+        $names = new UsernameModel();
+        $uname_changed = $uname !== strtolower((string) $u['u_name']);
+        if ($uname_changed) {
+            $fe = $names->validate_format($uname);
+            if ($fe !== '') { $this->jsonError($fe, ['errors' => [['input' => 'eu_u_name', 'msg' => $fe]]]); }
+            if ($names->is_taken($uname, $uid)) { $this->jsonError('That username is not available', ['errors' => [['input' => 'eu_u_name', 'msg' => 'That username is not available']]]); }
+        }
+        $this->userModel->update_profile($uid, $first, $last, $email, $t('user_phone'), $t('business_name'), $t('website_url'), (int) Session::get('user_id'));
+        if ($uname_changed) { $names->change($uid, (string) $u['u_name'], $uname); }
+        $this->jsonSuccess(['message' => 'User updated']);
+    }
+
     /** Admin > Leads > Export CSV: every lead (or one tool's), newest first, as a download. Audited here (no JSON reply). */
     public function admin_leads_csvAction(){
         $this->admin_guard();
@@ -159,7 +208,10 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['plans' => implode(',', $keys), 'message' => $keys ? 'Cross-promotion plans saved' : 'Cross-promotion is off for every plan']);
     }
 
-    /** Approve or block a piece of content in the moderation queue. */
+    /**
+     * Approve or block a piece of content in the moderation queue. Approving a flagged image clears it: drafts the
+     * content check held for it are released and their creators told they can publish (ModerationHold).
+     */
     public function admin_moderateAction(){
         $this->admin_guard();
         $asset_id = (int) ($this->post['asset_id'] ?? 0);
@@ -169,23 +221,8 @@ class ApiAdminController extends BaseApiController {
             $this->jsonError('Invalid request');
         }
         (new AdminModel())->set_moderation($asset_id, $map[$action]);
-        $this->jsonSuccess();
-    }
-
-    /** Refund a PPV or bundle purchase (reverses credits both ways + revokes access). */
-    public function admin_refundAction(){
-        $this->admin_guard();
-        $me     = (int) Session::get('user_id');
-        $kind   = (string) ($this->post['kind'] ?? '');
-        $ref_id = (int) ($this->post['ref_id'] ?? 0);
-        $fan_id = (int) ($this->post['fan_id'] ?? 0);
-        $reason = trim(html_entity_decode((string) ($this->post['reason'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        if (!in_array($kind, ['ppv', 'bundle', 'message'], true) || $ref_id <= 0 || $fan_id <= 0) {
-            $this->jsonError('Invalid request');
-        }
-        $res = (new RefundsModel())->refund($kind, $ref_id, $fan_id, $me, $reason);
-        if (empty($res['ok'])) { $this->jsonError((string) ($res['message'] ?? 'Refund failed')); }
-        $this->jsonSuccess(['amount' => $res['amount'], 'clawback_ok' => $res['clawback_ok']]);
+        $released = $action === 'approve' ? ModerationHold::release_posts_for_asset($asset_id) : [];
+        $this->jsonSuccess(['released_posts' => $released]);
     }
 
     /* ---------- Team / seats (PRD §40) ---------- */
@@ -272,25 +309,20 @@ class ApiAdminController extends BaseApiController {
         return $u;
     }
 
-    /** Add or remove wallet credits or AI credits, with a reason the user sees in their history. */
+    /** Add or remove AI credits, with a reason the user sees in their history. */
     public function admin_adjust_creditsAction(){
         $this->admin_guard();
         $u = $this->target_user();
-        $wallet  = (string) ($this->post['wallet'] ?? 'credits');
         $amount  = (int) ($this->post['amount'] ?? 0);
         $reason  = trim(html_entity_decode((string) ($this->post['reason'] ?? ''), ENT_QUOTES, 'UTF-8'));
         if ($amount === 0 || abs($amount) > 100000) { $this->jsonError('Enter an amount between -100,000 and 100,000'); }
         if ($reason === '') { $this->jsonError('Add a reason'); }
         $desc = mb_substr('Adjustment by support: ' . $reason, 0, 255);
-        if ($wallet === 'ai') {
-            $bal = (new AiCreditsModel())->apply_delta((int) $u['user_id'], $amount, 'admin_adjust', $desc);
-        } else {
-            $bal = (new CreditsModel())->apply_delta((int) $u['user_id'], $amount, 'admin_adjust', $desc);
-        }
+        $bal = (new AiCreditsModel())->apply_delta((int) $u['user_id'], $amount, 'admin_adjust', $desc);
         if ($bal === false) { $this->jsonError('That would take the balance below zero'); }
-        $label = $wallet === 'ai' ? 'AI credits' : 'wallet credits';
+        $label = 'AI credits';
         Notify::send((int) $u['user_id'], 'credits', ($amount > 0 ? number_format($amount) . ' ' . $label . ' added' : number_format(abs($amount)) . ' ' . $label . ' removed') . ' by support', $reason,
-            $wallet === 'ai' ? '/account/billing?tab=credits' : '/account/settings?section=wallet', $wallet === 'ai' ? 'fa-wand-magic-sparkles' : 'fa-coins');
+            '/account/billing?tab=credits', 'fa-wand-magic-sparkles');
         $this->jsonSuccess(['balance' => (int) $bal, 'message' => number_format(abs($amount)) . ' ' . $label . ($amount > 0 ? ' added' : ' removed')]);
     }
 
@@ -324,15 +356,6 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Quality check recorded: ' . ImageQualityCheck::verdict($r['quality']), 'quality' => $r['quality']]);
     }
 
-    /** Reset an account's age verification: the row goes and the adult toggle turns off; the next trigger runs a fresh check. */
-    public function admin_reset_age_verificationAction(){
-        $this->admin_guard();
-        $u = $this->target_user();
-        if (!AgeVerification::reset((int) $u['user_id'])) { $this->jsonError('Could not reset the age verification.'); }
-        Notify::send((int) $u['user_id'], 'security', 'Your age verification was reset by support', 'Adult content is hidden again. Turn it back on in Settings, then Restricted content, to verify once more.', '/account/settings?section=privacy', 'fa-id-card', false, true);
-        $this->jsonSuccess(['message' => 'Age verification reset']);
-    }
-
     /** Turn email sign-in codes on or off. */
     public function admin_set_mfa_emailAction(){
         $this->admin_guard();
@@ -359,26 +382,6 @@ class ApiAdminController extends BaseApiController {
         $token = $this->userModel->set_email_verify_token((int) $u['user_id']);
         $this->notificationsModel->send_verification_email($u['user_email'], trim($u['first_name'] . ' ' . $u['last_name']), Main::get_base_domain() . '/account/verify?token=' . urlencode($token), $u['u_name']);
         $this->jsonSuccess(['message' => 'Verification email sent to ' . $u['user_email']]);
-    }
-
-    /** Cancel a fan's membership: paid ones end at the end of the paid period, free ones end now. */
-    public function admin_cancel_membershipAction(){
-        $this->admin_guard();
-        $model = new AdminModel();
-        $sub = $model->membership((int) ($this->post['membership_id'] ?? 0));
-        if (!$sub || $sub['status'] !== 'active') { $this->jsonError('Membership not found or not active'); }
-        $subs = new CreatorSubscriptionsModel();
-        if (!empty($sub['is_free'])) {
-            $subs->set_status((int) $sub['subscriber_id'], (int) $sub['id'], 'canceled');
-            $this->jsonSuccess(['message' => 'Membership canceled']);
-        }
-        $connect = (string) ($sub['creator_connect'] ?? '');
-        if ($connect === '' || empty($sub['stripe_subscription_id'])
-            || !StripeService::set_subscription_cancel_at_period_end($connect, $sub['stripe_subscription_id'], true)) {
-            $this->jsonError('Could not cancel the membership. Please try again.');
-        }
-        $subs->set_cancel_at_period_end((int) $sub['subscriber_id'], (int) $sub['id'], true);
-        $this->jsonSuccess(['message' => 'Membership will end at the end of the paid period']);
     }
 
     /** Cancel or resume a creator's own plan at the end of the current period (app-managed billing). */

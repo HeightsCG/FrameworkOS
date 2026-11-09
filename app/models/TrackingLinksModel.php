@@ -1,12 +1,12 @@
 <?php
 /**
- * Inbound tracking links (/go/<code>) and what came of them. A click sets the cls_tl cookie; follows, signups,
- * memberships and purchases made with it are logged as tracking_link_events (TrackingLinks::attribute).
- * Revenue is the sum of amount_credits. Codes starting with "cls" are system links (see TrackingLinks).
+ * Inbound tracking links (/go/<code>) and what came of them. A click sets the cls_tl cookie; follows and signups
+ * made with it are logged as tracking_link_events (TrackingLinks::attribute).
+ * Codes starting with "cls" are system links (see TrackingLinks).
  */
 class TrackingLinksModel extends Model {
 
-    const KINDS = array('click', 'follow', 'signup', 'subscription', 'ppv', 'purchase');
+    const KINDS = array('click', 'follow', 'signup');
 
     /** A live link by its code (any owner), or null. */
     public function get_by_code($code){
@@ -73,15 +73,7 @@ class TrackingLinksModel extends Model {
         return is_array($rows) && count($rows) > 0;
     }
 
-    /** Set the amount on an already logged event (the webhook learned what the fan really paid). */
-    public function update_amount($link_id, $kind, $user_id, $ref_table, $ref_id, $amount){
-        return parent::update('tracking_link_events', array('amount_credits' => (int) $amount),
-            'link_id = :l AND kind = :k AND user_id <=> :u AND ref_table <=> :t AND ref_id <=> :r',
-            array('l' => (int) $link_id, 'k' => (string) $kind, 'u' => (int) $user_id > 0 ? (int) $user_id : null,
-                  't' => $ref_table !== null && (string) $ref_table !== '' ? (string) $ref_table : null, 'r' => (int) $ref_id > 0 ? (int) $ref_id : null));
-    }
-
-    /** The creator's links with counts per kind and revenue since $start_utc (all time when ''). */
+    /** The creator's links with counts per kind since $start_utc (all time when ''). */
     public function stats($creator_id, $start_utc = ''){
         $since = $start_utc !== '' ? ' AND e.created_at >= :s' : '';
         $params = array('c' => (int) $creator_id);
@@ -90,10 +82,7 @@ class TrackingLinksModel extends Model {
             "SELECT l.id, l.code, l.label, l.target_path, l.created_at,
                     COALESCE(SUM(e.kind = 'click'), 0) AS clicks,
                     COALESCE(SUM(e.kind = 'follow'), 0) AS follows,
-                    COALESCE(SUM(e.kind = 'signup'), 0) AS signups,
-                    COALESCE(SUM(e.kind = 'subscription'), 0) AS subscriptions,
-                    COALESCE(SUM(e.kind IN ('ppv', 'purchase')), 0) AS purchases,
-                    COALESCE(SUM(e.amount_credits), 0) AS revenue
+                    COALESCE(SUM(e.kind = 'signup'), 0) AS signups
              FROM tracking_links l
              LEFT JOIN tracking_link_events e ON e.link_id = l.id" . $since . "
              WHERE l.creator_id = :c AND l.deleted = 0

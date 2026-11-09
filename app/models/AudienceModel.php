@@ -1,7 +1,6 @@
 <?php
 /**
- * Audience / lightweight CRM (PRD §26). A creator's audience is the union of everyone
- * connected to them — followers, active subscribers, and buyers (PPV + bundles) — with
+ * Audience / lightweight CRM (PRD §26). A creator's audience is their followers, with
  * platform identity only (no PII, §24.6). Creators can tag and note each fan and message
  * them via the existing messenger. Feeds broadcast targeting.
  */
@@ -10,9 +9,8 @@ class AudienceModel extends Model {
     public function __construct(){ parent::__construct(); }
 
     /**
-     * Full audience for a creator, one row per fan, richest first (by spend then name):
-     * { id, handle, name, avatar, is_creator, is_follower, is_subscriber, is_buyer,
-     *   spend_credits, purchases, followed_at, subscribed_at, last_at, tags[], note }
+     * Full audience for a creator, one row per fan, newest follower first:
+     * { id, handle, name, avatar, is_creator, is_follower, followed_at, last_at, tags[], note }
      */
     public function list_for_creator($creator_id){
         $cid = (int) $creator_id;
@@ -22,9 +20,8 @@ class AudienceModel extends Model {
             $id = (int) $id;
             if ($id > 0 && !isset($fans[$id])) {
                 $fans[$id] = array(
-                    'id' => $id, 'is_follower' => false, 'is_subscriber' => false, 'is_buyer' => false,
-                    'spend_credits' => 0, 'purchases' => 0,
-                    'followed_at' => null, 'subscribed_at' => null, 'last_at' => null,
+                    'id' => $id, 'is_follower' => false,
+                    'followed_at' => null, 'last_at' => null,
                     'tags' => array(), 'note' => '',
                 );
             }
@@ -41,28 +38,6 @@ class AudienceModel extends Model {
             $fans[(int) $r['uid']]['is_follower'] = true;
             $fans[(int) $r['uid']]['followed_at'] = (string) $r['since'];
             $bump_last($fans[(int) $r['uid']], (string) $r['since']);
-        }
-
-        // Active subscribers
-        foreach ((array) parent::select(
-            "SELECT subscriber_id AS uid, MIN(created_at) AS since FROM creator_subscriptions
-             WHERE creator_id = :c AND status = 'active' GROUP BY subscriber_id",
-            array('c' => $cid)) as $r) {
-            $ensure($fans, $r['uid']);
-            $fans[(int) $r['uid']]['is_subscriber'] = true;
-            $fans[(int) $r['uid']]['subscribed_at'] = (string) $r['since'];
-            $bump_last($fans[(int) $r['uid']], (string) $r['since']);
-        }
-
-        // Buyers: every one-time purchase (FanSpendModel, the one definition of what a fan has spent)
-        foreach ((new FanSpendModel())->by_fan($cid) as $r) {
-            $ensure($fans, $r['buyer']);
-            $row =& $fans[(int) $r['buyer']];
-            $row['is_buyer']       = true;
-            $row['purchases']     += (int) $r['purchases'];
-            $row['spend_credits'] += (int) $r['credits'];
-            $bump_last($row, (string) $r['last']);
-            unset($row);
         }
 
         if (empty($fans)) { return array(); }
@@ -96,21 +71,19 @@ class AudienceModel extends Model {
             $row['is_creator'] = !empty($idn['is_creator']);
             $out[] = $row;
         }
-        // Richest audience first, then alphabetical.
+        // Newest followers first, then alphabetical.
         usort($out, function ($a, $b) {
-            if ($a['spend_credits'] !== $b['spend_credits']) { return $b['spend_credits'] - $a['spend_credits']; }
-            return strcasecmp($a['name'], $b['name']);
+            $c = strcmp((string) $b['followed_at'], (string) $a['followed_at']);
+            return $c !== 0 ? $c : strcasecmp($a['name'], $b['name']);
         });
         return $out;
     }
 
     /** Segment counts for the filter chips. */
     public function segment_counts(array $rows){
-        $c = array('all' => count($rows), 'followers' => 0, 'subscribers' => 0, 'buyers' => 0);
+        $c = array('all' => count($rows), 'followers' => 0);
         foreach ($rows as $r) {
-            if (!empty($r['is_follower']))   { $c['followers']++; }
-            if (!empty($r['is_subscriber'])) { $c['subscribers']++; }
-            if (!empty($r['is_buyer']))      { $c['buyers']++; }
+            if (!empty($r['is_follower'])) { $c['followers']++; }
         }
         return $c;
     }
@@ -168,12 +141,8 @@ class AudienceModel extends Model {
     public function is_audience_member($creator_id, $fan_id){
         $cid = (int) $creator_id; $fid = (int) $fan_id;
         $rows = parent::select(
-            "SELECT 1 AS ok FROM follows WHERE creator_id = :c1 AND follower_id = :f1
-             UNION SELECT 1 FROM creator_subscriptions WHERE creator_id = :c2 AND subscriber_id = :f2 AND status = 'active'
-             UNION SELECT 1 FROM ppv_unlocks WHERE creator_id = :c3 AND fan_id = :f3
-             UNION SELECT 1 FROM bundle_unlocks WHERE creator_id = :c4 AND fan_id = :f4
-             LIMIT 1",
-            array('c1' => $cid, 'f1' => $fid, 'c2' => $cid, 'f2' => $fid, 'c3' => $cid, 'f3' => $fid, 'c4' => $cid, 'f4' => $fid));
+            "SELECT 1 AS ok FROM follows WHERE creator_id = :c1 AND follower_id = :f1 LIMIT 1",
+            array('c1' => $cid, 'f1' => $fid));
         return is_array($rows) && count($rows) > 0;
     }
 }

@@ -298,7 +298,6 @@
                     </div>
                 </div>
                 <div class="cs-pe__headtools">
-                    <?php echo Tutorials::button('14'); ?>
                     <button type="button" class="cs-pe__pvtoggle" id="csPePreviewBtn" aria-pressed="false" aria-controls="csPePreview">Preview</button>
                     <button type="button" class="btn-close cs-pe__close" id="csPeClose" aria-label="Close"></button>
                 </div>
@@ -309,13 +308,11 @@
                     <label class="cs-pe__navselect-label" for="csPeNavSelect">Section</label>
                     <select class="form-select cs-pe__navselect" id="csPeNavSelect">
                         <option value="content">Content</option>
-                        <option value="audience">Audience</option>
                         <option value="distribution">Distribution</option>
                         <option value="publish">Publish</option>
                     </select>
                     <div class="cs-pe__navlist" id="csPeNav">
                         <button type="button" class="cs-pe__navitem" data-section="content" aria-current="true"><span class="cs-pe__navlabel">Content</span><span class="cs-pe__navsum" data-sum="content"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
-                        <button type="button" class="cs-pe__navitem" data-section="audience"><span class="cs-pe__navlabel">Audience</span><span class="cs-pe__navsum" data-sum="audience"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
                         <button type="button" class="cs-pe__navitem" data-section="distribution"><span class="cs-pe__navlabel">Distribution</span><span class="cs-pe__navsum" data-sum="distribution"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
                         <button type="button" class="cs-pe__navitem" data-section="publish"><span class="cs-pe__navlabel">Publish</span><span class="cs-pe__navsum" data-sum="publish"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
                     </div>
@@ -359,32 +356,6 @@
                         <div class="cs-pe__switchrow">
                             <label class="cs-pe__switchtext" for="csCompComments"><span class="cs-pe__switchlabel">Allow comments</span><span class="cs-pe__switchsub">Fans can comment on this post.</span></label>
                             <div class="form-check form-switch cs-pe__switch"><input class="form-check-input" type="checkbox" role="switch" id="csCompComments" checked></div>
-                        </div>
-                    </section>
-
-                    <section class="cs-pe__section" data-section="audience" aria-labelledby="csPeH_audience" hidden>
-                        <h3 class="cs-pe__h" id="csPeH_audience" tabindex="-1">Audience</h3>
-                        <p class="cs-pe__sub">Choose who can access this post.</p>
-
-                        <div class="cs-pe__choices" id="csCompAudience" role="radiogroup" aria-label="Audience">
-                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="true" data-aud="free"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Everyone</span><span class="cs-pe__choicesub">Anyone can view this post.</span></span></button>
-                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-aud="subscribers"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Subscribers</span><span class="cs-pe__choicesub">Only active subscribers can view this post.</span></span></button>
-                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-aud="ppv"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Pay-per-view</span><span class="cs-pe__choicesub">Viewers pay to unlock this post.</span></span></button>
-                        </div>
-
-                        <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompTier" hidden>
-                            <span class="cs-pe__label" id="csCompTiersLabel">Tiers</span>
-                            <div class="cs-pe__destlist cs-pe__tierlist" id="csCompTiers" role="group" aria-labelledby="csCompTiersLabel"></div>
-                            <p class="cs-pe__error" id="csPeErr_tier" role="alert" hidden></p>
-                        </div>
-
-                        <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompPpv" hidden>
-                            <label class="cs-pe__label" for="csCompPpvPrice">Unlock price</label>
-                            <div class="cs-pe__price">
-                                <input type="number" class="form-control" id="csCompPpvPrice" min="10" max="5000" step="1" value="50" inputmode="numeric" aria-describedby="csPeErr_price">
-                                <span class="cs-pe__cur" aria-hidden="true">credits</span>
-                            </div>
-                            <p class="cs-pe__error" id="csPeErr_price" role="alert" hidden></p>
                         </div>
                     </section>
 
@@ -441,8 +412,7 @@
                     <div class="cs-pe__pvhead">
                         <span class="cs-pe__pvtitle">Preview</span>
                         <div class="cs-pe__viewseg" id="csCompView" role="group" aria-label="Preview as">
-                            <button type="button" class="cs-pe__viewopt is-on" aria-pressed="true" data-view="sub">Subscriber</button>
-                            <button type="button" class="cs-pe__viewopt" aria-pressed="false" data-view="pub">Public</button>
+                            <button type="button" class="cs-pe__viewopt is-on" aria-pressed="true" data-view="post">Post</button>
                             <button type="button" class="cs-pe__viewopt" aria-pressed="false" data-view="story" id="csCompViewStory" hidden>Story</button>
                         </div>
                     </div>
@@ -661,26 +631,7 @@
 
                     <section class="cs-ae__section" data-section="publishing" data-kind="post" aria-labelledby="csSchedH_publishing" hidden>
                         <h3 class="cs-ae__h" id="csSchedH_publishing" tabindex="-1">Publishing</h3>
-                        <p class="cs-ae__sub">Control who can see the content and how the post behaves.</p>
-
-                        <div class="cs-ae__row" id="csSchedAudienceRow">
-                            <div class="cs-ae__field">
-                                <label class="cs-ae__label" for="csSchedAudience">Audience</label>
-                                <select id="csSchedAudience" class="form-select">
-                                    <option value="free">Everyone</option>
-                                    <option value="subscribers">Subscribers</option>
-                                </select>
-                            </div>
-                            <div class="cs-ae__field cs-ae__reveal" id="csSchedTier" hidden>
-                                <label class="cs-ae__label" for="csSchedTierSel">Tier</label>
-                                <select id="csSchedTierSel" class="form-select">
-                                    <option value="">All tiers</option>
-                                    <?php foreach ((array) $this->plans as $pl): ?>
-                                    <option value="<?php echo (int) $pl['id']; ?>"><?php echo htmlspecialchars((string) $pl['name'], ENT_QUOTES, 'UTF-8'); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
+                        <p class="cs-ae__sub">Control how the post behaves.</p>
 
                         <div class="cs-ae__field cs-ae__field--switch">
                             <label class="cs-ae__label" for="csSchedAi">AI captions</label>
@@ -768,7 +719,6 @@
 window.TUT_BTN = <?php echo json_encode(array('25' => Tutorials::button('25'), '30' => Tutorials::button('30')), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;   /* Watch How buttons for the File Details drawer (studio-ai.js) */
 window.CS_CONFIG = <?php echo json_encode(array(
     'creator'  => $this->creator,
-    'plans'    => $this->plans,
     'social'   => $this->social,
     'inbox'    => $this->inbox,
     'influencers' => $this->influencers ?? array('all' => array(), 'ready' => array()),

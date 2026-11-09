@@ -2,7 +2,7 @@
    Home discovery feed. The view ships as an empty shell; every card is
    fetched from /api/feed and rendered here. Cards are NOT links — clicking
    one (or its like/comment buttons) opens the full-post lightbox, which runs
-   like / comment / view / unlock against the API. Mirrors the profile page's
+   like / comment / view against the API. Mirrors the profile page's
    post lightbox so the interaction feels identical across the app.
 
    All requests go through the shared data API, ApiDataSvc.apiCall('post', …);
@@ -13,7 +13,6 @@
     'use strict';
 
     var LOGGED_IN = true;          // filled from the feed response
-    var VIEWER_CREDITS = 0;        // viewer's credit balance, from the feed response
     var feed_offset = 0;
     var loading_feed = false;
     var has_more = false;
@@ -34,7 +33,6 @@
 
     function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmt(n) { n = +n || 0; return n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(n); }
-    function money(credits) { var n = parseInt(credits, 10) || 0; return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }   // everything inside the platform is credits
     function toast(msg) { if (window.toastr) { toastr.info(msg); } }
 
     // ------------------------------------------------------------------ feed
@@ -53,7 +51,6 @@
             $loading.prop('hidden', true); $inf_load.prop('hidden', true);
             if (!o || !o.success) { show_error(append); return; }
             LOGGED_IN = !!o.viewer_logged;
-            VIEWER_CREDITS = o.viewer_credits || 0;
             var items = o.items || [];
             if (!append) {
                 if (!items.length && !o.has_more) { $empty.prop('hidden', false); return; }   // a page can be empty when its posts are hidden from this viewer
@@ -117,18 +114,11 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) { check_new(); } });
 
     function render_card(c) {
-        var locked = !c.entitled;
         var media = c.cover
-            ? '<img class="feed-card__img' + (locked ? ' feed-card__img--locked' : '') + '" src="' + esc(c.cover) + '" alt="" loading="lazy" onerror="this.remove()">'
+            ? '<img class="feed-card__img" src="' + esc(c.cover) + '" alt="" loading="lazy" onerror="this.remove()">'
             : '<div class="feed-card__ph"><i class="fa-regular fa-image"></i></div>';
         var glyph = c.is_video ? '<span class="feed-card__glyph"><i class="fa-solid fa-play"></i></span>'
             : ((c.media_count || 0) > 1 ? '<span class="feed-card__glyph"><i class="fa-solid fa-layer-group"></i></span>' : '');
-        var lock = '';
-        if (locked) {
-            var tag = c.audience === 'ppv' ? ('Unlock &middot; ' + money(c.ppv_price_credits)) : 'Subscribers only';
-            lock = '<div class="feed-card__lock"><span class="feed-card__lock-icon"><i class="fa-solid fa-lock"></i></span>' +
-                '<span class="feed-card__lock-tag">' + tag + '</span></div>';
-        }
         var initial = esc(String(c.author || '?').replace(/^@/, '').charAt(0).toUpperCase());
         // If the avatar file can't load (deleted or missing on S3), swap in the initial instead of a broken image.
         var avatar = c.avatar
@@ -140,7 +130,7 @@
 
         var $el = $(
             '<article class="feed-card" data-id="' + c.id + '" tabindex="0" role="button" aria-label="Open post">' +
-                '<div class="feed-card__media">' + media + glyph + lock + '</div>' +
+                '<div class="feed-card__media">' + media + glyph + '</div>' +
                 '<div class="feed-card__body">' +
                     '<div class="feed-card__author">' + avatar + '<span class="feed-card__name">' + esc(c.author) + '</span></div>' +
                     cap +
@@ -223,130 +213,31 @@
         h += av + '<a class="feed-plb__author" href="' + esc(p.profile_url) + '">' + esc(p.author) + '</a>' +
             '<button type="button" class="feed-plb__report" data-report-type="post" data-report-id="' + (p.id || 0) + '" title="Report this post" aria-label="Report this post"><i class="fa-solid fa-flag"></i></button></div>';
 
-        if (p.entitled) {
-            var assets = p.assets || [];
-            h += '<div class="feed-plb__media' + (assets.length > 1 ? ' feed-plb__media--carousel' : '') + '">';
-            assets.forEach(function (a, i) {
-                var slide = (a.type === 'video')
-                    ? '<video src="' + esc(a.url) + '"' + (a.poster ? ' poster="' + esc(a.poster) + '"' : '') + ' controls preload="metadata" controlsList="nodownload"></video>'
-                    : '<img src="' + esc(a.url) + '" alt="" oncontextmenu="return false">';
-                h += '<div class="feed-plb__slide' + (i === 0 ? ' is-on' : '') + '">' + slide + '</div>';
-            });
-            if (assets.length > 1) {
-                h += '<button type="button" class="feed-plb__nav feed-plb__nav--prev" data-plb="prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>' +
-                     '<button type="button" class="feed-plb__nav feed-plb__nav--next" data-plb="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
-                     '<div class="feed-plb__dots">' + assets.map(function (a, i) { return '<span class="feed-plb__dot' + (i === 0 ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
-            }
-            if (!assets.length) { h += '<div class="feed-plb__nomedia"><i class="fa-regular fa-image"></i></div>'; }
-            h += '</div>';
-            h += '<div class="feed-plb__body">';
-            if (p.caption) { h += '<p>' + esc(p.caption).replace(/\n/g, '<br>') + '</p>'; }
-            if (p.published_at) { h += '<span class="feed-plb__date">' + esc(p.published_at) + '</span>'; }
-            h += '<div class="feed-plb__engage" id="feed_lb_engage"></div>';
-            h += '<div class="feed-plb__comments" id="feed_lb_comments"></div>';
-            h += '</div>';
-        } else if (p.audience === 'ppv') {
-            h += locked_block(p, 'Pay-per-view post',
-                (LOGGED_IN ? ('Unlock for ' + money(p.ppv_price_credits)) : 'Log in to Unlock'), 'ppv');
-            if (p.caption) { h += '<div class="feed-plb__body"><p>' + esc(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
-        } else {
-            h += locked_block(p, 'Subscribers-only post',
-                (LOGGED_IN ? 'Subscribe to unlock' : 'Log in to view'), 'sub');
-            if (p.caption) { h += '<div class="feed-plb__body"><p>' + esc(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
+        var assets = p.assets || [];
+        h += '<div class="feed-plb__media' + (assets.length > 1 ? ' feed-plb__media--carousel' : '') + '">';
+        assets.forEach(function (a, i) {
+            var slide = (a.type === 'video')
+                ? '<video src="' + esc(a.url) + '"' + (a.poster ? ' poster="' + esc(a.poster) + '"' : '') + ' controls preload="metadata" controlsList="nodownload"></video>'
+                : '<img src="' + esc(a.url) + '" alt="" oncontextmenu="return false">';
+            h += '<div class="feed-plb__slide' + (i === 0 ? ' is-on' : '') + '">' + slide + '</div>';
+        });
+        if (assets.length > 1) {
+            h += '<button type="button" class="feed-plb__nav feed-plb__nav--prev" data-plb="prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>' +
+                 '<button type="button" class="feed-plb__nav feed-plb__nav--next" data-plb="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
+                 '<div class="feed-plb__dots">' + assets.map(function (a, i) { return '<span class="feed-plb__dot' + (i === 0 ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
         }
+        if (!assets.length) { h += '<div class="feed-plb__nomedia"><i class="fa-regular fa-image"></i></div>'; }
+        h += '</div>';
+        h += '<div class="feed-plb__body">';
+        if (p.caption) { h += '<p>' + esc(p.caption).replace(/\n/g, '<br>') + '</p>'; }
+        if (p.published_at) { h += '<span class="feed-plb__date">' + esc(p.published_at) + '</span>'; }
+        h += '<div class="feed-plb__engage" id="feed_lb_engage"></div>';
+        h += '<div class="feed-plb__comments" id="feed_lb_comments"></div>';
+        h += '</div>';
         inner.innerHTML = h;
 
-        if (p.audience === 'ppv') { render_ppv_action(p); }
-        var promo_apply = document.getElementById('feed_lb_promo_apply');
-        if (promo_apply) { promo_apply.onclick = function () { apply_ppv_promo(p); }; }
-        var sub_btn = document.getElementById('feed_lb_sub');
-        if (sub_btn) { sub_btn.onclick = function () { window.location = p.profile_url; }; }
-
         plb_autoplay();
-        if (p.entitled) { render_engage(p); record_view(p); load_comments(p); }
-    }
-
-    function locked_block(p, label, btn_text, kind) {
-        var bg = p.locked_url ? ' style="background-image:url(\'' + esc(p.locked_url) + '\')"' : '';
-        if (kind === 'ppv') {
-            var promo = LOGGED_IN
-                ? '<div class="feed-plb__promo"><input type="text" id="feed_lb_promo" class="feed-plb__promo-input" placeholder="Discount code" maxlength="40" autocomplete="off">' +
-                  '<button type="button" class="feed-plb__promo-apply" id="feed_lb_promo_apply">Apply</button></div>' +
-                  '<div class="feed-plb__promo-msg" id="feed_lb_promo_msg"></div>'
-                : '';
-            return '<div class="feed-plb__locked"' + bg + '><div class="feed-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>' + label + '</span>' +
-                '<div class="feed-plb__ppv" id="feed_lb_ppv_action"></div>' + promo + '</div></div>';
-        }
-        return '<div class="feed-plb__locked"' + bg + '><div class="feed-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>' + label + '</span>' +
-            '<button type="button" class="feed-plb__unlock" id="feed_lb_sub">' + btn_text + '</button></div></div>';
-    }
-
-    // Show the viewer's balance and either an Unlock button (can afford) or an
-    // Add-credits button (short) — recomputed whenever the effective price changes.
-    function render_ppv_action(p) {
-        var wrap = document.getElementById('feed_lb_ppv_action');
-        if (!wrap) { return; }
-        if (!LOGGED_IN) {
-            wrap.innerHTML = '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Log in to Unlock</button>';
-            document.getElementById('feed_lb_ppv').onclick = function () { window.location = '/'; };
-            return;
-        }
-        var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
-        var bal     = '<div class="feed-plb__bal">Your balance: ' + money(VIEWER_CREDITS) + '</div>';
-        if (VIEWER_CREDITS >= price) {
-            wrap.innerHTML = bal + '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Unlock for ' + money(price) + '</button>';
-            var b = document.getElementById('feed_lb_ppv');
-            b.onclick = function () { unlock_ppv(p, b); };
-        } else {
-            wrap.innerHTML = bal +
-                '<div class="feed-plb__short">You need ' + money(price - VIEWER_CREDITS) + ' more to unlock this.</div>' +
-                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Buy Credits</button>';
-            document.getElementById('feed_lb_add_credits').onclick = function () { window.location = '/account/settings?section=wallet'; };
-        }
-    }
-
-    // Validate a discount code against this PPV post and reflect the new price.
-    function apply_ppv_promo(p) {
-        var input = document.getElementById('feed_lb_promo');
-        var msg   = document.getElementById('feed_lb_promo_msg');
-        var code  = input ? input.value.trim().toUpperCase() : '';
-        if (code === '') { return; }
-        ApiDataSvc.apiCall('post', 'promo_preview', { post_id: p.id, code: code }, function (resp) {
-            var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-            if (!o || !o.success) {
-                p.applied_code = null; p.effective_price = p.ppv_price_credits;
-                if (msg) { msg.textContent = (o && o.message) ? o.message : "That code isn't valid."; msg.className = 'feed-plb__promo-msg is-err'; }
-                render_ppv_action(p);
-                return;
-            }
-            p.applied_code = code; p.effective_price = o.new_price;
-            if (msg) { msg.textContent = (o.label || (o.percent_off + '% off')) + ' applied'; msg.className = 'feed-plb__promo-msg is-ok'; }
-            render_ppv_action(p);   // may flip Add-credits → Unlock if the discount brings it within budget
-        });
-    }
-
-    function unlock_ppv(p, btn) {
-        if (!LOGGED_IN) { window.location = '/'; return; }
-        var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Unlocking…';
-        ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id, code: (p.applied_code || '') }, function (resp) {
-            var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-            if (!o) { btn.disabled = false; btn.textContent = orig; toast('Could not unlock'); return; }
-            if (o.need_login) { window.location = '/'; return; }
-            if (o.need_credits) {
-                btn.disabled = false; btn.textContent = orig;
-                toast(o.message || 'Not enough credits in your wallet.');
-                setTimeout(function () { window.location = '/account/settings?section=wallet'; }, 1400);
-                return;
-            }
-            if (!o.success) { btn.disabled = false; btn.textContent = orig; toast(o.message || 'Could not unlock'); return; }
-            p.entitled = true; p.assets = o.assets || []; p.unlocked = true;
-            var c = card_by_id[p.id]; if (c) { c.entitled = true; }
-            var $card = $grid.find('.feed-card[data-id="' + p.id + '"]');
-            $card.find('.feed-card__img').removeClass('feed-card__img--locked');
-            $card.find('.feed-card__lock').remove();
-            toast('Unlocked!');
-            render_post(p);
-        });
+        render_engage(p); record_view(p); load_comments(p);
     }
 
     function close_lb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; clearInterval(plb_timer); plb_post = null; }

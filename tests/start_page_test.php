@@ -17,11 +17,11 @@ $ok(strpos($text, 'Design her face once. Make her photos and videos. Post her ev
 $ok(!StartPage::trial_open() || substr_count($text, 'Build yours free for ' . Founding::TRIAL_DAYS . ' days') === 4, 'CTA on the hero, after the gallery, at the bottom and in the sticky bar (while the trial is open)');
 $ok(strpos($html, '<p class="st-fine">Takes about a minute to start.</p>') !== false, 'the line under the hero CTA');
 $ok(strpos($text, '1. Describe her') !== false && strpos($text, '2. Lock in her face') !== false && strpos($text, '3. Post her everywhere') !== false, 'the three steps');
-$ok(strpos($html, 'class="st-type__text"') !== false && strpos($html, 'src="/landing/face.jpg"') !== false && substr_count($html, 'class="st-logos__i"') === 10, 'each step shows its output: typing prompt, face.jpg, the ten logos');
+$ok(strpos($html, 'class="st-type__text"') !== false && strpos($html, 'src="/landing/face.jpg"') !== false && substr_count($html, 'class="st-logos__i"') === 9, 'each step shows its output: typing prompt, face.jpg, the nine logos');
 $ok(strpos($text, 'Same face. Every shot.') !== false, 'gallery title');
 foreach (array('Is she really AI?', 'Do I need design skills?', 'Which platforms?', 'Can I cancel anytime?') as $q) { $ok(strpos($text, $q) !== false, 'FAQ: ' . $q); }
 preg_match('#<div class="st-step__out st-logos"[^>]*>(.*?)</div>#s', $html, $m); preg_match_all('#title="([^"]+)"#', $m[1] ?? '', $p);
-$ok(($p[1] ?? array()) === array('LinkedIn', 'Bluesky', 'X', 'Facebook', 'Instagram', 'Threads', 'TikTok', 'YouTube', 'Pinterest', 'Fanvue'), 'the logos are exactly the ten platforms');
+$ok(($p[1] ?? array()) === array('LinkedIn', 'Bluesky', 'X', 'Facebook', 'Instagram', 'Threads', 'TikTok', 'YouTube', 'Pinterest'), 'the logos are exactly the nine platforms');
 $ok(preg_match('/\$\s?\d/', $text) === 0 && stripos($text, 'per month') === false && stripos($text, 'earn') === false && stripos($text, 'income') === false, 'no price or earnings in the copy');
 $ok(stripos($html, 'stripe') === false || stripos($text, 'stripe') === false, 'no Stripe in the copy');
 $ok(stripos($text, 'glauber') === false && stripos($text, 'daniel') === false, 'no founder name');
@@ -47,7 +47,9 @@ $ok(preg_match_all('#<video class="st-clip"[^>]*data-src="[^"]+"[^>]*preload="no
 preg_match_all('#<img [^>]*>#', $html, $all_img); $eager = array_filter($all_img[0], function ($i) { return strpos($i, 'loading="lazy"') === false && strpos($i, 'logo-mark') === false; });
 $ok(count($eager) === 0, 'every image below the hero is lazy');
 $ok(strpos($html, "track('landing_view'") !== false && strpos($html, "track('cta_click'") !== false && strpos($html, "track('signup_started'") !== false && strpos($html, "track('signup_completed'") !== false, 'GA events wired: landing_view, cta_click, signup_started, signup_completed');
-$ok(strpos($html, "tt('ViewContent'") !== false && strpos($html, 'window.CLSTikTokRegistration(o.tt_registration)') !== false && strpos($html, "tt('CompleteRegistration'") === false, 'TikTok ViewContent on load; CompleteRegistration only through the shared server-confirmed helper');
+$ga = file_get_contents("$root/libs/Layout/google_analytics.php");   // the signup lands on /setup, where the shared head fires the server-confirmed CompleteRegistration
+$ok(strpos($html, "tt('ViewContent'") !== false && strpos($html, "tt('CompleteRegistration'") === false
+    && strpos($ga, 'window.CLSTikTokRegistration = function') !== false && strpos($ga, "ttq.track('CompleteRegistration'") !== false, 'TikTok ViewContent on load; CompleteRegistration only through the shared server-confirmed helper');
 
 // the in-app check in the page script, against real user agents
 preg_match('#var inapp = /(.*?)/i\.test#', $html, $rx); $re = '/' . ($rx[1] ?? 'x^') . '/i';

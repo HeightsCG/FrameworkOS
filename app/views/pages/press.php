@@ -1,7 +1,7 @@
 <?php
 /**
  * /press: boilerplate (50 and 150 words), logo downloads, brand colors, product facts, the press contact and the
- * "Link to us" badges. No founder name, no figures about earnings or fees. Logos: public/images/logo/,
+ * "Link to us" badges. No founder name, no figures about prices or usage. Logos: public/images/logo/,
  * badges: public/images/badges/. The copy buttons are wired by public/js/free-tools.js (data-copy-from).
  */
 $e = function ($s) { return Sections::e($s); };
@@ -9,9 +9,9 @@ $site = Main::site_name();
 $base = SeoMeta::base();
 $host = preg_replace('#^https?://#', '', $base);
 $company = 'Heights Consulting Group LLC';
-$b50  = $site . ' is a creator platform for selling from one public page: memberships, pay-per-view posts, bundles, services and live events. Its studio publishes each post to ten platforms, and its AI tools create consistent AI influencers with photos, video and voice. It is built by ' . $company . '.';
-$b150 = array($site . ' is a creator platform that puts everything a creator sells on one public page. Every account starts free. Fans can follow for free, join a membership, unlock single posts, buy bundles, book services and get seats at live events, and creators are paid out to their bank. Fans pay with a credit wallet for single purchases and by card for memberships.',   // two paragraphs: none longer than 6 sentences (HeyCatch page clarity)
-    'From one editor, creators publish each post to their page and to LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue, now or on a schedule. The AI studio creates consistent AI influencers with photos, video and voice, and labels AI content on the platforms that ask for it. An inbox with an AI reply assistant, analytics and custom domains round out the platform. Creators can download their content and data at any time. ' . $site . ' is built by ' . $company . '.');
+$b50  = $site . ' is an AI content studio for creators and brands. Its AI tools create consistent AI influencers with photos, video and voice, and its studio schedules and publishes each post to ' . count(IntegrationPages::PAGES) . ' platforms and a link-in-bio page. It is built by ' . $company . '.';
+$b150 = array($site . ' is an AI content studio for creators and brands. Every account starts free. The AI studio creates consistent AI influencers with photos, video and voice, writes captions in a brand voice, and labels AI content on the platforms that ask for it. Paid plans include AI credits every month, and more can be bought at any time.',   // two paragraphs: none longer than 6 sentences (HeyCatch page clarity)
+    'From one editor, creators publish each post to their link-in-bio page and to LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube and Pinterest, now, on a schedule or through automations. An inbox with an AI reply assistant, analytics and custom domains round out the platform. Creators can download their content and data at any time. ' . $site . ' is built by ' . $company . '.');
 $platforms = array(); foreach (IntegrationPages::PAGES as $p) { $platforms[] = $p['name']; }
 $trial_open = false; try { $trial_open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[press] founding: ' . $ex->getMessage()); }
 $logos = array(
@@ -75,13 +75,13 @@ echo Sections::close();
 echo Sections::open('alt', 'Product facts', '', 'facts');
 ?>
 <dl class="gp-facts">
-    <div><dt>Product</dt><dd><?php echo $e($site); ?>, a creator platform for selling from one public page</dd></div>
+    <div><dt>Product</dt><dd><?php echo $e($site); ?>, an AI content studio for creators and brands</dd></div>
     <div><dt>Website</dt><dd><a href="<?php echo $e($base); ?>/"><?php echo $e($host); ?></a></dd></div>
     <div><dt>Company</dt><dd><?php echo $e($company); ?></dd></div>
     <div><dt>Publishes to</dt><dd><?php echo $e(implode(', ', $platforms)); ?></dd></div>
-    <div><dt>Ways to sell</dt><dd>Memberships, pay-per-view posts, bundles, services and live events</dd></div>
+    <div><dt>Publishing</dt><dd>Scheduling, cross-posting and automations that create, caption and post on a routine</dd></div>
     <div><dt>AI tools</dt><dd>Consistent AI influencers with photos, video and voice, an AI reply assistant for the inbox, and AI labels on the platforms that ask for them</dd></div>
-    <div><dt>Also included</dt><dd>Link in bio, analytics, custom domains and payouts to your bank</dd></div>
+    <div><dt>Also included</dt><dd>Link in bio, analytics, custom domains and team seats</dd></div>
 <?php if ($trial_open): ?>
     <div><dt>Free trial</dt><dd><?php echo (int) Founding::TRIAL_DAYS; ?> days free on <?php echo $e(Founding::plan_names()); ?> for founding creators</dd></div>
 <?php endif; ?>

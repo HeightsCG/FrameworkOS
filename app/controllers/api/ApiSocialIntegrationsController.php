@@ -1,5 +1,5 @@
 <?php
-/** Post for Me social accounts, Fanvue and Eromify connections, Fanvue auto-messages. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
+/** Post for Me social accounts and Eromify connections. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
 class ApiSocialIntegrationsController extends BaseApiController {
 
     public function connect_accountAction(){
@@ -84,35 +84,6 @@ class ApiSocialIntegrationsController extends BaseApiController {
 
     // (upload_media_url / create_post / post_status were removed 2026-09-26: nothing called them; posts go out through
     //  SocialShareService from the post editor and the Claude connector.)
-
-    /* ---------- Notification preferences ---------- */
-
-    /**
-     * Start the Fanvue OAuth flow: returns the authorize URL to send the browser to.
-     * State + PKCE verifier are kept in the session and checked by
-     * AccountController::fanvue_callbackAction.
-     */
-    public function fanvue_connectAction(){
-        $user = $this->social_user('manage');
-        if (!FanvueService::configured()) {
-            $this->jsonError('Fanvue is not configured on this server yet.');
-        }
-        list($url, $state, $verifier) = FanvueService::authorize_url();
-        Session::set('fanvue_oauth', [
-            'state'    => $state,
-            'verifier' => $verifier,
-            'user_id'  => (int) $user['user_id'],   // the OWNER the connection belongs to
-            'started'  => time(),
-            'return_section' => (($this->post['return_section'] ?? '') === 'inbox') ? 'inbox' : 'connected',
-        ]);
-        $this->jsonSuccess(['url' => $url]);
-    }
-
-    public function fanvue_disconnectAction(){
-        $user = $this->social_user('manage');
-        (new FanvueAccountsModel())->disconnect((int) $user['user_id']);
-        $this->jsonSuccess(['message' => 'Fanvue disconnected']);
-    }
 
     // ---- Eromify (Creator Studio) ---------------------------------------------------------
 

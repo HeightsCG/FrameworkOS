@@ -49,7 +49,7 @@ check('audience hides the blocked fan',           !in_array($fan, $aud_ids, true
 // Queries with the block clause must at least execute (no placeholder / SQL errors).
 check('feed recent() runs with viewer',           is_array($feed->recent(5, 0, $fan)));
 check('feed count_since() runs with viewer',      is_int($feed->count_since(1, 50, $fan)));
-check('search posts() runs with viewer',          is_array($search->posts('a', true, 6, $fan)));
+check('search posts() runs with viewer',          is_array($search->posts('a', 6, $fan)));
 check('inbox_rows() runs',                        is_array($msgs->inbox_rows($fan)));
 check('connections() runs',                       is_array($msgs->connections($fan)));
 $conn = array_map(function ($r) { return (int) $r['id']; }, $msgs->connections($fan));

@@ -111,13 +111,11 @@ class EromifyService {
      * Render a character into a scene. Synchronous on Eromify's side (~30-60 s).
      * @return array ['ok'=>bool, 'url'=>string, 'credits_remaining'=>int|null, 'error'=>string]
      */
-    public static function generate_character_image($api_key, $influencer_id, $scene, $size = 'square', $level = 'safe'): array {
+    public static function generate_character_image($api_key, $influencer_id, $scene, $size = 'square'): array {
         $scene = trim((string) $scene);
         if ((string) $influencer_id === '' || $scene === '') { return self::fail('Character and scene are required'); }
         $last = self::fail('Eromify did not return an image');
-        // Spicy: lead with the stylised model, which is the more permissive of the three.
-        $order = ($level === 'spicy') ? array('seedream-v45', 'nano-banana-pro', 'gpt-image-2') : self::MODEL_FALLBACKS;
-        foreach ($order as $model) {
+        foreach (self::MODEL_FALLBACKS as $model) {
             $r = self::call($api_key, 'studio_generate_image_with_character', array(
                 'influencer_id' => (string) $influencer_id,
                 'prompt'        => mb_substr($scene, 0, 2000),

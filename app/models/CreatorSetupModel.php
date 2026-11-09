@@ -68,25 +68,6 @@ class CreatorSetupModel extends Model {
         return !empty($r);
     }
 
-    public function has_active_tier($user_id){
-        $r = parent::select("SELECT 1 FROM creator_plans WHERE user_id = :u AND is_active = 1 LIMIT 1", array('u' => (int) $user_id));
-        return !empty($r);
-    }
-
-    /** Stripe Connect account exists and Stripe reports payouts enabled. The only check that leaves the DB. */
-    public function has_payouts($user_id){
-        $r = parent::select("SELECT stripe_connect_account_id FROM user_accounts WHERE user_id = :u", array('u' => (int) $user_id));
-        $acct = (is_array($r) && count($r) === 1) ? (string) ($r[0]['stripe_connect_account_id'] ?? '') : '';
-        if ($acct === '') { return false; }
-        try {
-            $st = StripeService::connect_account_status($acct);
-            return !empty($st['payouts_enabled']);
-        } catch (\Throwable $e) {
-            error_log('[setup] payouts check: ' . $e->getMessage());
-            return false;
-        }
-    }
-
     public function has_connected_social($user_id){
         $r = parent::select("SELECT 1 FROM user_social_accounts WHERE user_id = :u AND status = 'connected' LIMIT 1", array('u' => (int) $user_id));
         return !empty($r);

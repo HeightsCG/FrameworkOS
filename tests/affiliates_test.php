@@ -150,7 +150,7 @@ try {
     $wh = new WebhookController();
     $hm = new ReflectionMethod($wh, 'handle_account_event'); $hm->setAccessible(true);
     $ev = json_decode(json_encode(array('type' => 'charge.refunded', 'account' => '', 'data' => array('object' => array('payment_intent' => $pi8, 'amount_refunded' => $plan_cents, 'amount' => $plan_cents)))));
-    $hm->invoke($wh, $ev, new CreatorSubscriptionsModel());
+    $hm->invoke($wh, $ev);
     check('refund webhook reverses the commission', (string) $cm->for_charge($c8)['status'] === 'reversed');
 
     // reversal while the payout is only requested: the row leaves the payout, which shrinks (or goes under the minimum)
@@ -169,10 +169,17 @@ try {
     $expect = $before - $one;
     check('requested reversal: row reversed, out of the payout, payout now ' . $expect, (string) $rv['status'] === 'reversed' && $rv['payout_id'] === null && $po_row && (int) $po_row['amount_cents'] === $expect && $cm->sum_for_payout($r['id']) === $expect);
     check('no negative adjustment for a requested reversal', count($db->rows('SELECT id FROM affiliate_commissions WHERE charge_id = :c AND invoice_cents < 0', array(':c' => $last[0]))) === 0);
-    $piy = 'pi_afftest_' . bin2hex(random_bytes(6));
-    (new BillingChargesModel())->set($last[1], array('stripe_payment_intent_id' => $piy));
-    Affiliates::on_reverse($piy);   // down to $expect - one, under the minimum
-    check('requested payout under the minimum after a reversal: deleted, its rows back in the balance', !$pm->get($r['id']) && $cm->available_cents($aid) === $expect - $one + $one && count($db->rows('SELECT id FROM affiliate_commissions WHERE payout_id = :p', array(':p' => $r['id']))) === 0);
+    // keep reversing rows of the payout until it falls under the minimum (how many it takes depends on the plan price)
+    $k = 0;
+    foreach (array_slice($last, 1) as $lx) {
+        if (!$pm->get($r['id'])) { break; }
+        $piy = 'pi_afftest_' . bin2hex(random_bytes(6));
+        (new BillingChargesModel())->set($lx, array('stripe_payment_intent_id' => $piy));
+        Affiliates::on_reverse($piy);
+        $k++;
+    }
+    // what was left in the payout ($expect - k rows) goes back to the balance, next to the row earned after the request
+    check('requested payout under the minimum after ' . $k . ' more reversal(s): deleted, its rows back in the balance', !$pm->get($r['id']) && $cm->available_cents($aid) === $expect - $k * $one + $one && count($db->rows('SELECT id FROM affiliate_commissions WHERE payout_id = :p', array(':p' => $r['id']))) === 0);
 
     // seed one more so the balance clears the minimum again
     $x5 = $charge($ref_user, 'renewal', array(array('Creator plan', $plan_cents)), array('plan' => 'creator', 'slots' => 0, 'pack' => 0)); BillingService::apply($x5);

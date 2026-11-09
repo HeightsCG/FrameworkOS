@@ -21,13 +21,12 @@ $btn = function (array $t, $class) use ($e) {   // a trial_link() tuple as a but
     <div class="hm-hero__media"><?php echo $pic('hero', array(640, 960, 1152), 1152, 1440, 'A content creator sitting on the edge of her bed in warm window light, looking into the camera', '(max-width: 760px) 100vw, 55vw', 'hm-hero__img', true); ?></div>
     <div class="ld-wrap hm-hero__in">
         <div class="hm-hero__copy">
-            <h1 class="hm-hero__title" id="hm_title"><span class="hm-hero__l1">The One Page Creators Sell Memberships and <span class="hm-nw">Pay-Per-View</span> From,</span> <span class="hm-hero__l2">and the Studio That Posts Everywhere.</span></h1>
-            <?php $keep = array(); foreach (PagesController::selling_tiers() as $kt) { $keep[] = 100 - (int) $kt['limits']['fee_percent']; } sort($keep); /* heycatch D1.1/D1.2: the fee as the share a creator keeps, from the plan config */ ?>
-            <p class="hm-hero__sub">Create AI-powered photos and videos, publish across <?php echo count(IntegrationPages::PAGES); ?> platforms, automate your content, and monetize your audience&mdash;all from one studio<?php if ($keep): ?>, keeping <?php echo $keep[0] === end($keep) ? (int) $keep[0] . '%' : (int) $keep[0] . '% to ' . (int) end($keep) . '%'; ?> of each sale before card processing<?php endif; ?>.</p>
+            <h1 class="hm-hero__title" id="hm_title"><span class="hm-hero__l1">The AI Content Studio for Creators and Brands,</span> <span class="hm-hero__l2">Built to Create, Schedule and Post Everywhere.</span></h1>
+            <p class="hm-hero__sub">Create AI-powered photos and videos, publish across <?php echo count(IntegrationPages::PAGES); ?> platforms, automate your content and answer messages with AI&mdash;all from one studio.</p>
             <ul class="hm-hero__pts">
                 <li><?php echo Sections::icon('image', 22); ?>AI Images &amp; Video</li>
                 <li><?php echo Sections::icon('send', 22); ?>Multi-Platform Publishing</li>
-                <li><?php echo Sections::icon('zap', 22); ?>Automation &amp; Monetization</li>
+                <li><?php echo Sections::icon('zap', 22); ?>Automation &amp; Analytics</li>
             </ul>
             <div class="hm-hero__acts">
                 <?php echo $btn($trial, 'sx-btn--primary sx-btn--lg'); ?>
@@ -40,12 +39,12 @@ $btn = function (array $t, $class) use ($e) {   // a trial_link() tuple as a but
 
 // 1. Four pillars. The lead keeps the "What is" definition (SEO audit 2026-10-12) with its links to the AI influencer and team pages.
 echo Sections::open('white', 'Everything You Need. One Studio.', '', 'studio');
-echo '<p class="hm-def">' . $e($site) . ' is a creator platform for monetizing your content: one public page at your handle that sells memberships, pay-per-view posts, bundles, services and event tickets, with payouts to your bank. It includes an <a href="/features/ai-influencer">AI influencer generator</a> and <a href="/ai-ofm-tools">team seats for people who run creator accounts</a>. See where it sits in <a href="/best-creator-monetization-platforms">the best creator monetization platforms</a>.</p>';
+echo '<p class="hm-def">' . $e($site) . ' is an AI content studio for creators and brands: AI images and video, scheduling and cross-posting to ' . count(IntegrationPages::PAGES) . ' platforms, a <a href="/features/link-in-bio">link-in-bio page</a> at your handle, inbox automation and analytics in one account. It includes an <a href="/features/ai-influencer">AI influencer generator</a> and <a href="/pricing">team seats for people who run creator and brand accounts</a>.</p>';
 $pillars = array(
     array('create-c', 'Create', 'AI photos and video of one consistent character, or of your own brand.', '/features/ai-influencer', 'A woman in a camel coat looking back over her shoulder on a city street at dusk'),
-    array('publish', 'Publish', 'Write a post once and send it to your page and ten platforms, now or on a schedule.', '/integrations', 'A creator filming herself with a phone on a small tripod at home'),
+    array('publish', 'Publish', 'Write a post once and send it to your page and ' . count(IntegrationPages::PAGES) . ' platforms, now or on a schedule.', '/integrations', 'A creator filming herself with a phone on a small tripod at home'),
     array('automate', 'Automate', 'Automations create, caption and post for you every day or on the days you pick.', '/features/publishing', 'A creator working at a laptop under a desk lamp in the evening'),
-    array('monetize', 'Monetize', 'Sell memberships, single posts, bundles, services and events from one page.', '/features/memberships', 'A creator speaking to a camera in a home studio with a softbox light'),
+    array('monetize', 'Grow', 'See what works on every platform and answer messages with AI in your voice.', '/features/analytics', 'A creator speaking to a camera in a home studio with a softbox light'),
 );
 echo '<ul class="hm-pillars">';
 foreach ($pillars as $pl) {
@@ -75,8 +74,8 @@ echo '<figure class="hm-trio">'
 echo '</div>';
 echo Sections::close();
 
-// 3. Ten platforms, straight from IntegrationPages::PAGES so the list can never drift from the integrations the app has.
-echo Sections::open('white', 'One Post. Ten Platforms.', 'Write it once. Your page and every account you tick get it together, with caption limits and AI labels handled.', 'platforms');
+// 3. Every platform, straight from IntegrationPages::PAGES so the list can never drift from the integrations the app has.
+echo Sections::open('white', 'One Post. Every Platform.', 'Write it once. Your page and every account you tick get it together, with caption limits and AI labels handled.', 'platforms');
 echo '<ul class="hm-nets">';
 foreach (IntegrationPages::PAGES as $slug => $ip) {
     $mark = IntegrationPages::logo($slug, 28);
@@ -100,20 +99,20 @@ echo Sections::ui('automation');
 echo '</div>';
 echo Sections::close();
 
-// 5. Monetize: the six ways to sell that exist as creator features. No earnings, no fee figures here.
-echo Sections::open('white', 'Turn Your Audience Into Income', 'Fans follow for free, then choose how to support you. You set every price, and payouts go to your bank.', 'monetize');
+// 5. The rest of the studio: the tools beside creation and publishing, each a real feature with its own page.
+echo Sections::open('white', 'Everything Around Your Content', 'The tools that turn a stream of posts into a brand people find, follow and talk to.', 'tools');
 echo Sections::index_list(array(
-    array('icon' => 'layers', 'title' => 'Subscriptions', 'text' => 'Membership tiers with their own price, trial and perks.'),
-    array('icon' => 'lock', 'title' => 'Pay-per-view', 'text' => 'Put a price on single posts that fans unlock in one tap.'),
-    array('icon' => 'package', 'title' => 'Bundles', 'text' => 'Sell a set of past photos and videos as one product.'),
-    array('icon' => 'calendar', 'title' => 'Services', 'text' => 'Take bookings for 1:1 sessions and custom work.'),
-    array('icon' => 'ticket', 'title' => 'Events', 'text' => 'Sell seats to live sessions and video calls.'),
-    array('icon' => 'message', 'title' => 'Direct to fans', 'text' => 'Message fans and send paid posts straight to their inbox.'),
+    array('icon' => 'link', 'title' => 'Link in bio', 'text' => 'One page at your handle with your posts and every link you share.'),
+    array('icon' => 'bot', 'title' => 'Inbox automation', 'text' => 'AI drafts replies to your messages in your voice for you to approve.'),
+    array('icon' => 'megaphone', 'title' => 'Broadcasts', 'text' => 'Send one message to all of your followers at once.'),
+    array('icon' => 'sparkles', 'title' => 'AI captions', 'text' => 'Captions written in your brand voice for every platform.'),
+    array('icon' => 'plug', 'title' => 'Custom domains', 'text' => 'Point your own domain at your page on Studio.'),
+    array('icon' => 'users', 'title' => 'Team seats', 'text' => 'Invite collaborators who work on your account with you.'),
 ));
-echo '<p class="hm-more"><a href="/monetize-your-content">How creators sell on ' . $e($site) . '</a></p>';
+echo '<p class="hm-more"><a href="/features">See every feature</a></p>';
 echo Sections::close();
 
-// 6. Growth: the dashboard schematic (Sections::ui, invented figures, labelled; revenue drawn without a number) and what /dashboard really reports.
+// 6. Growth: the dashboard schematic (Sections::ui, invented figures, labelled) and what /dashboard really reports.
 echo Sections::open('alt', '', '', 'growth');
 echo '<div class="sx-split sx-split--rev">';
 echo Sections::ui('analytics');
@@ -122,22 +121,21 @@ echo '<div class="sx-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Underst
     . '<ul class="sx-list">'
     . '<li>' . Sections::icon('chart', 20) . '<span><b>Engagement.</b> Likes, comments and views from your page and your social accounts.</span></li>'
     . '<li>' . Sections::icon('users', 20) . '<span><b>Audience activity.</b> Follower growth, where visitors come from and when they are active.</span></li>'
-    . '<li>' . Sections::icon('eye', 20) . '<span><b>Content performance.</b> Every post with its views, engagement and sales.</span></li>'
-    . '<li>' . Sections::icon('link', 20) . '<span><b>Clicks.</b> Link clicks, plus tracking links that show which links bring signups and sales.</span></li>'
-    . '<li>' . Sections::icon('wallet', 20) . '<span><b>Revenue reporting.</b> Sales by offering, with an export of recent sales.</span></li>'
+    . '<li>' . Sections::icon('eye', 20) . '<span><b>Content performance.</b> Every post with its views, engagement and link clicks.</span></li>'
+    . '<li>' . Sections::icon('link', 20) . '<span><b>Clicks.</b> Link clicks, plus tracking links that show which links bring visits and new followers.</span></li>'
     . '</ul></div>';
 echo '</div>';
 echo Sections::close();
 
-// 7. Plans: the offered tiers from PlanTiers via pricing_rows(). Price and fee each on their own line, never added together; the trial note only while the founding offer runs.
-echo Sections::open('white', 'Start Free. Upgrade When You Sell.', 'Every account starts on Free. Pick a plan when you are ready to sell and publish.', 'plans');
+// 7. Plans: the offered tiers from PlanTiers via pricing_rows(). Price and monthly AI credits each on their own line; the trial note only while the founding offer runs.
+echo Sections::open('white', 'Start Free. Upgrade When You Are Ready.', 'Every account starts on Free. Pick a plan when you are ready to publish and use the AI tools.', 'plans');
 echo '<ul class="hm-plans">';
 foreach (PagesController::pricing_rows() as $r) {
     $t = $r['tier']; $paid = (int) $t['price'] > 0;
     echo '<li class="hm-plan' . (!empty($t['recommended']) ? ' is-rec' : '') . '"><h3 class="hm-plan__n">' . $e($t['name']) . '</h3><p class="hm-plan__tag">' . $e($t['tagline']) . '</p>'
         . '<p class="hm-plan__p"><b>$' . (int) $t['price'] . '</b><span>/month</span></p>'
         . (((string) $t['key'] === CreatorPromo::PLAN && CreatorPromo::active()) ? '<p class="hm-plan__promo">Founding Creator price until ' . $e(CreatorPromo::ends_label()) . '. Regular price starting ' . $e(CreatorPromo::regular_from_short()) . ': $' . (int) CreatorPromo::regular() . '/month.</p>' : '')
-        . '<p class="hm-plan__f">' . ($paid ? $e('Platform fee: ' . (int) $t['limits']['fee_percent'] . '% of sales') : 'Build your page and drafts') . '</p></li>';
+        . '<p class="hm-plan__f">' . ($paid ? $e('AI credits: ' . PlanTiers::fmt_tier_limit($t, 'ai_credits')) : 'Build your page and drafts') . '</p></li>';
 }
 echo '</ul>';
 if ($trial_open) { echo '<p class="hm-trial">' . Sections::icon('star', 18) . '<span>Founding creators get their first ' . (int) Founding::TRIAL_DAYS . ' days free on ' . $e(Founding::plan_names()) . '.</span></p>'; }
@@ -149,7 +147,7 @@ echo Sections::close();
 $home_tools = array(
     array('ai-influencer-name-generator', 'tag', 'Twenty names for your character, each with a handle.'),
     array('ai-influencer-bio-generator', 'page', 'A bio sized for five platforms, with the count against each limit.'),
-    array('fan-questions', 'search', 'Post ideas built from the questions your fans actually ask.'),
+    array('fan-questions', 'search', 'Post ideas built from the questions your audience actually asks.'),
 );
 echo Sections::open('alt', '', '', 'free-tools');
 echo '<div class="sx-split"><div class="sx-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Not ready to subscribe? Start creating for free.')) . '</h2>'
@@ -178,7 +176,7 @@ if (count($quotes) >= Proof::TESTIMONIALS_MIN) {
     echo Sections::close();
 }
 
-/* Latest posts: newest free, fully moderated, non-adult image posts, as a mosaic (newest large). Hidden when there are none. */
+/* Latest posts: newest public, fully moderated image posts, as a mosaic (newest large). Hidden when there are none. */
 $latest = array();
 try { $latest = (new FeedModel())->public_latest_distinct(5); } catch (\Throwable $ex) { error_log('[home] latest posts: ' . $ex->getMessage()); }
 $ago = function ($utc) {
@@ -191,7 +189,7 @@ $tiles = '';
 foreach ($latest as $i => $lp) {
     // the public, cacheable webp copy when it exists (the big tile gets the larger one); else a signed thumbnail.
     $big = ($tiles === '');
-    $pub = PublicThumbService::url($lp + array('moderation_status' => 'approved', 'is_adult' => 0), $big ? 'feed' : 'grid');
+    $pub = PublicThumbService::url($lp + array('moderation_status' => 'approved'), $big ? 'feed' : 'grid');
     $thumb = $pub !== '' ? $pub : (!empty($lp['cover_thumb_key']) ? S3Service::presigned_get_url((string) $lp['cover_thumb_key'], 3600) : '');
     if ($thumb === '') { continue; }
     list($tw, $th) = $pub !== '' ? PublicThumbService::size($lp, $big ? 'feed' : 'grid') : array(0, 0);
@@ -201,8 +199,8 @@ foreach ($latest as $i => $lp) {
     $srcset = '';
     if ($pub !== '') {
         $cands = array();
-        $small = PublicThumbService::url($lp + array('moderation_status' => 'approved', 'is_adult' => 0), 'grid');
-        $large = PublicThumbService::url($lp + array('moderation_status' => 'approved', 'is_adult' => 0), 'feed');
+        $small = PublicThumbService::url($lp + array('moderation_status' => 'approved'), 'grid');
+        $large = PublicThumbService::url($lp + array('moderation_status' => 'approved'), 'feed');
         if ($small !== '') { $cands[] = Sections::e($small) . ' ' . PublicThumbService::GRID . 'w'; }
         if ($large !== '' && $large !== $small) { $cands[] = Sections::e($large) . ' ' . PublicThumbService::FEED . 'w'; }
         if (count($cands) > 1) {

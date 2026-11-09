@@ -242,7 +242,7 @@ $(document).ready(function() {
             if (open && !$(e.target).closest('#setupWidget, .swal2-container').length) { set(false); }
         });
         // After a save that can complete a step, re-read progress and tick the widget in place.
-        var REFRESH_ON = /\/api\/(inbox_settings_save|save_creator_profile|upload_creator_image|save_brand_identity|save_creator_plan|toggle_creator_plan|connect_account|start_payout_onboarding|post_publish|post_schedule|auto_message_save|change_username)\b/;
+        var REFRESH_ON = /\/api\/(inbox_settings_save|save_creator_profile|upload_creator_image|save_brand_identity|connect_account|post_publish|post_schedule|auto_message_save|change_username)\b/;
         function applyProgress(o) {
             var d = o.required_done, t = o.required_total, pct = t > 0 ? Math.round(d / t * 100) : 0;
             (o.steps || []).forEach(function (s) {
@@ -322,7 +322,7 @@ $(document).ready(function() {
                 + '<select id="rptReason">'
                 + '<option value="spam">Spam or scam</option>'
                 + '<option value="harassment">Harassment or hate</option>'
-                + '<option value="nudity">Unlabeled adult content</option>'
+                + '<option value="nudity">Nudity or sexual content</option>'
                 + '<option value="illegal">Illegal or dangerous</option>'
                 + '<option value="impersonation">Impersonation</option>'
                 + '<option value="copyright">Copyright / DMCA</option>'

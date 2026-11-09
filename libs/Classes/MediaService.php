@@ -428,7 +428,7 @@ class MediaService {
     /**
      * Classify one stored still (an image's display rendition, or a video's poster frame).
      * 'blocked' (suspected minors) is a hard stop — quarantined from EVERYONE and unpublishable;
-     * 'flagged' is adult (shown only to adult-on viewers). If the classifier is unavailable the
+     * 'flagged' (sexual content) is held: never shown, posts using it stay in drafts until staff clear it. If the classifier is unavailable the
      * status stays 'pending': the cron worker is the fallback and viewers never see pending media.
      */
     private static function moderate_key($creator_id, $asset_id, $key): array

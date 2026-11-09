@@ -11,16 +11,11 @@ class SiteImages {
     /** key => what the photo shows. Creators at work, never a product catalogue. */
     const SUBJECTS = array(
         'home_hero'        => 'a young woman content creator filming herself with a phone on a small tripod under a ring light in a colorful apartment studio with plants and a pastel backdrop, smiling mid-sentence',
-        'home_sell'        => 'overhead flat lay of a creator desk with a mirrorless camera, a phone lying face down, a notebook with handwritten ideas, a coffee cup and colorful sticky notes',
         'home_publish'     => 'a creator holding a phone up to record a selfie video on a busy city street at golden hour, candid, motion in the background',
         'home_paid'        => 'a relaxed creator sitting on a sofa with a laptop turned away from the camera, laughing, bright sunny living room',
         'features_hero'    => 'a podcast and streaming setup: a man with headphones speaking into a studio microphone, a camera on a tripod and soft colored lights in the background',
         'features_page'    => 'a photographer shooting a portrait of a creator in a studio with a bold orange paper backdrop and softbox lights',
         'features_studio'  => 'a creator editing video at a desk at night, monitor turned away from the camera, camera and small lights on the desk, warm lamp glow',
-        'features_payouts' => 'a creator leaning back in a chair at a desk at night, smiling at a phone held with its screen turned away from the camera, warm orange desk lamp glow in a dark room, a camera and microphone on the desk',
-        'monetize_hero'    => 'a fitness creator filming a workout video in a bright studio, phone on a tripod in the foreground slightly out of focus',
-        'monetize_fans'    => 'a creator hosting a small live workshop for an engaged audience of about ten people in a sunny loft space',
-        'compare_hero'     => 'two cameras on tripods pointed at an empty colorful creator set with a stool, a plant and neon light',
         'best_hero'        => 'a musician creator recording guitar in a cozy home studio with a microphone and warm string lights',
     );
 

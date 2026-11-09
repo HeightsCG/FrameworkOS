@@ -112,7 +112,7 @@ class CreatorProfileModel extends Model {
         return array_map(function ($r) { return (int) $r['user_id']; }, (array) $rows);
     }
 
-    /** Record which images passed the adult check (hash of "avatar|cover"), or null when they didn't. */
+    /** Record which images passed the content check (hash of "avatar|cover"), or null when they didn't. */
     public function set_directory_media($user_id, $hash){
         return parent::update('creator_profiles', array('directory_media_ok' => $hash, 'directory_checked_at' => gmdate('Y-m-d H:i:s')),
             'user_id = :user_id', array('user_id' => (int) $user_id));
@@ -120,7 +120,7 @@ class CreatorProfileModel extends Model {
 
     /**
      * Who may appear: opted in, images checked as they are now, an active creator account, and at least one
-     * published page post with a photo or video, every one scanned and not adult. The directory is safe-for-work only.
+     * published page post with a photo or video, every one scanned and approved by the content check.
      */
     private function directory_where(): string {
         return "cp.directory_listed = 1
@@ -129,20 +129,18 @@ class CreatorProfileModel extends Model {
             AND " . Plan::paid_sql('u') . "
             AND EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
-                          AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video') AND ma.moderation_status = 'approved' AND ma.is_adult = 0
+                          AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video') AND ma.moderation_status = 'approved'
                           AND NOT EXISTS (SELECT 1 FROM post_assets pa2 JOIN media_assets m2 ON m2.id = pa2.asset_id
                                           WHERE pa2.post_id = p.id AND m2.deleted_at IS NULL AND m2.type IN ('image', 'video')
                                             AND m2.moderation_status <> 'n_a'
-                                            AND (m2.moderation_status <> 'approved' OR m2.is_adult = 1)))";
+                                            AND m2.moderation_status <> 'approved'))";
     }
 
-    /** The card columns: profile, follower count, last post and the cheapest active paid membership. */
+    /** The card columns: profile, follower count and last post. */
     private function directory_cols(): string {
         return "u.user_id, u.u_name, u.verified, cp.display_name, cp.bio, cp.avatar_url, cp.avatar_webp_url, cp.directory_category,
                     (SELECT COUNT(*) FROM follows f WHERE f.creator_id = u.user_id) AS followers,
-                    (SELECT MAX(p.published_at) FROM posts p WHERE p.creator_id = u.user_id AND p.state = 'published') AS last_post,
-                    (SELECT cpl.price_cents FROM creator_plans cpl WHERE cpl.user_id = u.user_id AND cpl.is_active = 1 AND cpl.price_cents > 0 ORDER BY cpl.price_cents, cpl.id LIMIT 1) AS min_price_cents,
-                    (SELECT cpl.billing_interval FROM creator_plans cpl WHERE cpl.user_id = u.user_id AND cpl.is_active = 1 AND cpl.price_cents > 0 ORDER BY cpl.price_cents, cpl.id LIMIT 1) AS min_price_interval";
+                    (SELECT MAX(p.published_at) FROM posts p WHERE p.creator_id = u.user_id AND p.state = 'published') AS last_post";
     }
 
     /** Category and search filters (bound). $q under 2 characters is ignored; matches name, handle or bio. */
@@ -248,11 +246,11 @@ class CreatorProfileModel extends Model {
                     (" . Plan::paid_sql('u') . ") AS paid,
                     EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
-                          AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video') AND ma.moderation_status = 'approved' AND ma.is_adult = 0
+                          AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video') AND ma.moderation_status = 'approved'
                           AND NOT EXISTS (SELECT 1 FROM post_assets pa2 JOIN media_assets m2 ON m2.id = pa2.asset_id
                                           WHERE pa2.post_id = p.id AND m2.deleted_at IS NULL AND m2.type IN ('image', 'video')
                                             AND m2.moderation_status <> 'n_a'
-                                            AND (m2.moderation_status <> 'approved' OR m2.is_adult = 1))) AS has_post
+                                            AND m2.moderation_status <> 'approved')) AS has_post
              FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id
              WHERE cp.user_id = :uid", array('uid' => (int) $user_id));
         if (!is_array($r) || count($r) !== 1) { return 'Account not active'; }   // no account or role behind the profile
@@ -294,10 +292,7 @@ class CreatorProfileModel extends Model {
         $blk = '';
         if ((int) $viewer_id > 0) { $blk = ' AND ' . BlocksModel::exclude_sql('u.user_id', 'bv1', 'bv2'); $params['bv1'] = (int) $viewer_id; $params['bv2'] = (int) $viewer_id; }
         return (array) parent::select(
-            "SELECT u.user_id, u.u_name, u.verified, cp.display_name, cp.avatar_url, cp.avatar_webp_url,
-                    (SELECT MIN(cpl.price_cents) FROM creator_plans cpl WHERE cpl.user_id = u.user_id AND cpl.is_active = 1 AND cpl.price_cents > 0) AS paid_from_cents,
-                    (SELECT cpl.billing_interval FROM creator_plans cpl WHERE cpl.user_id = u.user_id AND cpl.is_active = 1 AND cpl.price_cents > 0 ORDER BY cpl.price_cents, cpl.id LIMIT 1) AS paid_from_interval,
-                    (SELECT COUNT(*) FROM creator_plans cpl WHERE cpl.user_id = u.user_id AND cpl.is_active = 1 AND cpl.price_cents = 0) AS free_plans
+            "SELECT u.user_id, u.u_name, u.verified, cp.display_name, cp.avatar_url, cp.avatar_webp_url
              FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id
              WHERE " . $this->directory_where() . " AND u.user_id <> :self" . $cat . $blk . "
              ORDER BY SHA1(CONCAT(:day, ':', u.user_id))

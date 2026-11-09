@@ -5,7 +5,7 @@
  * nightly and tells the admins what drifted (an in-app notice plus this output).
  *
  *   APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_fact_check.php            # report only
- *   ... --fix-fee     replace the known fee-range phrasings in article bodies with the per-plan fee (safe, exact)
+ *   ... --fix-fee     repair plan names glued or split by an older fee fix (fee wording itself is flagged for --rewrite since 2026-11-09)
  *   ... --rewrite     rewrite an article that drifts, breaks the content rules or carries the corpus shape (see below) through
  *                     the drafter (Claude), one call each; needs --slug=<slug> or --id=<n>, or --all for every flagged article
  *   ... --quiet       no admin notice (for ad-hoc runs)
@@ -45,31 +45,27 @@ $site = Main::site_name();
 CronRuns::start('seo_fact_check');
 
 // ---- what is true now, from config
-$fee_short = PagesController::fee_short();
-$plans = array(); $fees = array(); $prices = array('0');
+$plans = array(); $prices = array('0');
 foreach (PlanTiers::all() as $t) {
     if (!empty($t['retired'])) { continue; }
     $plans[] = (string) $t['name']; $prices[] = (string) (int) $t['price'];
-    if ((int) $t['price'] > 0) { $fees[(string) $t['name']] = (int) $t['limits']['fee_percent']; }
 }
 foreach (PlanTiers::ADDONS as $a) { $prices[] = (string) (int) $a['price']; }
 $retired = array();
 foreach (PlanTiers::all() as $t) { if (!empty($t['retired'])) { $retired[] = (string) $t['name']; } }
 
-// ---- the exact fee phrasings the old facts block produced; replaced word for word
+// ---- platform-fee wording: the plans carry no public fee since 2026-11-09, so any of it is flagged for a rewrite (never patched in place)
 $fee_fixes = array(
-    '/\brange from 3% to 20% depending on (?:the |your |a )?plan\b/i' => 'is ' . $fee_short,
-    '/\b(?:from )?3% to 20%(?: by plan)?(?: \(falls as you grow\)| depending on (?:the |your |a )?plan)?/i' => $fee_short,
-    '/\b20% on the free plan\b/i' => 'no fee on Free, which cannot sell',
-    '/\b20% on (?:the\s+)?Free\b/i' => 'no fee on Free, which cannot sell',
+    '/\b(?:from )?3% to 20%/i',
+    '/\b\d+% (?:of each sale|platform fee|of every sale)\b/i',
+    '/\bplatform fee\b/i',
 );
 
 /** What is wrong with one piece of text, as short labels; empty = fine. */
 $drift = function ($text) use ($retired, $prices, $fee_fixes, $site, $plans) {
     $issues = array();
     foreach ($retired as $r) { if (preg_match('/\b' . preg_quote($r, '/') . ' plan\b|\bthe ' . preg_quote($r, '/') . '\b/i', $text)) { $issues[] = 'names the retired ' . $r . ' plan'; } }
-    foreach ($fee_fixes as $re => $to) { if (preg_match($re, $text)) { $issues[] = 'fee range'; break; } }
-    if (SeoDrafter::brand_twenty_percent($text, $site)) { $issues[] = '20% next to the brand'; }   // a 20% given to a named competitor ("versus the 20% OnlyFans takes") is fine
+    foreach ($fee_fixes as $re) { if (preg_match($re, $text)) { $issues[] = 'platform fee wording'; break; } }
     // A monthly price counts only when one of our plan names sits beside it: "$10 a month" as a fan's tier price is fine.
     $names = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, array_merge($plans, $retired)));
     if ($names !== '' && preg_match_all('/(?:\b(?:' . $names . ')\b[^.$]{0,60}\$(\d{2,4})\s*(?:a|per|\/)\s*month|\$(\d{2,4})\s*(?:a|per|\/)\s*month[^.$]{0,40}\b(?:' . $names . ')\b)/', $text, $m)) {
@@ -173,7 +169,6 @@ foreach ($rows as $row) {
     if (empty($issues) && !$needs_rewrite && !(isset($opts['fix-fee']) && SeoDrafter::fix_fee_glue($text) !== $text)) { continue; }
     if (isset($opts['fix-fee'])) {
         $body = (string) $a['body_md']; $faq = (string) $a['faq']; $meta = (string) $a['meta_description'];
-        foreach ($fee_fixes as $re => $to) { $body = preg_replace($re, $to, $body); $faq = preg_replace($re, $to, $faq); $meta = preg_replace($re, $to, $meta); }
         foreach (array('body', 'faq', 'meta') as $v) { $$v = SeoDrafter::fix_fee_glue($$v); }   // whole plan names only: never splits a word
         if ($body !== (string) $a['body_md'] || $faq !== (string) $a['faq'] || $meta !== (string) $a['meta_description']) {
             $articles->update_fields((int) $a['id'], array('body_md' => $body, 'body_html' => SeoDrafter::render_body($body), 'faq' => $faq, 'meta_description' => $meta));
@@ -187,9 +182,9 @@ foreach ($rows as $row) {
         $kw = null;
         foreach ((new SeoKeywordsModel())->all() as $k) { if ((int) $k['article_id'] === (int) $a['id']) { $kw = $k; break; } }
         if (!$kw) { $kw = array('id' => 0, 'keyword' => (string) $a['target_keyword'], 'cluster' => (string) $a['cluster'], 'volume' => 0); }
-        $note = 'Bring every plan name, price and fee in line with the current plans: ' . PagesController::plan_price_sentence() . ' ' . PagesController::fee_sentence() . ' Remove any retired plan.'
+        $note = 'Bring every plan name and price in line with the current plans: ' . PagesController::plan_price_sentence() . ' Remove any retired plan and any platform fee, selling or payout wording.'
             . (!empty($rule_issues)
-                ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', array_merge($rule_issues, $style_issues)) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), open each paragraph and each section by naming its subject, and state the fee or plan prices at most once, in your own words, only if the topic needs them. Keep the topic, the slug and the facts; structure and wording may change.'
+                ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', array_merge($rule_issues, $style_issues)) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), open each paragraph and each section by naming its subject, and state the plan prices at most once, in your own words, only if the topic needs them. Keep the topic, the slug and the facts; structure and wording may change.'
                 : ' Keep everything else as it is.');
         $avoid = (array) ($shape[(string) $a['slug']]['avoid'] ?? array());
         if ($shape_issue !== '') { $note .= ' The blog reads as one template, so this piece changes shape: ' . (!empty($avoid['faq']) ? 'no FAQ this time (return faq as an empty array). ' : '') . (isset($avoid['sections']) ? 'Use the number of sections the request gives, not ' . (int) $avoid['sections'] . '. ' : '') . 'Follow the heading style and length rhythm the request gives, and do not open the piece the way it opens now.'; }

@@ -22,12 +22,6 @@ if (!empty($feat_rows)):
                 <?php foreach ($feat_rows as $fr):
                     $fr_name = trim(html_entity_decode((string) $fr['display_name'], ENT_QUOTES, 'UTF-8'));
                     if ($fr_name === '') { $fr_name = '@' . $fr['u_name']; }
-                    if ((int) $fr['paid_from_cents'] > 0) {
-                        $fr_unit  = ((string) $fr['paid_from_interval'] === 'year') ? 'yr' : 'mo';
-                        $fr_price = 'From $' . number_format((int) $fr['paid_from_cents'] / 100, 2) . '/' . $fr_unit;
-                    } else {
-                        $fr_price = ((int) $fr['free_plans'] > 0) ? 'Free membership' : 'Free to follow';
-                    }
                     $fr_href = $feat_base . '/promote/click/' . (int) $fr['swap_id'] . '/' . (int) $fr['user_id'];
                     $fr_av   = trim((string) (trim((string) ($fr['avatar_webp_url'] ?? '')) !== '' ? $fr['avatar_webp_url'] : $fr['avatar_url']));   // webp copy when there is one
                 ?>
@@ -36,7 +30,6 @@ if (!empty($feat_rows)):
                     <span class="pf-feat__body">
                         <span class="pf-feat__name"><?php echo htmlspecialchars($fr_name, ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($fr['verified'])): ?> <i class="fa-solid fa-circle-check pf-feat__badge" aria-label="Verified"></i><?php endif; ?></span>
                         <span class="pf-feat__handle">@<?php echo htmlspecialchars((string) $fr['u_name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                        <span class="pf-feat__price"><?php echo htmlspecialchars($fr_price, ENT_QUOTES, 'UTF-8'); ?></span>
                     </span>
                 </a>
                 <?php endforeach; ?>

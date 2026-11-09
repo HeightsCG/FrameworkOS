@@ -1,7 +1,7 @@
 <?php
 /**
  * "Download Your Data" (Settings -> Account). request() queues an export; DataExportJob calls build(),
- * which zips the account's data as JSON (account, posts, messages, purchases, subscriptions, credits)
+ * which zips the account's data as JSON (account, posts, messages, AI credits)
  * plus the creator's original Library files, stores it privately at vault/<user_id>/exports/<id>.zip
  * and tells the user it's ready. download_url() signs a ready, unexpired export for its owner only.
  * Data: DataExportsModel (sql/2026-09-24_data_exports.sql).
@@ -74,9 +74,7 @@ class DataExportService {
                 'README.txt'         => self::readme(),
                 'account.json'       => $json(self::account($user)),
                 'messages.json'      => $json(self::messages($uid)),
-                'purchases.json'     => $json(self::purchases($uid)),
-                'subscriptions.json' => $json(self::subscriptions($uid)),
-                'credits.json'       => $json(array('balance' => (new CreditsModel())->get_balance($uid), 'transactions' => (new CreditsModel())->get_transactions($uid, 100000))),
+                'credits.json'       => $json(array('ai_balance' => (new AiCreditsModel())->get_balance($uid), 'ai_transactions' => (new AiCreditsModel())->get_transactions($uid, 100000))),
             );
             $media = array();
             if (Plan::is_creator_row($user)) {
@@ -115,9 +113,9 @@ class DataExportService {
     /** Account fields a person gets back about themselves. An allowlist: new columns (and secrets like the password hash) stay out until added here. */
     const ACCOUNT_FIELDS = array(
         'user_id', 'u_name', 'first_name', 'last_name', 'user_email', 'email_verified', 'user_phone', 'business_name', 'website_url',
-        'user_status', 'verified', 'team_role', 'creator_since', 'creator_agreement_accepted_at', 'content_timezone', 'adult_content_enabled',
-        'credit_balance', 'ai_credit_balance', 'watermark_enabled', 'watermark_text', 'watermark_position', 'watermark_opacity',
-        'autoreplenish_enabled', 'autoreplenish_threshold', 'autoreplenish_amount_cents', 'u_name_changed_at', 'last_active_at', 'created_at', 'updated_at',
+        'user_status', 'verified', 'team_role', 'creator_since', 'creator_agreement_accepted_at', 'content_timezone',
+        'ai_credit_balance', 'watermark_enabled', 'watermark_text', 'watermark_position', 'watermark_opacity',
+        'u_name_changed_at', 'last_active_at', 'created_at', 'updated_at',
     );
 
     private static function account(array $u): array
@@ -133,8 +131,8 @@ class DataExportService {
         $pm = new PostsModel();
         $out = array();
         foreach ((array) $pm->list_for_creator($uid) as $p) {
-            $out[] = array('id' => (int) $p['id'], 'caption' => (string) $p['caption'], 'audience' => (string) $p['audience'], 'state' => (string) $p['state'],
-                'ppv_price_credits' => $p['ppv_price_credits'] ?? null, 'scheduled_at' => $p['scheduled_at'] ?? null, 'published_at' => $p['published_at'] ?? null,
+            $out[] = array('id' => (int) $p['id'], 'caption' => (string) $p['caption'], 'state' => (string) $p['state'],
+                'scheduled_at' => $p['scheduled_at'] ?? null, 'published_at' => $p['published_at'] ?? null,
                 'created_at' => $p['created_at'], 'media' => array_map(function ($a) { return array('id' => (int) $a['asset_id'], 'type' => $a['type']); }, (array) $pm->get_assets((int) $p['id'])));
         }
         return $out;
@@ -151,34 +149,11 @@ class DataExportService {
             $peer = (int) $c['creator_id'] === $uid ? (int) $c['user_id'] : (int) $c['creator_id'];
             $out[] = array('with' => array('user_id' => $peer, 'handle' => (string) ($who[$peer]['handle'] ?? ''), 'name' => (string) ($who[$peer]['name'] ?? '')),
                 'messages' => array_map(function ($x) use ($uid) {
-                    return array('from' => (int) $x['sender_id'] === $uid ? 'me' : 'them', 'body' => (string) $x['body'], 'price_credits' => (int) $x['price_credits'],
+                    return array('from' => (int) $x['sender_id'] === $uid ? 'me' : 'them', 'body' => (string) $x['body'],
                         'media_count' => (int) $x['media_count'], 'sent_at' => $x['created_at']);
                 }, $mm->thread((int) $c['id'], MessagesModel::cleared_id($c, $uid))));
         }
         return $out;
-    }
-
-    private static function purchases($uid): array
-    {
-        $out = array();
-        foreach ((array) (new PpvUnlocksModel())->get_for_fan($uid) as $u) {
-            $out[] = array('type' => 'pay-per-view post', 'title' => (string) $u['caption'], 'creator' => (string) $u['creator_name'], 'price_credits' => (int) $u['price_credits'], 'purchased_at' => $u['purchased_at']);
-        }
-        foreach ((array) (new ContentBundlesModel())->get_purchased_for_fan($uid) as $b) {
-            $out[] = array('type' => 'bundle', 'title' => (string) $b['name'], 'creator' => (string) $b['creator_name'], 'price_credits' => (int) $b['paid_credits'], 'purchased_at' => $b['purchased_at']);
-        }
-        foreach ((array) (new MessageUnlocksModel())->get_for_fan($uid) as $u) {
-            $out[] = array('type' => 'message', 'title' => (string) $u['body'], 'creator' => (string) $u['creator_name'], 'price_credits' => (int) $u['price_credits'], 'purchased_at' => $u['purchased_at']);
-        }
-        return $out;
-    }
-
-    private static function subscriptions($uid): array
-    {
-        return array_map(function ($s) {
-            return array('creator' => (string) $s['creator_name'], 'handle' => (string) $s['creator_handle'], 'plan' => (string) $s['plan_name'], 'status' => (string) $s['status'],
-                'started_at' => $s['created_at'], 'current_period_end' => $s['current_period_end'] ?? null);
-        }, (array) (new CreatorSubscriptionsModel())->get_for_subscriber($uid));
     }
 
     private static function readme(): string
@@ -188,10 +163,7 @@ class DataExportService {
              . "posts.json          Your posts (creators)\n"
              . "media.json          Your Library files; the files themselves are in media/ (creators)\n"
              . "messages.json       Your conversations\n"
-             . "purchases.json      Pay-per-view posts, bundles and messages you bought\n"
-             . "subscriptions.json  Memberships you have with creators\n"
-             . "credits.json        Your credit balance and history\n\n"
-             . "Content you bought stays in Purchases, where you can download it.\n";
+             . "credits.json        Your AI credit balance and history\n";
     }
 
     private static function human_bytes($b): string

@@ -21,12 +21,6 @@ if (!empty($sim_rows)):
                 <?php foreach ($sim_rows as $sr):
                     $sr_name = trim(html_entity_decode((string) $sr['display_name'], ENT_QUOTES, 'UTF-8'));
                     if ($sr_name === '') { $sr_name = '@' . $sr['u_name']; }
-                    if ((int) $sr['paid_from_cents'] > 0) {
-                        $sr_unit  = ((string) $sr['paid_from_interval'] === 'year') ? 'yr' : 'mo';
-                        $sr_price = 'From $' . number_format((int) $sr['paid_from_cents'] / 100, 2) . '/' . $sr_unit;
-                    } else {
-                        $sr_price = ((int) $sr['free_plans'] > 0) ? 'Free membership' : 'Free to follow';
-                    }
                     $sr_href = $sim_base . '/go/' . TrackingLinks::similar_code((int) $sr['user_id']) . '?from=' . (int) $user['user_id'];
                 ?>
                 <a class="pf-sim__card" href="<?php echo htmlspecialchars($sr_href, ENT_QUOTES, 'UTF-8'); ?>">
@@ -34,7 +28,6 @@ if (!empty($sim_rows)):
                     <span class="pf-sim__body">
                         <span class="pf-sim__name"><?php echo htmlspecialchars($sr_name, ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($sr['verified'])): ?> <i class="fa-solid fa-circle-check pf-sim__badge" aria-label="Verified"></i><?php endif; ?></span>
                         <span class="pf-sim__handle">@<?php echo htmlspecialchars((string) $sr['u_name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                        <span class="pf-sim__price"><?php echo htmlspecialchars($sr_price, ENT_QUOTES, 'UTF-8'); ?></span>
                     </span>
                 </a>
                 <?php endforeach; ?>

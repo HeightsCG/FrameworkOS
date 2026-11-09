@@ -40,8 +40,8 @@ class StartPage
         array('gallery-8', 'Aria in an airport lounge by the window', 'img'),
     );
 
-    /** The ten platforms, in the order the ad brief lists them (IntegrationPages slugs; Fanvue has no logo file and shows its name). */
-    const PLATFORMS = array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'fanvue');
+    /** The nine platforms, in the order the ad brief lists them (IntegrationPages slugs). */
+    const PLATFORMS = array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest');
 
     public static function img(string $key, int $w = 560): string { return '/landing/' . $key . ($w === 560 ? '' : '-' . $w) . '.jpg'; }
     public static function srcset(string $key): string { return self::img($key, 320) . ' 320w, ' . self::img($key) . ' 560w'; }

@@ -26,7 +26,6 @@ class CampaignTestModel extends Model {
         parent::delete_all('launch_campaigns', 'id = :k', array('k' => (int) $campaign_id));
     }
     public function make_due($campaign_id){ return parent::update('scheduled_broadcasts', array('send_at' => gmdate('Y-m-d H:i:s', time() - 60)), "campaign_id = :k AND status = 'scheduled'", array('k' => (int) $campaign_id)); }
-    public function drop_promo($code){ parent::delete_all('creator_promo_codes', 'user_id = 1 AND code = :c', array('c' => $code)); }
 }
 $db = new CampaignTestModel();
 
@@ -53,8 +52,7 @@ check('and written back the same',                      LaunchCampaign::local($t
 check('an unreadable time is refused',                  LaunchCampaign::to_ts('', 'UTC') === 0 && LaunchCampaign::to_ts('not a date', 'UTC') === 0);
 
 /* ---- fallback text and edited drafts ---- */
-check('fallback: the code is mentioned only when live',  strpos(LaunchCampaign::fallback(array('kind' => 'live', 'type' => 'post'), 'my new set', 'NOVA20'), 'NOVA20') !== false
-    && strpos(LaunchCampaign::fallback(array('kind' => 'announcement', 'type' => 'post'), 'my new set', 'NOVA20'), 'NOVA20') === false);
+check('fallback: the live piece says it is out',         strpos(LaunchCampaign::fallback(array('kind' => 'live', 'type' => 'post'), 'my new set'), 'It is live: my new set') === 0);
 list($items, $err) = LaunchCampaign::clean_items(array(
     array('key' => 'a', 'kind' => 'announcement', 'type' => 'post', 'at' => gmdate('Y-m-d\TH:i', time() + 7200), 'text' => '  Big news & more '),
     array('key' => 'b', 'kind' => 'live', 'type' => 'message', 'at' => gmdate('Y-m-d\TH:i', time() + 9000), 'text' => '   '),
@@ -80,19 +78,16 @@ check('a piece with no time is refused',                $err !== '' && empty($no
 list($none, $err) = LaunchCampaign::clean_items(array(), 'UTC', time());
 check('an empty campaign is refused',                   $err !== '');
 
-/* ---- confirm: one go creates the posts, the messages and the promo code ---- */
+/* ---- confirm: one go creates the posts and the messages ---- */
 $user = (new UsersModel())->get_user_by_id(1); $user = isset($user[0]) ? $user[0] : $user;
 $tz = (string) ($user['content_timezone'] ?? 'UTC');
 $launch = time() + 4 * 86400;
-$code = 'TESTLC' . strtoupper(substr(md5((string) microtime(true)), 0, 5));
 $drafts = array();
 foreach (LaunchCampaign::slots($launch, 2, time()) as $sl) { $drafts[] = array('key' => $sl['key'], 'kind' => $sl['kind'], 'type' => $sl['type'], 'at' => LaunchCampaign::local($sl['at'], $tz), 'text' => 'Test campaign piece ' . $sl['key']); }
 $k = 0;
 try {
-    $bad = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'promo_code' => $code, 'promo_percent' => 0));
-    check('a promo code needs a discount',                  empty($bad['success']));
     $r = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'days' => 2, 'segments' => array('followers'), 'share_accounts' => array(),
-        'influencer_id' => 999999999, 'promo_code' => $code, 'promo_percent' => 20, 'promo_days' => 3, 'also_cls' => true));
+        'influencer_id' => 999999999));
     check('the campaign is created',                        !empty($r['success']) && (int) ($r['campaign_id'] ?? 0) > 0, json_encode($r));
     $k = (int) ($r['campaign_id'] ?? 0);
     if ($k > 0) {
@@ -103,10 +98,6 @@ try {
         check('5 posts scheduled (announcement, 2 days, countdown, live)', count($posts) === 5 && count(array_filter($posts, function ($p) { return $p['state'] === 'scheduled' && (int) $p['on_cls'] === 1; })) === 5, (string) count($posts));
         check('3 messages scheduled to followers',          count($msgs) === 3 && $msgs[0]['status'] === 'scheduled' && $msgs[0]['segments'] === 'followers', (string) count($msgs));
         check('the live post is at the launch time (UTC)',  abs(strtotime(end($posts)['scheduled_at'] . ' UTC') - $launch) < 60);
-        $promo = $db->rows("SELECT percent_off, expires_at FROM creator_promo_codes WHERE user_id = 1 AND code = :c", array('c' => $code));
-        check('the promo code exists and expires 3 days after launch', count($promo) === 1 && (int) $promo[0]['percent_off'] === 20 && abs(strtotime($promo[0]['expires_at'] . ' UTC') - ($launch + 3 * 86400)) < 60);
-        $dup = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'promo_code' => $code, 'promo_percent' => 20));
-        check('the same promo code cannot be made twice',   empty($dup['success']));
 
         /* ---- the sender ---- */
         check('nothing is sent before its time',            count(array_filter((new LaunchCampaignsModel())->due_broadcasts(200), function ($b) use ($k) { return (int) $b['campaign_id'] === $k; })) === 0);
@@ -118,7 +109,6 @@ try {
 } finally {
     // Whatever happened above, the rows this run made for creator 1 are removed.
     if ($k > 0) { $db->wipe($k); }
-    $db->drop_promo($code);
 }
 check('no test rows left behind',                       count($db->rows("SELECT id FROM posts WHERE caption LIKE 'Test campaign piece %'")) === 0);
 

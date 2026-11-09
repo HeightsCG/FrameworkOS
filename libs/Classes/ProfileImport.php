@@ -22,8 +22,8 @@ class ProfileImport {
         'x.com' => 'X', 'twitter.com' => 'X', 'facebook.com' => 'Facebook', 'threads.net' => 'Threads', 'threads.com' => 'Threads',
         'pinterest.com' => 'Pinterest', 'linkedin.com' => 'LinkedIn', 'snapchat.com' => 'Snapchat', 'twitch.tv' => 'Twitch',
         'spotify.com' => 'Spotify', 'music.apple.com' => 'Apple Music', 'soundcloud.com' => 'SoundCloud', 'bsky.app' => 'Bluesky',
-        'discord.gg' => 'Discord', 'discord.com' => 'Discord', 'patreon.com' => 'Patreon', 'onlyfans.com' => 'OnlyFans',
-        'fansly.com' => 'Fansly', 'fanvue.com' => 'Fanvue', 'ko-fi.com' => 'Ko-fi', 'amazon.com' => 'Amazon', 'etsy.com' => 'Etsy',
+        'discord.gg' => 'Discord', 'discord.com' => 'Discord', 'patreon.com' => 'Patreon',
+        'ko-fi.com' => 'Ko-fi', 'amazon.com' => 'Amazon', 'etsy.com' => 'Etsy',
         'substack.com' => 'Substack', 'github.com' => 'GitHub', 'reddit.com' => 'Reddit', 'telegram.me' => 'Telegram', 't.me' => 'Telegram',
         'wa.me' => 'WhatsApp', 'calendly.com' => 'Calendly', 'cash.app' => 'Cash App', 'venmo.com' => 'Venmo', 'paypal.me' => 'PayPal');
 

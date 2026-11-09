@@ -3,7 +3,7 @@
  * Inbox automation for Creator Link Studio DMs: turns an inbound fan message into an
  * AI reply in the creator's voice, subject to the creator's guardrails (inbox_settings),
  * and sends the creator's welcome / trigger messages (auto_messages) on platform
- * events: new follower, new subscriber, first message, new purchase.
+ * events: new follower, first message.
  *
  * Either sends the reply or parks it in the approval queue (inbox_replies.pending_approval).
  * Never throws to callers. Every outcome lands on inbox_events.result and, where a reply
@@ -242,16 +242,14 @@ class InboxAutomationService {
     public static function trigger_meta(): array {
         return array(
             'new_follower'   => array('New follower',   'Sent when someone follows you.'),
-            'new_subscriber' => array('New subscriber', 'Sent the moment someone joins one of your memberships.'),
             'first_message'  => array('First message',  'Sent the first time a fan messages you.'),
-            'new_purchase'   => array('New purchase',   'Sent after a fan buys a post, a bundle, or unlocks a message.'),
         );
     }
 
     /**
      * Fire a trigger for (creator, fan). Cheap when the creator has not set that trigger up
      * (one select). Otherwise records the event and delivers it right away. Never throws.
-     * $ref distinguishes repeatable events (a purchase id); '' means once per fan.
+     * $ref distinguishes repeatable events; '' means once per fan.
      */
     public static function trigger($creator_id, $fan_id, $trigger, $ref = ''): void {
         try {
@@ -289,7 +287,7 @@ class InboxAutomationService {
         $text = trim((string) $auto['text']);
         $asset_ids = (array) ($auto['asset_ids'] ?? array());
         if ($text === '' && empty($asset_ids))                   { return self::skip('empty'); }
-        // Once per fan per trigger (per purchase for new_purchase): the PK on sends is the mutex.
+        // Once per fan per trigger: the PK on sends is the mutex.
         $send_key = $trigger . ($ref !== '' ? ':' . $ref : '');
         if (!$autos->claim_send($creator_id, $fan_id, $send_key)) { return self::skip('already_sent'); }
         try {
@@ -299,8 +297,8 @@ class InboxAutomationService {
                 foreach ($ready as $a) { $asset_ids[] = (int) $a['id']; }
             }
             $conv_id = $messages->get_or_create($creator_id, $fan_id);
-            $mid = $messages->send($conv_id, $creator_id, $text, null, $asset_ids, empty($asset_ids) ? 0 : (int) $auto['price_credits'], $trigger);
-            self::notify_new_message($fan_id, $creator_id, $text !== '' ? $text : MessagesModel::preview_text('', count($asset_ids), (int) $auto['price_credits']), $conv_id);
+            $mid = $messages->send($conv_id, $creator_id, $text, null, $asset_ids, $trigger);
+            self::notify_new_message($fan_id, $creator_id, $text !== '' ? $text : MessagesModel::preview_text('', count($asset_ids)), $conv_id);
             return array('status' => 'done', 'result' => 'sent:' . (int) $mid);
         } catch (\Throwable $e) {
             $autos->release_send($creator_id, $fan_id, $send_key);
@@ -398,11 +396,7 @@ class InboxAutomationService {
         } else {
             $rules[] = 'Do not bring up being an AI yourself. If the fan asks whether you are real, a bot or an AI, do not dodge with a claim to be human: answer warmly without stating what you are, and it will be passed to a person.';
         }
-        if (!empty($settings['upsell_enabled']) && !$first_contact) {
-            $rules[] = 'You may mention your paid content, subscription, or that tips are appreciated, but only when it fits the conversation naturally, at most once per reply, and never as the main point of the message.';
-        } else {
-            $rules[] = 'Do not try to sell anything or ask for tips or purchases.';
-        }
+        $rules[] = 'Do not try to sell anything or ask for tips or purchases.';
         $rules[] = 'If the message is a complaint, refund or payment dispute, someone in distress, anything involving minors, anything illegal, threats, or a topic you were told to avoid, reply with exactly ' . self::HOLD_TOKEN . ' and nothing else so a human can take over.';
         $rules[] = 'Output only the message text you would send. No quotes around it, no explanations.';
 

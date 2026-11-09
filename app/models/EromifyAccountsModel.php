@@ -1,7 +1,7 @@
 <?php
 /**
  * A creator's Eromify (Creator Studio) connection: their own API key, stored
- * encrypted with the same scheme as Fanvue tokens. One row per creator.
+ * encrypted (AES-256-GCM, see key() below). One row per creator.
  */
 class EromifyAccountsModel extends Model {
 
@@ -14,7 +14,7 @@ class EromifyAccountsModel extends Model {
         $rows = parent::select("SELECT * FROM user_eromify_accounts WHERE user_id = :u", array('u' => (int) $user_id));
         if (!is_array($rows) || count($rows) !== 1) { return null; }
         $row = $rows[0];
-        $row['api_key'] = FanvueAccountsModel::decrypt((string) $row['api_key']);
+        $row['api_key'] = self::decrypt((string) $row['api_key']);
         return $row;
     }
 
@@ -26,7 +26,7 @@ class EromifyAccountsModel extends Model {
     public function connect($user_id, $api_key, $plan = '', $credits = null){
         $now  = date('Y-m-d H:i:s');
         $data = array(
-            'api_key'      => FanvueAccountsModel::encrypt((string) $api_key),
+            'api_key'      => self::encrypt((string) $api_key),
             'status'       => 'connected',
             'plan'         => mb_substr((string) $plan, 0, 32),
             'credits'      => ($credits !== null) ? (int) $credits : null,
@@ -56,4 +56,36 @@ class EromifyAccountsModel extends Model {
             'user_id = :u', array('u' => (int) $user_id));
     }
 
+
+    // ---- key encryption -----------------------------------------------------
+    // The key setting and the derivation salt keep their original names: keys stored
+    // before must still decrypt.
+
+    private static function key(): string {
+        $cfg = Main::get_config();
+        $env = Main::get_environment();
+        $hex = (string) ($cfg[$env]['fanvue_token_key'] ?? ($cfg['global']['fanvue_token_key'] ?? ''));
+        if (strlen($hex) === 64 && ctype_xdigit($hex)) { return hex2bin($hex); }
+        return hash('sha256', (string) Main::config(Main::get_environment(), 'db_pass') . '|fanvue-tokens', true);
+    }
+
+    public static function encrypt($plain): string {
+        if ($plain === '' || $plain === null) { return ''; }
+        $iv  = random_bytes(12);
+        $tag = '';
+        $ct  = openssl_encrypt((string) $plain, 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, $iv, $tag);
+        return 'v1:' . base64_encode($iv . $tag . $ct);
+    }
+
+    public static function decrypt($stored): string {
+        $stored = (string) $stored;
+        if ($stored === '' || strpos($stored, 'v1:') !== 0) { return ''; }
+        $raw = base64_decode(substr($stored, 3), true);
+        if ($raw === false || strlen($raw) < 28) { return ''; }
+        $iv  = substr($raw, 0, 12);
+        $tag = substr($raw, 12, 16);
+        $ct  = substr($raw, 28);
+        $pt  = openssl_decrypt($ct, 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, $iv, $tag);
+        return ($pt === false) ? '' : $pt;
+    }
 }

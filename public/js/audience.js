@@ -8,7 +8,7 @@
     var seg = 'all';
 
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
-    function segAttr(s) { return s === 'followers' ? 'follower' : s === 'subscribers' ? 'subscriber' : s === 'buyers' ? 'buyer' : 'all'; }
+    function segAttr(s) { return s === 'followers' ? 'follower' : 'all'; }
 
     function applyFilter() {
         var q = (search.value || '').trim().toLowerCase();

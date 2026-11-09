@@ -12,7 +12,6 @@ class InboxSettingsModel extends Model {
 
     public static function defaults(){
         return array(
-            'fanvue_enabled'  => 0,
             'cls_enabled'     => 0,
             'mode'            => 'approve',
             'quiet_start'     => null,
@@ -21,7 +20,6 @@ class InboxSettingsModel extends Model {
             'max_consecutive' => 3,
             'persona'         => '',
             'avoid_topics'    => '',
-            'upsell_enabled'  => 0,
             'disclose_ai'     => 0,
             'ai_disclosure_text'    => AiDisclosure::DEFAULT_FIRST_REPLY,   // sent with the first automated reply to each fan; never blank
             'persona_influencer_id' => 0,                                    // whose persona the replies are written in (0 = brand voice only)
@@ -64,7 +62,6 @@ class InboxSettingsModel extends Model {
     /** Validate + clamp then upsert. Returns the cleaned array. */
     public function save($creator_id, array $f){
         $clean = array(
-            'fanvue_enabled'  => 0,
             'cls_enabled'     => !empty($f['cls_enabled']) ? 1 : 0,
             'mode'            => (($f['mode'] ?? '') === 'auto') ? 'auto' : 'approve',
             'quiet_start'     => self::hhmm($f['quiet_start'] ?? null),
@@ -73,7 +70,6 @@ class InboxSettingsModel extends Model {
             'max_consecutive' => max(1, min(10, (int) ($f['max_consecutive'] ?? 3))),
             'persona'         => mb_substr(trim(strip_tags((string) ($f['persona'] ?? ''))), 0, 2000),
             'avoid_topics'    => mb_substr(trim(strip_tags((string) ($f['avoid_topics'] ?? ''))), 0, 2000),
-            'upsell_enabled'  => !empty($f['upsell_enabled']) ? 1 : 0,
             'disclose_ai'     => !empty($f['disclose_ai']) ? 1 : 0,
             'ai_disclosure_text'    => AiDisclosure::first_reply_text($f['ai_disclosure_text'] ?? ''),   // blank falls back to the default: it cannot be empty
             'persona_influencer_id' => ((int) ($f['persona_influencer_id'] ?? 0) > 0) ? (int) $f['persona_influencer_id'] : null,

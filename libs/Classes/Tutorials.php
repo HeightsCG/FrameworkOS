@@ -7,6 +7,9 @@
  */
 class Tutorials {
 
+    /** Off (2026-11-09): every Watch How button, the /support video grid and public listings hide until the videos are re-recorded. */
+    const ENABLED = false;
+
     const DIR = '/videos/tutorials';
 
     const SECTIONS = array(
@@ -17,31 +20,20 @@ class Tutorials {
 
     const VIDEOS = array(
         '01' => array('section' => 'start', 'title' => 'Become a Creator', 'secs' => 32, 'steps' => array(
-            'Welcome to Creator Link Studio. Let\'s turn your account into a creator account so you can start posting and getting paid.',
+            'Welcome to Creator Link Studio. Let\'s turn your account into a creator account so you can start creating and publishing.',
             'Click your name in the top right, then Settings.',
             'Open Become a Creator.',
             'Read through the Creator Agreement and Content Policy.',
             'Check the box to accept it, then click Become a Creator.',
-            'That\'s it. Your creator tools are unlocked, including Content Studio, Analytics, Audience and more.',
-        )),
-        '02' => array('section' => 'start', 'title' => 'Choose Your Plan', 'secs' => 80, 'steps' => array(
-            'Your plan decides what you can do on Creator Link Studio. Here\'s how to pick one.',
-            'Click your name, then Billing, then the Plan tab.',
-            'Free is where everyone starts. Follow creators, join memberships, unlock posts, buy tickets and bookings, and message creators. There\'s no card needed.',
-            'To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts.',
-            'Creator is 49 dollars a month. You keep 90 percent of every sale, and you get an AI influencer, 500 AI credits a month, 5 scheduled automations, 25 gigabytes of storage, and inbox automation with AI replies.',
-            'Studio is 199 dollars a month. You keep 97 percent of every sale, with 10 AI influencers, 3,000 AI credits a month, unlimited automations, 500 gigabytes of storage, 10 team seats and your own custom domain.',
-            'Need more AI credits? On Creator and Studio you can buy more any time. One dollar buys 10 credits.',
-            'Pick the plan that fits and click its button. If you have a promo code, enter it at checkout.',
-            'Your current plan is always marked Your plan, with its renewal date right below.',
+            'That\'s it. Your creator tools are ready, including Content Studio, Analytics, Audience and more.',
         )),
         '03' => array('section' => 'start', 'title' => 'Set Up Your Creator Profile', 'secs' => 30, 'steps' => array(
-            'Your creator profile is what fans see first. Let\'s set it up.',
+            'Your creator profile is what visitors see first. Let\'s set it up.',
             'In Settings, open Creator Profile.',
             'Upload a cover image and a profile photo.',
             'Add your display name, your location if you want it shown, and a short bio.',
             'Click Save Changes.',
-            'Under Links, add anywhere else fans can find you.',
+            'Under Links, add anywhere else people can find you.',
             'Want a verified badge? Click Request Verification at the top.',
         )),
         '04' => array('section' => 'start', 'title' => 'Brand Identity', 'secs' => 30, 'steps' => array(
@@ -52,16 +44,6 @@ class Tutorials {
             'Adjust your brand colors and keywords. Add or remove anything that doesn\'t fit.',
             'Nothing is saved until you click Save Brand Identity.',
         )),
-        '05' => array('section' => 'start', 'title' => 'Membership Plans, Codes and Bundles', 'secs' => 45, 'steps' => array(
-            'This is where you set what fans pay for. Open Membership Plans in Settings.',
-            'Click Add Plan to create a subscription tier.',
-            'Give it a name and a monthly price. You can also make it a free tier or offer a free trial.',
-            'Add a short description and your perks, one per line, then click Save Plan.',
-            'Drag tiers to reorder them, and use the toggle to show or hide a tier on your profile.',
-            'Under Discount Codes, click Add Code to create a percent off code fans use at checkout. You can set a redemption cap or an expiry date.',
-            'Under Content Bundles, click Add Bundle to sell a group of photos and videos from your Library at one price.',
-            'Name it, set a price, pick the content, and click Save Bundle. Buyers get every item in their Purchases.',
-        )),
         '06' => array('section' => 'start', 'title' => 'Integrations', 'secs' => 31, 'steps' => array(
             'Integrations connects your social accounts so you can publish everywhere from one place.',
             'In Settings, open Integrations.',
@@ -71,14 +53,14 @@ class Tutorials {
             'Once connected, they appear in the Distribution step every time you create a post.',
         )),
         '07' => array('section' => 'start', 'title' => 'Inbox Automation', 'secs' => 47, 'steps' => array(
-            'Inbox Automation answers fan messages in your voice, so you never leave a fan waiting.',
+            'Inbox Automation answers messages in your voice, so you never leave anyone waiting.',
             'In Settings, open Inbox Automation, then the Settings tab.',
-            'Turn on Reply to fan messages.',
+            'Turn on automatic replies.',
             'Choose Approve first to review every draft, or Send automatically to let replies go out on their own.',
             'Set quiet hours, and cap how many replies go out in a row before it waits for you.',
-            'Describe how you talk to fans, and list any topics to avoid. Those messages get held for you.',
+            'Describe how you talk to your audience, and list any topics to avoid. Those messages get held for you.',
             'Type a sample message under Try It and click Draft a Reply to test it. Then click Save.',
-            'In the Welcome Messages tab, set automatic messages for new followers, new subscribers, first messages and new purchases.',
+            'In the Welcome Messages tab, set automatic messages for new followers and first messages.',
             'Drafts waiting for your approval show up in the Queue tab.',
         )),
         '08' => array('section' => 'start', 'title' => 'Account Profile', 'secs' => 24, 'steps' => array(
@@ -98,25 +80,13 @@ class Tutorials {
         )),
         '10' => array('section' => 'start', 'title' => 'Notifications', 'secs' => 21, 'steps' => array(
             'Choose what you hear about and where. In Settings, open Notifications.',
-            'Each row is a type of update: messages, creator activity, broadcasts, purchases, subscriptions, events, services, credits and auto top-ups.',
+            'Each row is a type of update: messages, creator activity, broadcasts and AI credits.',
             'Use the toggles to get each one in the app, by email, both or neither.',
-        )),
-        '11' => array('section' => 'start', 'title' => 'Your Wallet', 'secs' => 33, 'steps' => array(
-            'Your wallet credits pay for unlocks, tickets and bookings. In Settings, open Wallet.',
-            'Your balance is at the top. Creators also see their AI credits here, which are separate and used for making images and videos.',
-            'Under Buy Credits, pick an amount. A small processing fee is added at checkout, and credits are non-refundable.',
-            'History shows everything you\'ve added, spent and earned.',
-            'Auto-Replenishment buys credits automatically when your balance runs low. Click Manage to turn it on.',
-        )),
-        '12' => array('section' => 'start', 'title' => 'Restricted Content and Blocked Users', 'secs' => 19, 'steps' => array(
-            'Two quick settings for what you see and who can reach you.',
-            'Restricted Content controls whether adult content is shown. It\'s hidden by default, and you must be 18 or older in a permitted region to turn it on.',
-            'Blocked Users lists anyone you\'ve blocked. You can unblock them from here at any time.',
         )),
         '13' => array('section' => 'studio', 'title' => 'Content Studio Tour', 'secs' => 49, 'steps' => array(
             'This is Content Studio, home base for everything you publish.',
             'Five tabs run across the top: Posts, Library, Calendar, Collections and Scheduler.',
-            'Posts lists everything you\'ve made, with its status, audience, views, comments, earnings and shares.',
+            'Posts lists everything you\'ve made, with its status, audience, views, comments and shares.',
             'Search by caption, or filter to drafts, scheduled, published or archived.',
             'The three dot menu on any post lets you duplicate it, share it to your socials, archive it or remove it.',
             'Privacy blurs your thumbnails, so you can work in public or share your screen.',
@@ -125,19 +95,6 @@ class Tutorials {
             'Collections group related files so they\'re easy to find.',
             'Scheduler runs your automations and scheduled messages.',
             'And the Action button is your shortcut to create anything.',
-        )),
-        '14' => array('section' => 'studio', 'title' => 'Create and Publish a Post', 'secs' => 52, 'steps' => array(
-            'Let\'s publish a post. Click Action, then New Post.',
-            'Add media from your Library, or upload new files.',
-            'Pick your photos or videos and click Add to Post. The first one becomes the cover.',
-            'Write your caption, or click Write a caption to have AI draft one.',
-            'The preview on the right shows exactly what fans will see.',
-            'Next, Audience. Choose Everyone, Subscribers, or Pay-per-view.',
-            'For pay-per-view, set your unlock price, anywhere from 10 to 5,000 credits.',
-            'Switch the preview to Public to see the locked version.',
-            'Under Distribution, pick where it goes: your profile and any connected social accounts.',
-            'Last, Publish. Select Publish now, then click the Publish now button.',
-            'Your post is live, and it shows at the top of your Posts list.',
         )),
         '15' => array('section' => 'studio', 'title' => 'Schedule a Post', 'secs' => 19, 'steps' => array(
             'Want a post to go out later? Build it the same way, then open the Publish step.',
@@ -178,11 +135,11 @@ class Tutorials {
             'Click Run now to test it right away, the pencil to edit, or the trash can to delete.',
         )),
         '19' => array('section' => 'studio', 'title' => 'Scheduled Messages', 'secs' => 29, 'steps' => array(
-            'Scheduled messages keep fans engaged without you being online.',
+            'Scheduled messages keep your audience engaged without you being online.',
             'Click Action, then New Scheduled Message.',
             'Name it, then write your message.',
             'Or turn on Write with AI and give it a topic instead.',
-            'Under Destinations, choose who gets it: everyone, followers, subscribers, expired subscribers or buyers.',
+            'Under Destinations, choose who gets it.',
             'Set the schedule, daily or weekly on the days you pick.',
             'Click Create message. It shows in Scheduler, and Send now sends it right away.',
         )),
@@ -301,7 +258,7 @@ class Tutorials {
     /** One video with its URLs, or null when unknown or its file isn't uploaded yet. */
     public static function get($id){
         $id = (string) $id;
-        if (!isset(self::VIDEOS[$id])) { return null; }
+        if (!self::ENABLED || !isset(self::VIDEOS[$id])) { return null; }
         $file = Main::app_path() . '/public' . self::DIR . '/' . $id . '.mp4';
         if (!is_file($file)) { return null; }
         $v = self::VIDEOS[$id];

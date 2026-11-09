@@ -68,7 +68,7 @@ try {
 
     $n = NurtureEmails::run();
     $m = $sent_to('ann');
-    check('Free creator gets day 1', count($m) === 1 && ($m[0]['Subject'] ?? '') === 'Your page isn\'t public yet');
+    check('Free creator gets day 1', count($m) === 1 && ($m[0]['Subject'] ?? '') === Notifications::env_subject('Your page isn\'t public yet'));
     check('signup_role creator counts too', count($sent_to('rae')) === 1);
     check('paid creator: nothing', count($sent_to('ben')) === 0);
     check('opted out: nothing', count($sent_to('cat')) === 0);
@@ -102,7 +102,7 @@ try {
     $backdate($a, 21);
     NurtureEmails::run();
     $m = $sent_to('ann');
-    check('day 3 after the gap', count($m) === 2 && ($m[1]['Subject'] ?? '') === 'Make your first AI photo');
+    check('day 3 after the gap', count($m) === 2 && ($m[1]['Subject'] ?? '') === Notifications::env_subject('Make your first AI photo'));
     check('day 3 returns to /influencers/create', strpos($m[1]['HtmlBody'], '%2Finfluencers%2Fcreate') !== false);
     $backdate($a, 21);
     NurtureEmails::run();
@@ -113,7 +113,7 @@ try {
     check('day 7 only for sign-ups from ' . NurtureEmails::FROM, $claims($a, 'nurture_day7') === (strtotime(gmdate('Y-m-d H:i:s', time() - 170 * 3600) . ' UTC') >= strtotime(NurtureEmails::FROM . ' UTC') ? 1 : 0));
     $d7 = NurtureEmails::build('nurture_day7', array('user_id' => $a), false);
     $rows = array(); foreach ($d7['facts'] as $x) { $rows[$x[0]] = $x[1]; }
-    check('day 7: price and fee on separate lines', isset($rows['Price'], $rows['Platform fee']) && strpos($rows['Platform fee'], '%') !== false && strpos($rows['Platform fee'], '$') === false && strpos($rows['Price'], '%') === false);
+    check('day 7: a price line and no platform fee line', isset($rows['Price']) && !isset($rows['Platform fee']) && strpos($rows['Price'], '%') === false);
 
     // ---- stop when a plan starts ----
     $h = $mk('hal', 25);
@@ -153,7 +153,7 @@ try {
     NurtureEmails::run();
     $m = $sent_to('quinn');
     $label = CreatorPromo::ends_label();
-    check('deadline email names the admin end date', count($m) === 1 && ($m[0]['Subject'] ?? '') === 'The $' . CreatorPromo::price() . ' Founding Creator price ends ' . $label);
+    check('deadline email names the admin end date', count($m) === 1 && ($m[0]['Subject'] ?? '') === Notifications::env_subject('The $' . CreatorPromo::price() . ' Founding Creator price ends ' . $label));
     check('deadline: broadcast + footer', ($m[0]['MessageStream'] ?? '') === 'broadcast' && strpos($m[0]['TextBody'], '{{{ pm:unsubscribe }}}') !== false);
     NurtureEmails::run();
     check('deadline 3d exactly once', count($sent_to('quinn')) === 1);

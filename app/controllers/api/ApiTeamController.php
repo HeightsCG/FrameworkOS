@@ -65,8 +65,6 @@ class ApiTeamController extends BaseApiController {
         $this->jsonSuccess();
     }
 
-    /* ---------- Events (PRD §23) ---------- */
-
     private function team_owner_guard(): int{
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }

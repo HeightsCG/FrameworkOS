@@ -6,7 +6,7 @@ class ApiInboxController extends BaseApiController {
         $user = $this->inbox_user();
         $f = [];
         foreach (['cls_enabled', 'mode', 'quiet_start', 'quiet_end', 'quiet_action',
-                       'max_consecutive', 'upsell_enabled', 'disclose_ai'] as $k) {
+                       'max_consecutive', 'disclose_ai'] as $k) {
             $f[$k] = $this->post[$k] ?? null;
         }
         $f['persona']      = html_entity_decode((string) ($this->post['persona'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -80,7 +80,7 @@ class ApiInboxController extends BaseApiController {
         foreach (['persona', 'avoid_topics'] as $k) {
             if (isset($this->post[$k])) { $settings[$k] = mb_substr(strip_tags(html_entity_decode((string) $this->post[$k], ENT_QUOTES, 'UTF-8')), 0, 2000); }
         }
-        foreach (['upsell_enabled', 'disclose_ai'] as $k) {
+        foreach (['disclose_ai'] as $k) {
             if (isset($this->post[$k])) { $settings[$k] = !empty($this->post[$k]) ? 1 : 0; }
         }
         $cb  = (new CreatorBrandModel())->get_for_user((int) $user['user_id']);
@@ -114,7 +114,6 @@ class ApiInboxController extends BaseApiController {
                 'enabled' => $r ? !empty($r['enabled']) : false,
                 'is_default' => $r ? !empty($r['is_default']) : true,
                 'text'    => $r ? (string) $r['text'] : '',
-                'price'   => $r ? (int) $r['price_credits'] : 0,   // credits
                 'assets'  => $assets,
                 'sent'    => (int) ($sent[$t] ?? 0),
             ];
@@ -146,8 +145,7 @@ class ApiInboxController extends BaseApiController {
             $asset_ids[] = (int) $a['id'];
         }
         if ($text === '' && empty($asset_ids)) { $this->jsonError('Write the message first.'); }
-        $price = (!empty($asset_ids) && $this->price_given($this->post['price'] ?? '')) ? $this->price_credits($this->post['price']) : 0;
-        (new AutoMessagesModel())->save($cid, $trigger, $text, true, $asset_ids, $price);
+        (new AutoMessagesModel())->save($cid, $trigger, $text, true, $asset_ids);
         $this->jsonSuccess(['message' => 'Saved']);
     }
 

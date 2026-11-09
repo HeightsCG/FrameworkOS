@@ -164,8 +164,8 @@ class NurtureEmails {
         if ($kind === 'nurture_day1') {
             $subject = 'Your page isn\'t public yet';
             $paras = array(
-                'On the Free plan you can build your page, upload media and save drafts. Your page stays private, and fans can\'t follow, subscribe or buy yet.',
-                'Going live and selling starts with ' . $name . '. ' . ($founding ? $trial : $name . ' is $' . $price . ' a month.') . ' Everything you\'ve built on Free stays as it is.',
+                'On the Free plan you can build your page, upload media and save drafts. Your page stays private, and nothing is published to your social accounts yet.',
+                'Going live, scheduling and AI tools start with ' . $name . '. ' . ($founding ? $trial : $name . ' is $' . $price . ' a month.') . ' Everything you\'ve built on Free stays as it is.',
             );
         } elseif ($kind === 'nurture_day3') {
             $subject = 'Make your first AI photo';
@@ -184,11 +184,10 @@ class NurtureEmails {
             );
             $facts[] = array('Price', '$' . $price . ' / month');
             if ($plan === CreatorPromo::PLAN && CreatorPromo::running()) { $facts[] = array('$' . CreatorPromo::price() . ' price ends', CreatorPromo::ends_label()); }
-            $facts[] = array('Platform fee', (int) ($l['fee_percent'] ?? 0) . '% of sales');
             if ((int) ($l['ai_credits'] ?? 0) > 0)  { $facts[] = array('AI credits', number_format((int) $l['ai_credits']) . ' / month'); }
             if ((int) ($l['influencers'] ?? 0) > 0) { $facts[] = array('AI influencers', (string) (int) $l['influencers']); }
             if (isset($l['automations']) && (int) $l['automations'] >= 0) { $facts[] = array('Automations', (int) $l['automations'] > 0 ? (string) (int) $l['automations'] : 'Unlimited'); }
-            $facts[] = array('Selling', 'Memberships, paid posts, bundles');
+            $facts[] = array('Publishing', 'Scheduling and cross-posting to social');
         } else {
             $when = CreatorPromo::ends_label();
             $subject = 'The $' . CreatorPromo::price() . ' Founding Creator price ends ' . $when;

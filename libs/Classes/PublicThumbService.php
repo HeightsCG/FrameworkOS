@@ -1,8 +1,8 @@
 <?php
 /**
  * Public, cacheable WebP renditions for media anyone may see: images (and video poster frames) in a PUBLISHED, FREE
- * post on the site that the moderator approved as not adult (MediaAssetsModel::public_ok_sql(), which also needs the creator's page to be public). Everything else (gated,
- * adult, pending, blurred) keeps the short-lived signed URLs from MediaService, and a card whose public rendition is
+ * post on the site that the content check approved (MediaAssetsModel::public_ok_sql(), which also needs the creator's page to be public). Everything else (gated,
+ * flagged, pending, blurred) keeps the short-lived signed URLs from MediaService, and a card whose public rendition is
  * missing falls back to the signed one, so an image is never broken.
  *
  * Keys sit under creator/* (public read in the bucket policy) with a random token, so they can't be guessed from an
@@ -26,7 +26,7 @@ class PublicThumbService {
      */
     public static function url(array $asset, $size = 'grid'): string
     {
-        if ((string) ($asset['moderation_status'] ?? '') !== 'approved' || !empty($asset['is_adult'])) { return ''; }
+        if ((string) ($asset['moderation_status'] ?? '') !== 'approved') { return ''; }
         $key = (string) ($asset[$size === 'feed' ? 'public_display_key' : 'public_thumb_key'] ?? '');
         return $key === '' ? '' : S3Service::public_url($key);
     }

@@ -4,7 +4,8 @@ function get($u) { $ch = curl_init($u); curl_setopt_array($ch, array(CURLOPT_RET
 function head($u) { $ch = curl_init($u); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_NOBODY => true, CURLOPT_TIMEOUT => 15)); $h = (string) curl_exec($ch); curl_close($ch); return $h; }
 $fail = 0; function check($l, $c) { global $fail; echo ($c ? 'ok   ' : 'FAIL ') . $l . "\n"; if (!$c) { $fail++; } }
 list($c, $b) = get("$base/sitemap.xml");
-foreach (array('/features', '/pricing', '/compare/fanvue', '/compare/onlyfans', '/best-creator-monetization-platforms', '/monetize-your-content') as $p) { check("sitemap has $p", strpos($b, "<loc>$base$p</loc>") !== false); }
+foreach (array('/features', '/pricing', '/features/ai-influencer', '/integrations') as $p) { check("sitemap has $p", strpos($b, "<loc>$base$p</loc>") !== false); }
+foreach (array('/compare/fanvue', '/compare/onlyfans', '/best-creator-monetization-platforms', '/monetize-your-content', '/onlyfans-alternatives') as $p) { check("sitemap drops $p", strpos($b, "<loc>$base$p</loc>") === false); }
 $sitemap = $b;
 check('sitemap lists /blog',              strpos($sitemap, '<loc>' . $base . '/blog</loc>') !== false);
 check('sitemap lists an article',         preg_match('#<loc>' . preg_quote($base, '#') . '/blog/[a-z0-9-]+</loc>#', $sitemap) === 1);

@@ -2,9 +2,7 @@
 /**
  * Founding creator offer (/founding). The first SPOTS accounts that start the Creator plan through it get the first
  * TRIAL_DAYS free (the system promo CODE: 100% off a first period that ends TRIAL_DAYS after signup, then monthly from
- * that date; no Stripe coupon). That is the whole offer since 2026-10-12
- * (Daniel): FEE_LOCK is off, so new claims pay the Creator plan's own fee. Claims made while the lock was on keep
- * their fee_percent_override for as long as the Creator plan stays active or past due. In return they agree to share a
+ * that date; no Stripe coupon). That is the whole offer since 2026-10-12 (Daniel). In return they agree to share a
  * testimonial, to be featured in the directory and on the home page, and to stay listed in the directory.
  *
  * A spot is held at checkout (BillingService::change_plan, founding_claims 'claimed', released if the charge fails),
@@ -15,10 +13,8 @@ class Founding {
 
     const SPOTS = 100;
     const CODE  = 'FOUNDING';
-    const PLAN  = 'creator';              // the plan the claim link preselects, and the one old fee locks apply to
+    const PLAN  = 'creator';              // the plan the claim link preselects
     const PLANS = array('creator', 'studio');   // every paid plan takes the offer (Daniel 2026-10-12)
-    const FEE_FROM = 'studio';   // the tier whose fee is locked in (only while FEE_LOCK is on)
-    const FEE_LOCK = false;      // false: a new claim gets the free first TRIAL_DAYS and nothing else; an override already written is still honoured (fee_override)
     const TRIAL_DAYS = 14;       // the free first period (Daniel 2026-10-14; was one billing month)
     const NO_CARD_CREDITS = 100; // a trial started with no card gets this many AI credits; adding a card unlocks the rest of the plan's (Daniel 2026-10-20)
     const TESTIMONIAL_DAYS = 14;
@@ -33,17 +29,7 @@ class Founding {
     public static function present($on = true): void { self::$presented = (bool) $on; }
     public static function presented(): bool { return self::$presented; }
 
-    /** Per-request cache of "has an active claim" (fee_override), cleared whenever a claim changes. */
-    private static $active = array();
-
     public static function spots(): int { return self::$spots !== null ? self::$spots : self::SPOTS; }
-
-    /** The locked fee: the Studio plan's fee_percent from PlanTiers. */
-    public static function fee(): float
-    {
-        $t = PlanTiers::get(self::FEE_FROM);
-        return (float) ($t['limits']['fee_percent'] ?? 0);
-    }
 
     /** The claim link: signed-out visitors get the Create Account dialog in place (data-auth, landing.js keeps the founding flag); signed-in ones go to the plan tab. Returns array(href, data-auth or ''). */
     public static function claim_link(): array
@@ -69,9 +55,6 @@ class Founding {
         return (string) ($t['name'] ?? 'Creator');
     }
 
-    /** "3%" (no trailing .00). */
-    public static function fee_label(): string { return rtrim(rtrim(number_format(self::fee(), 2), '0'), '.') . '%'; }
-
     /** "first 14 days free" */
     public static function free_label(): string { return 'first ' . self::TRIAL_DAYS . ' days free'; }
 
@@ -79,7 +62,7 @@ class Founding {
     public static function trial_end(): string { return gmdate('Y-m-d H:i:s', time() + self::TRIAL_DAYS * 86400); }
 
     /** The note on the billing plan tab and the quote line label. */
-    public static function note(): string { return 'Founding offer: ' . self::free_label() . (self::FEE_LOCK ? ', ' . self::fee_label() . ' fee locked' : ''); }
+    public static function note(): string { return 'Founding offer: ' . self::free_label(); }
 
     public static function taken(): int { return (new FoundingClaimsModel())->taken(); }
 
@@ -98,7 +81,7 @@ class Founding {
     }
 
     private static function cache_file(): string { return sys_get_temp_dir() . '/cls_founding_taken.txt'; }
-    private static function forget(): void { @unlink(self::cache_file()); self::$active = array(); }
+    private static function forget(): void { @unlink(self::cache_file()); }
 
     /** May this account take the offer now (shown on the billing plan tab): spots left, not on a paid plan, never claimed. */
     public static function eligible($user_id): bool
@@ -146,13 +129,12 @@ class Founding {
         self::forget();
     }
 
-    /** The Creator plan started on the founding promo: claim active, account flagged; the fee locks only while FEE_LOCK is on. */
+    /** The Creator plan started on the founding promo: claim active, account flagged. */
     public static function activate($user_id): void
     {
         $uid = (int) $user_id;
         if ((new FoundingClaimsModel())->activate($uid) < 1) { return; }   // no held spot: nothing to grant
         (new UsersModel())->set_founding($uid, true);
-        if (self::FEE_LOCK) { (new BillingAccountsModel())->save($uid, array('fee_percent_override' => self::fee())); }
         self::forget();
     }
 
@@ -170,7 +152,7 @@ class Founding {
         }
     }
 
-    /** Staff took the spot back: the claim is refused and the fee lock ends. */
+    /** Staff took the spot back: the claim is refused. */
     public static function refuse(array $claim): void
     {
         (new FoundingClaimsModel())->set_status((int) $claim['id'], 'refused');
@@ -180,18 +162,7 @@ class Founding {
     private static function clear($user_id): void
     {
         (new UsersModel())->set_founding((int) $user_id, false);
-        (new BillingAccountsModel())->save((int) $user_id, array('fee_percent_override' => null));
         self::forget();
-        (new DatabaseJobQueue())->dispatch('membership_fee', array('user_id' => (int) $user_id), 'membership_fee:' . (int) $user_id);   // the fee changed: existing fan memberships follow
-    }
-
-    /** The locked fee for a founding creator row (Plan::fee_percent), or null. Only with an active claim, so a missed lapse never keeps the lock. */
-    public static function fee_override(array $creator)
-    {
-        $uid = (int) ($creator['user_id'] ?? 0);
-        if ((int) ($creator['is_founding'] ?? 0) !== 1 || $uid <= 0) { return null; }
-        if (!isset(self::$active[$uid])) { $c = (new FoundingClaimsModel())->for_user($uid); self::$active[$uid] = $c && (string) $c['status'] === 'active'; }
-        return self::$active[$uid] ? (new BillingAccountsModel())->fee_override($uid) : null;
     }
 
     /** Where founding creators write their testimonial (FoundingController). */

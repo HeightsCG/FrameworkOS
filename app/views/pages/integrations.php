@@ -1,6 +1,6 @@
 <?php
 /**
- * /integrations: the ten platforms the studio publishes to (IntegrationPages::PAGES), each a tile with its own mark
+ * /integrations: the nine platforms the studio publishes to (IntegrationPages::PAGES), each a tile with its own mark
  * (small, the index only) linking to /integrations/<slug>. Locals: $faq.
  */
 $site = Main::site_name();
@@ -9,10 +9,10 @@ $site = Main::site_name();
 <?php
 echo Sections::panel_hero(array('photo' => 'integrations', 'variant' => 'full', 
     'title' => 'Integrations',
-    'lead'  => 'Write a post once and send it to ten platforms. Connect your accounts in Settings, tick the ones you want on each post, and publish now or on a schedule.',
+    'lead'  => 'Write a post once and send it to nine platforms. Connect your accounts in Settings, tick the ones you want on each post, and publish now or on a schedule.',
 ));
 
-echo Sections::open('white', 'Ten platforms, one editor', 'Social networks get the public version of each post. Fanvue gets the whole post.');
+echo Sections::open('white', 'Nine platforms, one editor', 'Each post goes out with its caption and media, formatted for every network you tick.');
 echo '<ul class="gi-grid">';
 foreach (IntegrationPages::PAGES as $slug => $p) {
     $mark = IntegrationPages::logo($slug, 24);

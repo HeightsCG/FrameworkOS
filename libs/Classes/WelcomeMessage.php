@@ -17,7 +17,7 @@ class WelcomeMessage {
             $m = new MessagesModel();
             $conv = $m->get_or_create(PlatformAccount::ID, $uid);   // the team is always the creator_id side
             if ($m->has_trigger($conv, self::TRIGGER)) { return false; }
-            $m->send($conv, PlatformAccount::ID, self::BODY, null, array(), 0, self::TRIGGER);
+            $m->send($conv, PlatformAccount::ID, self::BODY, null, array(), self::TRIGGER);
             return true;
         } catch (\Throwable $e) {
             error_log('[welcome] user_id=' . $uid . ': ' . $e->getMessage());

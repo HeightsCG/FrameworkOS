@@ -49,10 +49,8 @@ class SupportController extends Controller {
             $am = new AdminModel();
             $uid = (int) $t['user_id'];
             $this->view->requester  = $am->user_detail($uid);
-            $this->view->purchases  = $am->purchases_for($uid, 50);
-            $this->view->memberships = array_values(array_filter((array) (new CreatorSubscriptionsModel())->get_for_subscriber($uid), function ($m) { return $m['status'] === 'active'; }));
             $this->view->others     = array_values(array_filter($model->for_user($uid), function ($x) use ($id) { return (int) $x['id'] !== $id; }));
-            $this->view->diagnosis  = SupportDiagnosis::checks($t['category'], $this->view->requester, $am, $this->view->purchases, $this->view->memberships, $this->local_fmt());
+            $this->view->diagnosis  = SupportDiagnosis::checks($t['category'], $this->view->requester, $am, $this->local_fmt());
         }
         $this->view->render();
     }

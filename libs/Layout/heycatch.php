@@ -58,14 +58,7 @@ if (!HeyCatch::ENABLED) { return; }
         },
         logout: function () { analytics.resetIdentity(); return null; },
         become_creator: function () { return ['became_creator', {}]; },
-        billing_change_plan: function (o, d) { return (o.status === 'succeeded' || o.status === 'scheduled') ? ['plan_changed', { plan: d.plan || '' }] : null; },
-        confirm_credit_purchase: function (o) { return ['credits_purchased', { value: (o.value_cents || 0) / 100, currency: 'USD' }]; },
-        join_free_plan: function () { return ['membership_joined', { tier: 'free' }]; },
-        ppv_unlock: function () { return ['content_unlocked', { content_type: 'post' }]; },
-        bundle_unlock: function () { return ['content_unlocked', { content_type: 'bundle' }]; },
-        message_unlock: function () { return ['content_unlocked', { content_type: 'message' }]; },
-        service_purchase: function () { return ['service_purchased', {}]; },
-        event_register: function () { return ['event_registered', {}]; }
+        billing_change_plan: function (o, d) { return (o.status === 'succeeded' || o.status === 'scheduled') ? ['plan_changed', { plan: d.plan || '' }] : null; }
       };
       function listen() {
         if (!window.jQuery) { return; }

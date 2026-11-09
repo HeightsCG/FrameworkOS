@@ -266,20 +266,17 @@ if (!empty($to['ok'])) {
 
 /* ---- scene templates ---- */
 $sm = new SceneTemplatesModel();
-$t1 = $sm->add(array('title' => 'Test Cafe', 'category' => 'Test', 'base_prompt' => 'photo of a {subject} at a cafe', 'is_adult' => 0, 'default_aspect' => '4:5', 'is_active' => 1));
-$t2 = $sm->add(array('title' => 'Test Adult', 'category' => 'Test', 'base_prompt' => 'photo of a {subject}', 'is_adult' => 1, 'default_aspect' => 'portrait', 'is_active' => 1));
+$t1 = $sm->add(array('title' => 'Test Cafe', 'category' => 'Test', 'base_prompt' => 'photo of a {subject} at a cafe', 'default_aspect' => '4:5', 'is_active' => 1));
+$t2 = $sm->add(array('title' => 'Test Portrait', 'category' => 'Test', 'base_prompt' => 'photo of a {subject}', 'default_aspect' => 'portrait', 'is_active' => 1));
 // Since 2026-10-09 a creator's scenes are their own copies of the starter scenes; which starters an account is given on its
-// first look is decided by list_active(shows_adult), so that is what these checks read (they used to read for_user()).
-$ids_adult = function () use ($sm) { return array_map('intval', array_column($sm->list_active(true), 'id')); };   // an account with adult content on and its age verified
-$ids = function ($user) use ($sm) { return array_map('intval', array_column($sm->list_active(SceneTemplates::shows_adult($user)), 'id')); };
-check('an SFW account is given only SFW starter scenes',         in_array($t1, $ids(array('adult_content_enabled' => 0)), true) && !in_array($t2, $ids(array('adult_content_enabled' => 0)), true));
-check('an account allowed adult content is given both',             in_array($t1, $ids_adult(), true) && in_array($t2, $ids_adult(), true));
+// first look is decided by list_active(), so that is what these checks read (they used to read for_user()).
+$ids_all = function () use ($sm) { return array_map('intval', array_column($sm->list_active(), 'id')); };
+check('every account is given every active starter scene',     in_array($t1, $ids_all(), true) && in_array($t2, $ids_all(), true));
 check('{subject} follows the influencer',               SceneTemplates::prompt_for($sm->get_one($t1), $infl) === 'photo of a ' . InfluencerService::noun($infl) . ' at a cafe');
 check('an older shape name is stored as a ratio',       (string) $sm->get_one($t2)['default_aspect'] === '3:4');
-check('an adult template cannot be run by an SFW account', empty(SceneTemplates::run($cid, array('user_id' => $cid, 'adult_content_enabled' => 0), $infl, $t2)['ok']));
-check('a scene with a non-image model key is refused',  empty(($r = SceneTemplates::run($cid, array('user_id' => $cid, 'adult_content_enabled' => 1), $infl, $t1, '', 'grok_edit'))['ok']) && strpos($r['error'], 'does not do image') !== false, json_encode($r));
+check('a scene with a non-image model key is refused',  empty(($r = SceneTemplates::run($cid, array('user_id' => $cid), $infl, $t1, '', 'grok_edit'))['ok']) && strpos($r['error'], 'does not do image') !== false, json_encode($r));
 $sm->set_active($t1, false);
-check('an inactive template is not listed or runnable', !in_array($t1, $ids_adult(), true) && empty(SceneTemplates::run($cid, array('user_id' => $cid), $infl, $t1)['ok']));
+check('an inactive template is not listed or runnable', !in_array($t1, $ids_all(), true) && empty(SceneTemplates::run($cid, array('user_id' => $cid), $infl, $t1)['ok']));
 check('voting on an image not from a scene is refused', empty(SceneTemplates::vote($cid, $src, 1)['ok']));
 foreach (array($t1, $t2) as $t) { $sm->sql("DELETE FROM scene_templates WHERE id = :id", array(':id' => $t)); }
 

@@ -1,5 +1,5 @@
 <?php
-/** Creator Studio: profile/brand, links, plans, promos, bundles, automations and the post editor. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
+/** Creator Studio: profile/brand, links, automations and the post editor. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
 class ApiCreatorStudioController extends BaseApiController {
 
     /** Presence heartbeat — pinged by the Studio so an open-but-idle creator stays "online". */
@@ -35,12 +35,6 @@ class ApiCreatorStudioController extends BaseApiController {
         if ((string) ($this->post['similar_on'] ?? '') !== '') { (new CreatorProfileModel())->set_similar_off(Permissions::creator_id(), empty($this->post['similar_on'])); }   // "More Creators Like This" switch
 
         try { IndexNow::creator((int) Permissions::creator_id()); } catch (\Throwable $e) { error_log('[indexnow] profile: ' . $e->getMessage()); }
-        // the name fans see on Checkout and their card statement follows the page name
-        try {
-            $owner = (new UsersModel())->get_user_by_id(Permissions::creator_id());
-            $acct = (is_array($owner) && count($owner) === 1) ? (string) ($owner[0]['stripe_connect_account_id'] ?? '') : '';
-            if ($acct !== '') { StripeService::sync_connect_profile($acct, Permissions::creator_id()); }
-        } catch (\Throwable $e) { error_log('[profile] connect sync: ' . $e->getMessage()); }
         $this->jsonSuccess(['message' => 'Profile saved']);
     }
 
@@ -306,7 +300,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $path  = $dec('target_path');
         if ($label === '') { $this->jsonError('A label is required'); }
         $clean = TrackingLinks::clean_path($path);
-        if ($path !== '' && $path !== '/' && $clean === '') { $this->jsonError('The page path can only use letters, numbers, dashes and slashes, like /events/3'); }
+        if ($path !== '' && $path !== '/' && $clean === '') { $this->jsonError('The page path can only use letters, numbers, dashes and slashes, like /links'); }
         $model = new TrackingLinksModel();
         if ($code === '') {
             do { $code = substr(str_shuffle('abcdefghjkmnpqrstuvwxyz23456789'), 0, 8); } while (!preg_match('/[a-z]/', $code) || strpos($code, 'cls') === 0 || $model->code_exists($code));
@@ -414,293 +408,6 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Order saved']);
     }
 
-    /* ---------- Creator membership plans ---------- */
-
-    public function save_creator_planAction(){
-        $user    = $this->require_creator('manage', false);
-        $user_id = (int) $user['user_id'];   // owner account (collaborator acts on it)
-
-        // POST text arrives HTML-encoded (clean_post_data); store it plain, the pages escape it once when shown.
-        $dec              = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
-        $name             = $dec('name');
-        $billing_interval = (string) ($this->post['billing_interval'] ?? 'month');
-        if (!in_array($billing_interval, ['week', 'month', 'year'], true)) {
-            $billing_interval = 'month';
-        }
-        $description      = $dec('description');
-        $perks            = $dec('perks');
-        $id               = (int) ($this->post['id'] ?? 0);
-
-        if ($name === '') {
-            $this->jsonError('A plan name is required');
-        }
-
-        // Price arrives as dollars; store integer cents. A free tier is 0; any
-        // paid tier must be at least $1.00 (Stripe won't charge sub-dollar reliably).
-        $is_free     = !empty($this->post['is_free']);
-        $price       = (float) ($this->post['price'] ?? 0);
-        $price_cents = $is_free ? 0 : (int) round($price * 100);
-        if ($price_cents !== 0 && $price_cents < 100) {
-            $this->jsonError('Enter a price of at least $1.00, or make it a free tier');
-        }
-        if ($price_cents > 0 && Plan::can_sell($user)) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement (Free accepts it at checkout)
-
-        // Free trial — an explicit toggle plus the value & unit (day/week/month) the
-        // creator actually picked, stored as-is; forced off on free tiers. The
-        // day-count Stripe needs is derived only at checkout.
-        $trial_enabled = !empty($this->post['trial_enabled']) && $price_cents > 0;
-        $trial_unit    = (string) ($this->post['trial_unit'] ?? 'day');
-        if (!in_array($trial_unit, ['day', 'week', 'month'], true)) { $trial_unit = 'day'; }
-        $trial_value   = $trial_enabled ? max(1, min(365, (int) ($this->post['trial_value'] ?? 1))) : 0;
-
-        $fields = [
-            'name'             => $name,
-            'price_cents'      => $price_cents,
-            'billing_interval' => $billing_interval,
-            'trial_enabled'    => $trial_enabled ? 1 : 0,
-            'trial_value'      => $trial_value,
-            'trial_unit'       => $trial_unit,
-            'description'      => $description,
-            'perks'            => $perks,
-        ];
-
-        $model = new CreatorPlansModel();
-        if ($id > 0) {
-            if (!$model->get_one($user_id, $id)) {
-                $this->jsonError('Plan not found');
-            }
-            $model->update_plan($user_id, $id, $fields);
-        } else {
-            // Enforce the plan tier's membership-tier cap (0 = unlimited).
-            $cap = Plan::limit($user, 'sub_tiers');
-            if ($cap !== null && (int) $cap > 0 && count((array) $model->get_for_user($user_id)) >= (int) $cap) {
-                $this->jsonError('Your plan includes ' . (int) $cap . ' membership tier' . ((int) $cap === 1 ? '' : 's') . '. Upgrade to add more.', ['need_upgrade' => true]);
-            }
-            $id = (int) $model->add($user_id, $fields);
-            if (!Plan::can_sell($user)) { $model->set_active($user_id, $id, false); }   // Free builds it as a draft: turning it on needs a paid plan
-        }
-
-        $this->jsonSuccess(['message' => 'Plan saved', 'id' => $id]);
-    }
-
-    public function delete_creator_planAction(){
-        $this->require_creator('manage', false);
-        $id = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) {
-            $this->jsonError('Plan is required');
-        }
-        $open = (new CreatorSubscriptionsModel())->count_open_for_plan(Permissions::creator_id(), $id);
-        if ($open > 0) {
-            // members are still billed for this plan: deleting it would hide the membership (and its Cancel button) from them
-            $this->jsonError($open . ($open === 1 ? ' member is' : ' members are') . ' on this plan. Turn it off to stop new signups; you can delete it once nobody is on it.');
-        }
-        (new CreatorPlansModel())->delete_plan(Permissions::creator_id(), $id);
-        $this->jsonSuccess(['message' => 'Plan removed']);
-    }
-
-    public function toggle_creator_planAction(){
-        $user = $this->require_creator('manage', false);
-        $this->plan_to_turn_on($user, !empty($this->post['active']));
-        $id = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) {
-            $this->jsonError('Plan is required');
-        }
-        if (!empty($this->post['active'])) {   // turning on a paid tier is selling: needs the Creator Agreement
-            $cp = (new CreatorPlansModel())->get_one(Permissions::creator_id(), $id);
-            if ($cp && (int) $cp['price_cents'] > 0) { CreatorAgreement::require((int) $user['user_id']); }
-        }
-        (new CreatorPlansModel())->set_active(Permissions::creator_id(), $id, !empty($this->post['active']));
-        $this->jsonSuccess(['message' => 'Plan updated']);
-    }
-
-    public function reorder_creator_plansAction(){
-        $this->require_creator('manage', false);
-        $ids = $this->post['ids'] ?? [];
-        if (!is_array($ids)) {
-            $this->jsonError('Invalid order');
-        }
-        (new CreatorPlansModel())->reorder(Permissions::creator_id(), $ids);
-        $this->jsonSuccess(['message' => 'Order saved']);
-    }
-
-    /* ---------- Discount / promo codes (Pro+ monetization) ---------- */
-
-    /** Create or edit a discount code. */
-    public function save_promo_codeAction(){
-        $user = $this->require_creator('manage', true, 'create promo codes');
-        $user_id = (int) $user['user_id'];
-        CreatorAgreement::require($user_id);   // a promo code sells: it needs the Creator Agreement
-        $id      = (int) ($this->post['id'] ?? 0);
-
-        $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($this->post['code'] ?? '')));
-        if (strlen($code) < 3 || strlen($code) > 40) {
-            $this->jsonError('Use a code of 3–40 letters or numbers.');
-        }
-        // A percent off, or an amount off (Stripe's two kinds). Amounts follow the price rules ($1–$500, 10¢ steps).
-        $by_amount = (string) ($this->post['discount_type'] ?? 'percent') === 'amount';
-        $percent = 0; $amount_off = null;
-        if ($by_amount) {
-            $a = Price::from_credits($this->post['amount_off'] ?? '');
-            if (!$a['ok']) { $this->jsonError('Amount off: ' . $a['message']); }
-            $amount_off = $a['credits'];
-        } else {
-            $percent = (int) ($this->post['percent_off'] ?? 0);
-            if ($percent < 1 || $percent > 100) {
-                $this->jsonError('Discount must be between 1% and 100%.');
-            }
-        }
-        $min_order = null;
-        if (trim((string) ($this->post['min_order'] ?? '')) !== '') {
-            $m = Price::from_credits($this->post['min_order']);
-            if (!$m['ok']) { $this->jsonError('Minimum order: ' . $m['message']); }
-            $min_order = $m['credits'];
-            if ($amount_off !== null && $amount_off >= $min_order) { $this->jsonError('The minimum order must be more than the amount off.'); }
-        }
-        $first_only = !empty($this->post['first_purchase_only']) && $this->post['first_purchase_only'] !== '0';
-        $applies_to = (string) ($this->post['applies_to'] ?? 'all');
-        if (!in_array($applies_to, ['all', 'subscription', 'ppv'], true)) { $applies_to = 'all'; }
-
-        $max = trim((string) ($this->post['max_redemptions'] ?? ''));
-        $max = ($max === '' || (int) $max <= 0) ? null : (int) $max;
-
-        $expires = trim((string) ($this->post['expires_at'] ?? ''));
-        $expires_at = ($expires !== '' && ($ts = strtotime($expires))) ? date('Y-m-d H:i:s', $ts) : null;
-
-        $model = new CreatorPromoCodesModel();
-        foreach ($model->get_for_user($user_id) as $row) {   // unique per creator
-            if (strtoupper($row['code']) === $code && (int) $row['id'] !== $id) {
-                $this->jsonError('You already have a code with that name.');
-            }
-        }
-
-        $fields = ['code' => $code, 'percent_off' => $percent, 'amount_off_credits' => $amount_off, 'min_order_credits' => $min_order,
-            'first_purchase_only' => $first_only, 'applies_to' => $applies_to, 'max_redemptions' => $max, 'expires_at' => $expires_at];
-
-        if ($id > 0) {
-            if (!$model->get_owned($user_id, $id)) { $this->jsonError('Code not found'); }
-            $model->update_code($user_id, $id, $fields);
-        } else {
-            $id = (int) $model->add($user_id, $fields);
-        }
-        $this->jsonSuccess(['message' => 'Discount code saved', 'id' => $id, 'code' => $code]);
-    }
-
-    public function toggle_promo_codeAction(){
-        $user = $this->require_creator('manage', false);
-        $this->plan_to_turn_on($user, !empty($this->post['active']));
-        if (!empty($this->post['active'])) { CreatorAgreement::require((int) $user['user_id']); }   // turning a code on is selling
-        $id   = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) { $this->jsonError('Code is required'); }
-        (new CreatorPromoCodesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
-        $this->jsonSuccess(['message' => 'Code updated']);
-    }
-
-    public function delete_promo_codeAction(){
-        $user = $this->require_creator('manage', false);
-        $id   = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) { $this->jsonError('Code is required'); }
-        (new CreatorPromoCodesModel())->delete_code((int) $user['user_id'], $id);
-        $this->jsonSuccess(['message' => 'Code removed']);
-    }
-
-    /** Fan-side: preview a discount code against a PPV post — returns the discounted price. */
-    public function promo_previewAction(){
-        if ((int) Session::get('user_id') <= 0) { $this->jsonError('Sign in to use a discount code.', ['need_login' => true]); }
-        $this->promo_guard();
-        $post = (new PostsModel())->get_by_id((int) ($this->post['post_id'] ?? 0));
-        if (!$post || ($post['audience'] ?? '') !== 'ppv') { $this->jsonError('Not a pay-per-view post.'); }
-        $price = (int) $post['ppv_price_credits'];
-        $promo = (new CreatorPromoCodesModel())->get_redeemable((int) $post['creator_id'], (string) ($this->post['code'] ?? ''), 'ppv');
-        if (!$promo) { $this->promo_miss(); $this->jsonError("That code isn't valid."); }
-        $why = CreatorPromoCodesModel::rule_error($promo, (int) $post['creator_id'], (int) Session::get('user_id'), $price);
-        if ($why !== '') { $this->jsonError($why); }
-        $new_price = CreatorPromoCodesModel::price_after($promo, $price);
-        $this->jsonSuccess(['percent_off' => (int) $promo['percent_off'], 'label' => CreatorPromoCodesModel::label($promo), 'original_price' => $price, 'new_price' => $new_price]);
-    }
-
-    /* ---------- Content Studio: media vault ---------- */
-
-    /** Create or update a content bundle. Only the creator's own published PPV posts may be grouped. */
-    public function save_bundleAction(){
-        $user = $this->require_creator('manage', false);
-        $user_id = (int) $user['user_id'];
-        $id      = (int) ($this->post['id'] ?? 0);
-
-        $name = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES));
-        if ($name === '' || mb_strlen($name) > 120) {
-            $this->jsonError('Give the bundle a name (up to 120 characters).');
-        }
-        // The editor sends dollars ('price'); API callers may still send credits ('price_credits'). Same limits either way.
-        if (isset($this->post['price'])) {
-            $price = $this->price_credits($this->post['price']);
-        } else {
-            $chk = Price::check_credits((int) ($this->post['price_credits'] ?? 0));
-            if (!$chk['ok']) { $this->jsonError($chk['message']); }
-            $price = (int) $chk['credits'];
-        }
-        if ($price > 0 && Plan::can_sell($user)) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement (Free accepts it at checkout)
-        $description = trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES));
-        if (mb_strlen($description) > 500) { $description = mb_substr($description, 0, 500); }
-
-        // Only the creator's own ready Library media may be bundled.
-        $valid = [];
-        foreach ((array) (new MediaAssetsModel())->get_for_creator($user_id, []) as $a) {
-            if (($a['status'] ?? '') === 'ready' && empty($a['deleted_at']) && ($a['moderation_status'] ?? '') !== 'blocked') { $valid[(int) $a['id']] = true; }
-        }
-        $asset_ids = [];
-        foreach ((array) ($this->post['asset_ids'] ?? []) as $aid) {
-            $aid = (int) $aid;
-            if (isset($valid[$aid])) { $asset_ids[$aid] = $aid; }
-        }
-        $asset_ids = array_values($asset_ids);
-        if (!$asset_ids) {
-            $this->jsonError('Add at least one piece of content to the bundle.');
-        }
-
-        $model = new ContentBundlesModel();
-        if ($id > 0) {
-            if (!$model->get_owned($user_id, $id)) { $this->jsonError('Bundle not found'); }
-            // Buyers get what's in the bundle: once it has sold, content can be added but not taken out.
-            if ($model->has_sales($id)) {
-                $current = $model->get_item_asset_ids($id);
-                // a sold file that was since blocked or deleted can't be picked in the editor: it isn't in the diff, and it stays in the bundle
-                $pickable = array_values(array_filter($current, function ($a) use ($valid) { return isset($valid[$a]); }));
-                if (array_diff($pickable, $asset_ids)) {
-                    $this->jsonError('This bundle has sold, so its content can’t be removed. You can still add more.');
-                }
-                $asset_ids = array_values(array_unique(array_merge($asset_ids, array_diff($current, $pickable))));
-            }
-            $model->update_bundle($user_id, $id, ['name' => $name, 'description' => $description, 'price_credits' => $price]);
-        } else {
-            $id = (int) $model->add($user_id, $name, $description, $price);
-            if (!Plan::can_sell($user)) { $model->set_active($user_id, $id, 0); }   // Free builds it as a draft: turning it on needs a paid plan
-        }
-        $model->set_items($id, $asset_ids);
-        $this->jsonSuccess(['message' => 'Bundle saved', 'id' => $id]);
-    }
-
-    public function toggle_bundleAction(){
-        $user = $this->require_creator('manage', false);
-        $this->plan_to_turn_on($user, !empty($this->post['active']));
-        $id   = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) { $this->jsonError('Bundle is required'); }
-        (new ContentBundlesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
-        $this->jsonSuccess(['message' => 'Bundle updated']);
-    }
-
-    public function delete_bundleAction(){
-        $user = $this->require_creator('manage', false);
-        $id   = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) { $this->jsonError('Bundle is required'); }
-        $model = new ContentBundlesModel();
-        if ($model->get_owned((int) $user['user_id'], $id) && $model->has_sales($id)) {   // buyers keep it: take it off sale instead
-            $model->set_active((int) $user['user_id'], $id, 0);
-            $this->jsonSuccess(['message' => 'This bundle has sold, so it was taken off sale instead of deleted. Buyers keep it.', 'archived' => true]);
-        }
-        $model->delete_bundle((int) $user['user_id'], $id);
-        $this->jsonSuccess(['message' => 'Bundle removed']);
-    }
-
     public function scheduler_listAction(){
         $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
@@ -771,8 +478,6 @@ class ApiCreatorStudioController extends BaseApiController {
             'topic'            => $topic,
             'active'           => ((string) ($this->post['active'] ?? '1')) !== '0',
             'size'             => (string) ($this->post['size'] ?? 'portrait'),
-            'audience'         => (string) ($this->post['audience'] ?? 'free'),
-            'tier_id'          => (int) ($this->post['tier_id'] ?? 0),
             'comments_enabled' => ((string) ($this->post['comments_enabled'] ?? '1')) !== '0',
             'on_cls'           => ((string) ($this->post['on_cls'] ?? '1')) !== '0' ? 1 : 0,
             'use_brand'        => ((string) ($this->post['use_brand'] ?? '1')) !== '0',
@@ -863,7 +568,6 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!ClaudeService::configured()) { $this->jsonError('Caption writing is not available right now.'); }
         $ids  = array_map('intval', (array) ($this->post['asset_ids'] ?? []));
         $hint = mb_substr(trim(html_entity_decode((string) ($this->post['hint'] ?? ''), ENT_QUOTES, 'UTF-8')), 0, 500);
-        $aud  = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
 
         $parts = array(); $who = ''; $kinds = array(); $infl_id = 0;
         $media = new MediaAssetsModel(); $links = new InfluencerImagesModel(); $jobs = new InfluencerJobsModel();
@@ -891,7 +595,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($hint !== '' && !empty($parts)) { $topic .= ' (the post shows: ' . implode('; ', array_slice($parts, 0, 2)) . ')'; }
 
         $cb = (new CreatorBrandModel())->get_for_user($creator_id);
-        $style = ($aud === 'subscribers' || $aud === 'ppv') ? 'tease' : '';
+        $style = '';
         // Her persona (when the media is an influencer's) and the kind of caption asked for.
         $infl    = $infl_id > 0 ? (new InfluencersModel())->get_one($creator_id, $infl_id) : null;
         $mode    = BrandService::caption_mode((string) ($this->post['caption_mode'] ?? 'standard'));
@@ -911,10 +615,6 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $caption    = html_entity_decode((string) ($this->post['caption'] ?? ''), ENT_QUOTES, 'UTF-8');
-        $audience   = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
-        $tier_id    = 0;   // legacy single tier; multi-tier targeting is tier_ids → post_tiers
-        $tier_ids   = ($audience === 'subscribers') ? array_values(array_filter(array_map('intval', (array) ($this->post['tier_ids'] ?? [])))) : [];
-        $ppv_credits = ($audience === 'ppv' && $this->price_given($this->post['ppv_price'] ?? '')) ? $this->price_credits($this->post['ppv_price']) : 0;
         $comments   = (((string) ($this->post['comments_enabled'] ?? '1')) === '1') ? 1 : 0;
         $on_cls     = (((string) ($this->post['on_cls'] ?? '1')) === '0') ? 0 : 1;   // publish on Creator Link Studio itself
         $asset_ids  = $this->post['asset_ids'] ?? [];
@@ -926,7 +626,7 @@ class ApiCreatorStudioController extends BaseApiController {
         // isn't worth saving yet (avoids junk drafts from just toggling options).
         if ($id === 0 && trim($caption) === '' && empty($asset_ids)) {
             $this->jsonSuccess(['id' => 0, 'post' => [
-                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => null, 'tier_ids' => $tier_ids, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'state' => 'draft',
+                'id' => 0, 'caption' => '', 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'state' => 'draft',
                 'scheduled_local' => '', 'timezone' => (string) ($user['content_timezone'] ?? 'UTC'),
                 'assets' => [], 'cover_display_url' => '', 'cover_blurred_url' => '',
                 'validation' => ['ok' => false, 'reason' => 'Add a photo, video, or caption before publishing.'],
@@ -934,44 +634,21 @@ class ApiCreatorStudioController extends BaseApiController {
         }
 
         $model  = new PostsModel();
-        $fields = ['caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'tier_ids' => $tier_ids, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'ppv_price_credits' => $ppv_credits];
+        $fields = ['caption' => $caption, 'comments_enabled' => $comments, 'on_cls' => $on_cls];
         // If the post was removed elsewhere while the composer had it open, don't
         // hard-fail — fall back to creating a fresh draft so nothing is lost.
         if ($id > 0 && !$model->get_one($creator_id, $id)) { $id = 0; }
-        // Free can't turn a live (or queued) post into a paid one: that is publishing paid content.
-        $stored = $id > 0 ? $model->get_one($creator_id, $id) : null;
-        if ($stored && in_array((string) $stored['state'], array('published', 'scheduled'), true) && !Plan::can_sell($user)
-            && $this->post_is_paid(array('creator_id' => $creator_id, 'audience' => $audience, 'ppv_price_credits' => $ppv_credits, 'tier_id' => $tier_id))) {
-            $this->need_plan('publish paid posts');
-        }
-        // A live (or queued) post edited into a paid one needs the Creator Agreement, as publishing it would.
+        $stored  = $id > 0 ? $model->get_one($creator_id, $id) : null;
         $is_live = $stored && in_array((string) $stored['state'], array('published', 'scheduled'), true);
-        if ($is_live && $this->post_is_paid(array('creator_id' => $creator_id, 'audience' => $audience, 'ppv_price_credits' => $ppv_credits, 'tier_id' => $tier_id))) {
-            CreatorAgreement::require($creator_id);
-        }
-        // PPV integrity: once a post has buyers you may ADD media but not remove what
-        // they paid for, and it stays pay-per-view. Checked before anything is written.
-        if ($id > 0) {
-            $sold = (new PpvUnlocksModel())->stats_for_posts([$id]);
-            if (!empty($sold[$id]['unlocks'])) {
-                if ($audience !== 'ppv') {
-                    $this->jsonError('This post has buyers. Content and price can be added to, not taken away.');
-                }
-                $current = array_map(function ($a) { return (int) $a['asset_id']; }, $model->get_assets($id));
-                if (array_diff($current, $asset_ids)) {
-                    $this->jsonError('This post has buyers — you can add media but not remove what they paid for.');
-                }
-            }
-        }
         if ($id > 0) {
             $model->update_fields($creator_id, $id, $fields);
         } else {
-            $id = (int) $model->create_draft($creator_id, $caption, $audience);
+            $id = (int) $model->create_draft($creator_id, $caption);
             $model->update_fields($creator_id, $id, $fields);
         }
         $model->set_assets($creator_id, $id, $asset_ids, $cover_id);
-        // Editing a live post re-runs the age gate: adult media added to it holds it until the creator is verified.
-        if ($is_live) { AgeVerification::hold_unverified_adult_post($creator_id, $id, true); }
+        // Editing a live post re-runs the content check: flagged media added to it sends it back to drafts.
+        if ($is_live) { ModerationHold::hold($creator_id, $id, true); }
         $post = $model->get_one($creator_id, $id);
         $json = $this->studio_post_json($post, $user);
         $json['validation'] = $this->post_validation($post);
@@ -1003,15 +680,15 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     /**
-     * Trigger 2 of age verification: a post whose media is adult (media_assets.is_adult / flagged) is published or
-     * scheduled only by an age-verified creator. The draft itself always saves. Answers like need_plan does: the page
-     * shows a prompt and sends the creator to the provider's hosted check, then back to this post.
+     * The content check: a post with media the scanner flagged is not published or scheduled. It stays in drafts
+     * (held, with a notice linking to it) until staff clear the image from the admin Moderation queue.
      */
-    private function require_age_for_adult_post(int $creator_id, int $post_id): void{
-        if (!AgeVerification::post_is_adult($post_id) || AgeVerification::refresh_if_pending($creator_id, 1) === 'verified') { return; }   // a late result is picked up, not re-run
-        $s = AgeVerification::start($creator_id, '/studio?post=' . $post_id);
-        $this->jsonError('This post is marked adult. Verify your age once to publish it.',
-            ['need_age_verification' => true, 'url' => (string) ($s['url'] ?? ''), 'error' => (string) ($s['error'] ?? '')]);
+    private function require_clear_media(int $creator_id, int $post_id): void{
+        if (!ModerationHold::hold($creator_id, $post_id)) { return; }
+        $blocked = (new PostsModel())->media_hold_state($post_id) === 'blocked';
+        $this->jsonError($blocked ? 'This media was blocked by our content check and cannot be published. Remove it to continue.'
+            : 'An image in this post was flagged by our content check, so it stays in your drafts. Remove the image, or wait for our team to review it.',
+            ['held' => true, 'held_reason' => ModerationHold::HELD_REASON, 'state' => 'draft']);
     }
 
     public function post_publishAction(){
@@ -1021,11 +698,9 @@ class ApiCreatorStudioController extends BaseApiController {
         $model      = new PostsModel();
         $post       = $model->get_one($creator_id, $id);
         if (!$post) { $this->jsonError('That post was not found.'); }
+        $this->require_clear_media($creator_id, $id);   // flagged media: stays in drafts
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
-        $this->require_age_for_adult_post($creator_id, $id);   // trigger 2: adult media publishes once the creator is age verified
-        if ($this->post_is_paid($post) && !Plan::can_sell($user)) { $this->need_plan('publish paid posts'); }   // Free publishes free posts only
-        if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
         $this->require_caption_for_shares($post, $shares);
@@ -1035,7 +710,7 @@ class ApiCreatorStudioController extends BaseApiController {
         }
         if (!empty($post['on_cls'])) { PostNotifier::published($creator_id, $id); }   // socials-only posts don't notify followers
         $share_error = $this->share_post_to_social($user, $post, $shares, null);
-        if (!Plan::can_sell($user)) {   // Free: saved, but the page is not public yet (studio.js shows it with the plan button)
+        if (!Plan::can_use_creator_features($user)) {   // Free: saved, but the page is not public yet (studio.js shows it with the plan button)
             $this->jsonSuccess(['message' => 'Saved. Your page goes public when you start Creator.', 'state' => 'published', 'share_error' => $share_error, 'upgrade' => UpgradePrompt::payload($user, '/studio')]);
         }
         $this->jsonSuccess(['message' => 'Published', 'state' => 'published', 'share_error' => $share_error]);
@@ -1048,11 +723,9 @@ class ApiCreatorStudioController extends BaseApiController {
         $model      = new PostsModel();
         $post       = $model->get_one($creator_id, $id);
         if (!$post) { $this->jsonError('That post was not found.'); }
+        $this->require_clear_media($creator_id, $id);   // flagged media: stays in drafts
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
-        $this->require_age_for_adult_post($creator_id, $id);   // trigger 2: adult media schedules once the creator is age verified
-        if ($this->post_is_paid($post) && !Plan::can_sell($user)) { $this->need_plan('schedule paid posts'); }   // Free schedules free posts only
-        if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $utc = $this->to_utc((string) ($this->post['scheduled_at'] ?? ''), (string) ($user['content_timezone'] ?? 'UTC'));
         if (!$utc || strtotime($utc) <= time()) {
             $this->jsonError('Pick a date and time in the future.');
@@ -1104,11 +777,6 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new PostsModel();
-        $sold       = (new PpvUnlocksModel())->stats_for_posts([$id]);
-        if (!empty($sold[$id]['unlocks']) && $model->get_one($creator_id, $id)) {   // buyers keep it: archive instead
-            $model->set_state($creator_id, $id, 'archived');
-            $this->jsonSuccess(['message' => 'This post has sold, so it was archived instead of deleted. Buyers keep it.', 'archived' => true]);
-        }
         $model->delete_post($creator_id, $id);
         $this->jsonSuccess(['message' => 'Post removed']);
     }
@@ -1127,7 +795,6 @@ class ApiCreatorStudioController extends BaseApiController {
         foreach ((new SocialAccountsModel())->get_connected_for_user($creator_id) as $a) {
             if (in_array((string) $a['post_for_me_social_account_id'], $req, true)) { $n++; }
         }
-        if (in_array(FanvueShareService::ACCOUNT_ID, $req, true)) { $n++; }   // the Fanvue mirror is not a Post for Me account; SocialShareService reports if it is not connected
         if ($n === 0) { $this->jsonError('Those accounts are not connected.'); }
         $this->require_caption_for_shares($post, $accounts);
         $post = $this->save_share_options(new PostsModel(), $creator_id, $post);
@@ -1140,7 +807,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /**
      * Class the composer's media for each chosen destination and start any versions that are missing. Takes the composer's
-     * current state (it may not be saved yet): asset_ids (cover first), audience, share_accounts, story_accounts
+     * current state (it may not be saved yet): asset_ids (cover first), share_accounts, story_accounts
      * ("<id>" Story, "both:<id>" Feed and Story). Returns per destination the state and, per image, the version.
      */
     public function post_media_checkAction(){
@@ -1154,7 +821,7 @@ class ApiCreatorStudioController extends BaseApiController {
             if (!$a || (string) $a['status'] !== 'ready') { continue; }
             $rows[] = $a + ['asset_id' => (int) $a['id'], 'is_cover' => $i === 0 ? 1 : 0];
         }
-        $post  = ['audience' => in_array((string) ($this->post['audience'] ?? 'free'), ['free', 'subscribers', 'ppv'], true) ? (string) $this->post['audience'] : 'free'];
+        $post  = ['audience' => 'free'];
         $items = SocialShareService::items_for_post($post, $rows);
         $req   = array_map('strval', (array) ($this->post['share_accounts'] ?? []));
         $place = SocialShareService::placements(is_array($this->post['story_accounts'] ?? null) ? implode(',', $this->post['story_accounts']) : (string) ($this->post['story_accounts'] ?? ''));
@@ -1203,15 +870,12 @@ class ApiCreatorStudioController extends BaseApiController {
         $user       = $this->require_creator('view', false);
         $creator_id = (int) $user['user_id'];
         $model      = new PostsModel();
-        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid) && !AgeVerification::hold_unverified_adult_post((int) $cid, (int) $pid)) { PostNotifier::published($cid, $pid); } }   // cron fallback: flip now-due scheduled posts
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!ModerationHold::hold((int) $cid, (int) $pid)) { PostNotifier::published($cid, $pid); } }   // cron fallback: flip now-due scheduled posts
         $filters = ['state' => (string) ($this->post['state'] ?? ''), 'search' => (string) ($this->post['search'] ?? '')];
         $rows = $model->list_for_creator($creator_id, $filters);
         $posts = [];
-        $ppv_ids = [];
-        foreach ($rows as $p) { if ($p['audience'] === 'ppv') { $ppv_ids[] = (int) $p['id']; } }
-        $ppv_stats = !empty($ppv_ids) ? (new PpvUnlocksModel())->stats_for_posts($ppv_ids) : [];
         $mod_map   = $model->moderation_map(array_map(function ($p) { return (int) $p['id']; }, $rows));
-        foreach ($rows as $p) { $posts[] = $this->studio_post_row($p, $user, $ppv_stats, $mod_map); }
+        foreach ($rows as $p) { $posts[] = $this->studio_post_row($p, $user, $mod_map); }
         $this->jsonSuccess(['posts' => $posts, 'counts' => $model->counts_by_state($creator_id)]);
     }
 
@@ -1221,7 +885,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $model      = new PostsModel();
-        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid) && !AgeVerification::hold_unverified_adult_post((int) $cid, (int) $pid)) { PostNotifier::published($cid, $pid); } }
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!ModerationHold::hold((int) $cid, (int) $pid)) { PostNotifier::published($cid, $pid); } }
 
         $items = [];
         $furthest = null; $scheduled_count = 0;
@@ -1303,17 +967,14 @@ class ApiCreatorStudioController extends BaseApiController {
         $ids = array_values(array_filter(array_map('intval', $ids)));
         if (empty($ids)) { $this->jsonError('No posts were selected.'); }
         $model = new PostsModel();
-        $sold  = ($action === 'delete') ? (new PpvUnlocksModel())->stats_for_posts($ids) : [];   // buyers keep sold posts: archive those instead
-        $done = 0; $kept = 0;
+        $done = 0;
         foreach ($ids as $id) {
             if (!$model->get_one($creator_id, $id)) { continue; }
             if ($action === 'archive') { $model->set_state($creator_id, $id, 'archived'); $done++; }
-            elseif ($action === 'delete' && !empty($sold[$id]['unlocks'])) { $model->set_state($creator_id, $id, 'archived'); $kept++; }
             elseif ($action === 'delete') { $model->delete_post($creator_id, $id); $done++; }
         }
-        if ($done === 0 && $kept === 0) { $this->jsonError('Nothing to update.'); }
+        if ($done === 0) { $this->jsonError('Nothing to update.'); }
         $msg = $done . ' post' . ($done > 1 ? 's' : '') . ($action === 'delete' ? ' removed' : ' archived');
-        if ($kept > 0) { $msg = ($done > 0 ? $msg . '. ' : '') . $kept . ' sold post' . ($kept > 1 ? 's were' : ' was') . ' archived instead; buyers keep ' . ($kept > 1 ? 'them' : 'it') . '.'; }
         $this->jsonSuccess(['message' => $msg]);
     }
 
@@ -1359,8 +1020,6 @@ class ApiCreatorStudioController extends BaseApiController {
             'active'           => (int) $r['active'],
             'topic'            => (string) $r['topic'],
             'size'             => (string) $r['size'],
-            'audience'         => (string) $r['audience'],
-            'tier_id'          => $r['tier_id'] !== null ? (int) $r['tier_id'] : null,
             'comments_enabled' => (int) $r['comments_enabled'],
             'on_cls'           => isset($r['on_cls']) ? (int) $r['on_cls'] : 1,
             'use_brand'        => (int) $r['use_brand'],
@@ -1398,7 +1057,6 @@ class ApiCreatorStudioController extends BaseApiController {
         return (is_array($runs) && !empty($runs)) ? (string) ($runs[0]['message'] ?? '') : '';
     }
 
-    private function post_audience($v): string{ return in_array($v, ['subscribers', 'ppv'], true) ? $v : 'free'; }
 
     /** Convert a stored UTC datetime to a creator-local 'YYYY-MM-DDTHH:MM' for pickers. */
     private function from_utc(?string $utc, string $tz): string{
@@ -1451,14 +1109,8 @@ class ApiCreatorStudioController extends BaseApiController {
         return [
             'id'                => (int) $post['id'],
             'caption'           => (string) $post['caption'],
-            'audience'          => $post['audience'],
-            'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
-            'tier_ids'          => $model->tiers_for_posts([(int) $post['id']])[(int) $post['id']] ?? [],
             'moderation'        => (string) ((new PostsModel())->studio_moderation_map([(int) $post['id']])[(int) $post['id']] ?? 'ok'),
-            'age_verified'      => AgeVerification::is_verified((int) $post['creator_id']),   // an adult post publishes once this is true
             'held_reason'       => (string) ($post['held_reason'] ?? ''),
-            'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
-            'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? Price::input((int) $post['ppv_price_credits']) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
             'on_cls'            => (int) ($post['on_cls'] ?? 1),
             'ai_disclosure'     => (($post['ai_disclosure'] ?? null) === null) ? null : (int) $post['ai_disclosure'],
@@ -1469,19 +1121,11 @@ class ApiCreatorStudioController extends BaseApiController {
             'assets'            => $out,
             'cover_display_url' => $cover_display,
             'cover_blurred_url' => $cover_blurred,
-            // Post for Me targets live in social_posts; a Fanvue mirror is recorded on the post row
-            // itself (fanvue_post_uuid), so add its pseudo account id or the composer forgets it on edit.
-            'shared_accounts'   => array_values(array_unique(array_merge(
-                (new SocialPostsModel())->account_ids_for_post((int) $post['id']),
-                !empty($post['fanvue_post_uuid']) ? [FanvueShareService::ACCOUNT_ID] : []
-            ))),
+            'shared_accounts'   => array_values(array_unique((new SocialPostsModel())->account_ids_for_post((int) $post['id']))),
         ];
     }
 
     /** Why a post can't publish yet (plain words), or ok. */
-    /** A pay-per-view post with a price, or one gated to a paid membership tier (any tier: the creator sells one). */
-    private function post_is_paid(array $post): bool{ return CreatorAgreement::post_is_paid($post); }
-
     private function post_validation(array $post): array{
         $model  = new PostsModel();
         $assets = $model->get_assets((int) $post['id']);
@@ -1497,14 +1141,12 @@ class ApiCreatorStudioController extends BaseApiController {
             if (empty($a['deleted_at']) && ($a['moderation_status'] ?? '') === 'blocked') {
                 return ['ok' => false, 'reason' => 'This media was blocked by our content check and cannot be published. Remove it to continue.'];
             }
+            if (empty($a['deleted_at']) && ($a['moderation_status'] ?? '') === 'flagged') {
+                return ['ok' => false, 'reason' => 'An image in this post was flagged by our content check. Remove it, or wait for our team to review it.'];
+            }
         }
         if ($model->count_missing_assets((int) $post['id']) > 0) {
             return ['ok' => false, 'reason' => 'Some media was removed from your library. Take it off the post to publish.'];
-        }
-        if (($post['audience'] ?? '') === 'ppv') {
-            $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
-            if (empty($live)) { return ['ok' => false, 'reason' => 'Pay-per-view posts need at least one photo or video to sell.']; }
-            if ((int) ($post['ppv_price_credits'] ?? 0) <= 0) { return ['ok' => false, 'reason' => 'Set a price for this pay-per-view post.']; }
         }
         return ['ok' => true, 'reason' => ''];
     }
@@ -1558,7 +1200,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     /** Shape a post row for the Posts list. */
-    private function studio_post_row(array $p, array $user, array $ppv_stats = [], array $mod_map = []): array{
+    private function studio_post_row(array $p, array $user, array $mod_map = []): array{
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $cover = '';
@@ -1576,24 +1218,20 @@ class ApiCreatorStudioController extends BaseApiController {
         return [
             'id'             => (int) $p['id'],
             'state'          => $p['state'],
-            'audience'       => $p['audience'],
             'caption'        => ($cap === '') ? '' : mb_substr($cap, 0, 140),
             'cover_url'      => $cover,
             'cover_type'     => (string) ($p['cover_type'] ?? ''),
             'asset_count'    => (int) $p['asset_count'],
             'media_missing'  => (int) $p['media_missing'],
-            'held'           => (string) ($p['held_reason'] ?? '') !== '' && $p['state'] === 'draft',   // held at release: for the plan (Plan::hold_unsellable_post) or for age verification
+            'held'           => (string) ($p['held_reason'] ?? '') !== '' && $p['state'] === 'draft',   // held: flagged by the content check ('moderation') or the plan
             'held_reason'    => (string) ($p['held_reason'] ?? ''),
             'when_label'     => $when_label,
             'when'           => $when,
             'views'          => (int) $p['views'],
             'likes'          => (int) $p['likes'],
             'comments'       => (int) $p['comments'],
-            'earnings_cents' => (int) $p['earnings_cents'],
-            'ppv_price_credits' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? (int) $p['ppv_price_credits'] : null,
-            'ppv_unlocks'    => ($p['audience'] === 'ppv') ? (int) ($ppv_stats[(int) $p['id']]['unlocks'] ?? 0) : 0,
-            'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'blocked'|'pending'|'adult'|'ok'
-            'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']) + (!empty($p['fanvue_post_uuid']) ? 1 : 0),
+            'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'blocked'|'flagged'|'pending'|'ok'
+            'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']),
         ];
     }
 

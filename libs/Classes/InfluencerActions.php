@@ -708,7 +708,6 @@ class InfluencerActions {
         $a  = $mm->get_one($cid, $aid);
         $kept = 0;
         if ($a) {
-            if ($mm->sold_asset_ids(array($aid), $cid)) { return self::fail('This file has been bought (in a post, message, or bundle), so it cannot be removed. Buyers keep it.'); }
             $r = $mm->remove_from_library($cid, $aid); $kept = (int) $r['posts'];   // a post that uses it keeps it: the file leaves the gallery and the library only
             (new CollectionsModel())->remove_asset_everywhere($aid);
         }

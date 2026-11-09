@@ -65,14 +65,11 @@
             <a href="/influencers" class="app-nav-item<?php echo ($this->controller === 'influencers' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-user-astronaut"></i> Influencers</a>
             <a href="/audience" class="app-nav-item<?php echo ($this->controller === 'audience' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-users"></i> Audience</a>
             <?php if (Permissions::team_allows('manage')): ?>
-            <a href="/events" class="app-nav-item<?php echo ($this->controller === 'events' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-calendar-days"></i> Events</a>
-            <a href="/services" class="app-nav-item<?php echo ($this->controller === 'services' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-briefcase"></i> Services</a>
             <?php if (Permissions::can_act_as_creator()): ?>
             <a href="/promote" class="app-nav-item<?php echo ($this->controller === 'promote' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-arrows-left-right"></i> Promote</a>
             <?php endif; ?>
             <?php endif; ?>
             <?php endif; ?>
-            <a href="/purchases" class="app-nav-item<?php echo ($this->controller === 'purchases' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-bag-shopping"></i> Purchases</a>
             <?php if (Permissions::is_admin()): $cls_team_unread = 0; try { $cls_team_unread = (new MessagesModel())->total_unread(PlatformAccount::ID); } catch (\Throwable $e) {} ?>
             <a href="/admin" class="app-nav-item<?php echo ($this->controller === 'admin' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-shield-halved"></i> Admin<?php if ($cls_team_unread > 0): ?> <span class="app-nav__badge" title="Unread replies to Creator Link Studio"><?php echo $cls_team_unread > 99 ? '99+' : (int) $cls_team_unread; ?></span><?php endif; ?></a>
             <?php endif; ?>

@@ -16,7 +16,7 @@ $sentence = 'Creators price a tier by the gap between tiers and the value fans s
 $cite = "The IRS explains self-employment tax at [irs.gov](https://www.irs.gov/businesses/small-businesses-self-employed), and the FTC covers endorsements at [ftc.gov](https://www.ftc.gov/business-guidance).\n\n";
 $define = "A membership tier is a monthly price for a set of posts and perks that a fan pays to stay close to a creator. Creators price a tier by the gap between tiers, by what fans see in it, and by what the entry tier makes easy to say yes to. The number comes last.\n\n";   // the first paragraph: a 40-60 word direct answer that opens with the definition
 $pf_tier = null; foreach (PlanTiers::all() as $pt) { if ((int) ($pt['price'] ?? 0) > 0 && empty($pt['retired'])) { $pf_tier = $pt; break; } }
-$facts = $pf_tier ? ('On the ' . $pf_tier['name'] . ' plan you get ' . number_format((int) $pf_tier['limits']['ai_credits']) . ' AI credits a month, and payouts go to your bank from a ' . Price::PAYOUT_MIN_LABEL . ' minimum. ') : '';   // two product facts, one numeric, no fee (the fee tests add their own)
+$facts = $pf_tier ? ('On the ' . $pf_tier['name'] . ' plan you get ' . number_format((int) $pf_tier['limits']['ai_credits']) . ' AI credits a month, and each post can go to nine platforms at once. ') : '';   // two product facts, one numeric, no fee (the fee tests add their own)
 $sec = function ($n, $per) use ($sentence, $cite, $define, $facts) {
     $b = '';
     for ($i = 1; $i <= $n; $i++) {
@@ -31,7 +31,7 @@ $good = array('title' => 'How creators price a membership tier', 'slug' => 'how-
     'meta_description' => 'A practical guide to pricing membership tiers for creators: how to set the gap between tiers, what fans compare, and when to raise a price.',
     'excerpt' => 'Pricing tiers is mostly about the gap between the tiers.', 'body_md' => $body,
     'faq' => array(array('q' => 'One?', 'a' => 'Yes.'), array('q' => 'Two?', 'a' => 'Yes.'), array('q' => 'Three?', 'a' => 'Yes.')),
-    'secondary_keywords' => array('membership pricing', 'creator tiers'), 'cluster' => 'creator-monetization');
+    'secondary_keywords' => array('membership pricing', 'creator tiers'), 'cluster' => 'social-publishing');
 check('good article validates', SeoDrafter::validate($good) === array(), implode('; ', SeoDrafter::validate($good)));
 $t = $good; $t['excerpt'] = 'Most creators price a tier before they have anything to sell.'; $r = SeoDrafter::validate($t);
 check('subtitle with a pronoun anywhere in its first sentence is noted', count($r) === 1 && strpos($r[0], 'the subtitle (excerpt)') === 0 && SeoDrafter::is_soft($r[0]), implode('; ', $r));
@@ -84,7 +84,7 @@ $t = $good; $t['body_md'] = "## How do creators price a tier?\n\n" . $define . $
 $t = $good; $t['body_md'] = $define . $facts . $cite . str_repeat($sentence, 100); check('zero h2 rejected', (bool) preg_grep('/section/', SeoDrafter::validate($t)));
 // product facts (2026-10-11): a piece any platform could publish does not publish
 $t = $good; $t['body_md'] = str_replace($facts, '', $good['body_md']); check('no product facts rejected', (bool) preg_grep('/product facts/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
-$t = $good; $t['body_md'] = str_replace($facts, 'You can sell bundles and pay-per-view posts. ', $good['body_md']); check('feature names alone are not enough', (bool) preg_grep('/product facts/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = str_replace($facts, 'You can send broadcasts and welcome messages. ', $good['body_md']); check('feature names alone are not enough', (bool) preg_grep('/product facts/', SeoDrafter::validate($t)));
 // formats
 check('format_for: how to = guide', SeoDrafter::format_for('how to train a lora character') === 'guide');
 check('format_for: alternative = comparison', SeoDrafter::format_for('fanvue alternative') === 'comparison');
@@ -127,7 +127,7 @@ $t = $good; $t['body_md'] .= "\n\nShort answer \u{2014} yes.";                  
 $t = $good; $t['body_md'] .= "\n\nPayouts run through Stripe.";                     check('payment processor rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nFans buy credits to unlock posts.";               check('credits without the refund line allowed (nothing is injected or required)', $ok($t), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nFans buy credits to unlock posts. " . PagesController::FINAL_NOTE; check('refund rule copied word for word rejected', (bool) preg_grep('/word for word/', SeoDrafter::validate($t)));
-$t = $good; $t['body_md'] .= "\n\nFees matter here. " . PagesController::fee_sentence(); check('fee sentence copied word for word rejected', (bool) preg_grep('/word for word/', SeoDrafter::validate($t)));
+$old_fee = "Creator Link Studio's platform fee is 10% of each sale on the Creator plan ($49/month) and 3% of each sale on the Studio plan ($199/month).";   // the sentence the old publisher injected (no fee is shown since 2026-11-09)
 // the Creator price moves with the admin's offer (CreatorPromo), so the sums below use config prices, and $wp is never a live one
 $cp = 0; $sp = 0; foreach (PlanTiers::all() as $pt) { if (empty($pt['retired']) && $pt['name'] === 'Creator') { $cp = (int) $pt['price']; } if (empty($pt['retired']) && $pt['name'] === 'Studio') { $sp = (int) $pt['price']; } }
 $wp = $cp + 10;
@@ -151,11 +151,8 @@ check('percentage-only fee sentence allowed', SeoDrafter::plan_sum_errors('The C
 check('worked sale without a plan price allowed', SeoDrafter::plan_sum_errors('On a $20 tier the platform keeps $2 and card processing takes about $0.88, so roughly $17 reaches your balance.') === array());
 check('a price that happens to follow "plus" in a list of products allowed', SeoDrafter::plan_sum_errors('Sell a $15 preset pack plus a $40 coaching call.') === array());
 $t = $good; $t['body_md'] .= "\n\nAt that volume the sums are \$300 plus \$$cp, which is \$" . (300 + $cp) . ".";   check('validate() rejects the sum as a hard rule', !$ok($t) && !SeoDrafter::is_soft(current(SeoDrafter::plan_sum_errors($t['body_md']))));
-$creator_fee = null; foreach (PlanTiers::all() as $pt) { if ((string) $pt['name'] === 'Creator') { $creator_fee = (int) $pt['limits']['fee_percent']; } }
-if ($creator_fee !== null) {
-    $t = $good; $t['body_md'] .= "\n\nCreators on the Creator plan pay a $creator_fee% platform fee on each sale, which matters once sales grow."; check('fee stated once in own words allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
-    $t['body_md'] .= "\n\nAgain, the Creator plan fee is $creator_fee% of each sale.";                                                      check('fee stated in two paragraphs rejected', (bool) preg_grep('/stated in 2 paragraphs/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
-}
+// no platform fee on the brand or a plan since 2026-11-09
+$t = $good; $t['body_md'] .= "\n\nCreators on the Creator plan pay a 10% platform fee on each sale."; check('fee stated on a plan rejected', (bool) preg_grep('/states a platform fee/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
 // the first sentence under a heading names the section's subject
 $t = $good; $t['body_md'] .= "\n\n## Payout timing\n\nMost people wait too long before they decide anything at all.\n\n";  check('section opener without the subject reported by the advisory check, not by validate', (bool) preg_grep('/must name the subject of the section/', SeoDrafter::section_opener_errors($t['body_md'], $t['title'])) && !preg_grep('/must name the subject/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\n## Payout timing\n\nPayouts arrive after you request them, once the balance reaches the minimum.\n\n";  check('section opener naming the subject passes the advisory check', !preg_grep('/must name the subject/', SeoDrafter::section_opener_errors($t['body_md'], $t['title'])));
@@ -168,9 +165,9 @@ check('place_cta: id 1 after the first section', strpos(SeoDrafter::place_cta($h
 check('place_cta: id 2 before the last section', strpos(SeoDrafter::place_cta($html, 2), '</aside><h2 id="c">') !== false);
 check('place_cta: short article keeps it at the end', substr(SeoDrafter::place_cta('<h2>A</h2><p>x</p>', 1), -8) === '</aside>');
 // clean_boilerplate: the injected sentences and their fragments go, long paragraphs split, everything else is untouched
-$dirty = "## Fees\n\nFees shape the arithmetic. On Creator Link Studio, " . PagesController::fee_sentence() . " " . PagesController::FINAL_NOTE . "\n\n, with card processing separate.\n\n. Free accounts are for fans and cannot sell, so inbox automation is not included there.\n\n" . PagesController::plan_price_sentence() . " " . PagesController::FINAL_NOTE . "\n\n, and card processing fees are separate. Fifty members on a \$10 tier is \$500 before fees, and a trained character keeps that going.\n\nA normal paragraph stays [as it is](/pricing).\n\n- a list item with " . PagesController::FINAL_NOTE . "\n\n" . str_repeat('Creators price a tier by the gap. ', 8);
+$dirty = "## Fees\n\nFees shape the arithmetic. On Creator Link Studio, " . $old_fee . " " . PagesController::FINAL_NOTE . "\n\n, with card processing separate.\n\n. Free accounts are for fans and cannot sell, so inbox automation is not included there.\n\n" . PagesController::plan_price_sentence() . " " . PagesController::FINAL_NOTE . "\n\n, and card processing fees are separate. Fifty members on a \$10 tier is \$500 before fees, and a trained character keeps that going.\n\nA normal paragraph stays [as it is](/pricing).\n\n- a list item with " . PagesController::FINAL_NOTE . "\n\n" . str_repeat('Creators price a tier by the gap. ', 8);
 $clean = SeoDrafter::clean_boilerplate($dirty);
-check('clean: fee sentence removed', strpos($clean, PagesController::fee_sentence()) === false && strpos($clean, 'Free accounts are for fans') === false, $clean);
+check('clean: fee sentence removed', strpos($clean, $old_fee) === false && strpos($clean, 'Free accounts are for fans') === false, $clean);
 check('clean: refund line removed from prose, list untouched', substr_count($clean, PagesController::FINAL_NOTE) === 1 && strpos($clean, '- a list item with ' . PagesController::FINAL_NOTE) !== false, $clean);
 check('clean: plan price sentence removed', strpos($clean, 'all per month') === false, $clean);
 check('clean: dangling lead-in cut back to the last full sentence', strpos($clean, "Fees shape the arithmetic.\n\n") !== false && strpos($clean, 'On Creator Link Studio,') === false, $clean);
@@ -181,7 +178,7 @@ check('clean: 8-sentence paragraph split into two of 4', substr_count($clean, "C
 check('clean: clean input unchanged', SeoDrafter::clean_boilerplate("## A\n\nOne. Two.\n\nThree.\n") === "## A\n\nOne. Two.\n\nThree.\n");
 $bold = "**A source of truth.** Every tier with its price. " . PagesController::FINAL_NOTE . "\n\n- a list item with " . PagesController::FINAL_NOTE . "\n";
 check('clean: a paragraph opening in bold is prose, a list item is not', SeoDrafter::clean_boilerplate($bold) === "**A source of truth.** Every tier with its price.\n\n- a list item with " . PagesController::FINAL_NOTE . "\n", SeoDrafter::clean_boilerplate($bold));
-check('strip_boilerplate_text: FAQ answer', SeoDrafter::strip_boilerplate_text('Yes. ' . PagesController::fee_sentence() . ' ' . PagesController::FINAL_NOTE) === 'Yes.', SeoDrafter::strip_boilerplate_text('Yes. ' . PagesController::fee_sentence()));
+check('strip_boilerplate_text: FAQ answer', SeoDrafter::strip_boilerplate_text('Yes. ' . $old_fee . ' ' . PagesController::FINAL_NOTE) === 'Yes.', SeoDrafter::strip_boilerplate_text('Yes. ' . $old_fee));
 check('split_long_paragraph: 13 sentences -> 7 + 6 -> four pieces', count(SeoDrafter::split_long_paragraph(str_repeat('Fans like it. ', 13))) === 3 || count(SeoDrafter::split_long_paragraph(str_repeat('Fans like it. ', 13))) === 4);
 $t = $good; $t['body_md'] .= "\n\nWrite {{fee}} here.";                            check('unreplaced token rejected', !$ok($t));
 // length by intent (+/- 20%)
@@ -191,14 +188,14 @@ $t = $good; $t['intent'] = 'howto'; $t['body_md'] = $sec(4, 250);  check('howto 
 $t = $good; $t['intent'] = 'guide'; $t['body_md'] = $sec(4, 200);  check('guide 850 words rejected', !$ok($t));
 $t = $good; $t['intent'] = 'guide'; $t['body_md'] = $sec(4, 600);  check('guide 2400 words rejected', !$ok($t));
 check('word_bounds quick = 480-960', SeoDrafter::word_bounds('quick') === array(480, 960));
-check('intent: question = quick', SeoDrafter::intent_for('how much should i charge for a membership', 'memberships-and-ppv') === 'quick');
-check('intent: alternative = guide', SeoDrafter::intent_for('patreon alternative', 'platform-comparisons') === 'guide');
-check('intent: how to = howto', SeoDrafter::intent_for('how to sell content bundles', 'creator-monetization') === 'howto');
+check('intent: question = quick', SeoDrafter::intent_for('how much does the creator plan cost', 'pricing-and-fees') === 'quick');
+check('intent: alternative = guide', SeoDrafter::intent_for('social scheduler alternative', 'social-publishing') === 'guide');
+check('intent: how to = howto', SeoDrafter::intent_for('how to schedule instagram posts', 'social-publishing') === 'howto');
 // clusters: every allowed link exists, pricing never reaches AI pages, AI clusters keep to AI pages
 $all_paths = SeoDrafter::allowed_paths(); $missing = array();
 foreach (SeoDrafter::CLUSTERS as $c => $def) { foreach (array_merge(array($def['feature']), $def['links']) as $l) { if (!in_array($l, $all_paths, true)) { $missing[] = "$c:$l"; } } foreach ($def['related'] as $r) { if (!isset(SeoDrafter::CLUSTERS[$r])) { $missing[] = "$c related $r"; } } }
 check('every cluster link is a real page', $missing === array(), implode(', ', $missing));
-$ai_pages = array('/features/ai-influencer', '/lora-character-training', '/consistent-ai-model-face', '/ai-ofm-tools', '/compare/eromify');
+$ai_pages = array('/features/ai-influencer', '/lora-character-training', '/consistent-ai-model-face');
 check('pricing cluster links no AI page', array_intersect(SeoDrafter::cluster_links('pricing-and-fees'), $ai_pages) === array());
 check('pricing family has no AI cluster', array_intersect(SeoDrafter::cluster_family('pricing-and-fees'), array('ai-influencer-monetization', 'lora-character-training', 'ai-dm-chatter')) === array());
 check('ai influencer cluster links only AI pages', array_diff(SeoDrafter::cluster_links('ai-influencer-monetization'), array_merge($ai_pages, array('/', '/blog'))) === array());
@@ -207,7 +204,7 @@ check('strict: pricing article linking an AI page rejected', (bool) preg_grep('/
 // fit(): nothing injected, dashes out, stray links to text, citations kept, wrong plan price corrected
 $creator = null; foreach (PlanTiers::all() as $pt) { if ((string) $pt['name'] === 'Creator') { $creator = $pt; } }
 $f = SeoDrafter::fit(array('cluster' => 'pricing-and-fees', 'meta_description' => 'm', 'body_md' => "The fee: {{fee}}\n\nA \u{2014} B, 10\u{2013}20 posts. [x](https://medium.com/a) [irs](https://www.irs.gov/a) [ai](/features/ai-influencer)\n\nThe Creator plan costs \$99 a month."));
-check('fit: {{fee}} is not expanded (left for validate to reject)', strpos($f['body_md'], PagesController::fee_sentence()) === false && strpos($f['body_md'], '{{fee}}') !== false);
+check('fit: {{fee}} is not expanded (left for validate to reject)', strpos($f['body_md'], $old_fee) === false && strpos($f['body_md'], '{{fee}}') !== false);
 check('fit: nothing injected', stripos($f['body_md'], 'non-refundable') === false);
 check('fit: dashes replaced', !preg_match('/[\x{2013}\x{2014}]/u', $f['body_md']) && strpos($f['body_md'], '10-20') !== false);
 check('fit: non-citation link and off-cluster page become text', strpos($f['body_md'], 'medium.com') === false && strpos($f['body_md'], '(/features/ai-influencer)') === false);
@@ -240,14 +237,14 @@ $errs = function ($a) { return implode('; ', SeoDrafter::validate($a)); };
 $t = $good; $t['cluster'] = 'pricing-and-fees'; $t['body_md'] = str_replace('(/features)', '(/pricing)', $t['body_md']) . "\n\nSee [ai](/features/ai-influencer).";
 check('I1 non-strict validate rejects an off-cluster page link', strpos($errs($t), "allow-list: /features/ai-influencer") !== false, $errs($t));
 check('I1 link_errors flags an off-family article', SeoDrafter::link_errors(array('cluster' => 'pricing-and-fees', 'body_md' => '[x](/blog/some-ai-post)'), array('some-ai-post' => 'ai-influencer-monetization')) !== array());
-check('I1 link_errors passes an in-family article', SeoDrafter::link_errors(array('cluster' => 'pricing-and-fees', 'body_md' => '[x](/blog/fees-post) [p](/pricing)'), array('fees-post' => 'platform-comparisons')) === array());
+check('I1 link_errors passes an in-family article', SeoDrafter::link_errors(array('cluster' => 'pricing-and-fees', 'body_md' => '[x](/blog/fees-post) [p](/pricing)'), array('fees-post' => 'social-publishing')) === array());
 $st = SeoDrafter::strip_links('[a](/features/ai-influencer) [p](/pricing) [b](/blog/x)', 'pricing-and-fees', array('x' => 'lora-character-training'));
 check('I1 strip_links keeps in-cluster, strips the rest', $st === 'a [p](/pricing) b', $st);
 // I2: empty cluster is an error
 $t = $good; $t['cluster'] = '';                                     check('I2 empty cluster rejected', strpos($errs($t), 'cluster is required') !== false);
 $t = $good; unset($t['cluster']);                                   check('I2 missing cluster rejected', strpos($errs($t), 'cluster is required') !== false);
 // I3: admin derives intent the same way as the drafter (word_bounds from intent_for)
-check('I3 a quick-answer keyword gets the quick band', SeoDrafter::word_bounds(SeoDrafter::intent_for('how long do creator payouts take', 'creator-payouts')) === array(480, 960));
+check('I3 a quick-answer keyword gets the quick band', SeoDrafter::word_bounds(SeoDrafter::intent_for('how long does a scheduled post take', 'social-publishing')) === array(480, 960));
 // I4: income promises
 $t = $good; $t['body_md'] .= "\n\nYou can make \$3,000 a month if you post daily.";   check('I4 "you can make $" with "if" rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSay you earn \$3,000 a month from fans.";            check('R2 worked example ("say you") allowed', $ok($t), $errs($t));
@@ -260,8 +257,7 @@ $t = $good; $t['body_md'] .= "\n\nWe cannot guarantee results for any creator in
 // I5: fee percentages and plan prices in any form
 $t = $good; $t['body_md'] .= "\n\nCreator Link Studio takes 15% on every sale.";        check('I5 typed brand fee 15% rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nThe platform fee is 3% on Creator. "; check('I5 fee on the wrong plan rejected', !$ok($t));
-$t = $good; $t['body_md'] .= "\n\nThe fee is " . PagesController::fee_short() . ". "; check('I5 configured fee_short allowed', $ok($t), $errs($t));
-$t = $good; $t['body_md'] .= "\n\n" . PagesController::fee_sentence() . ' '; check('I5 configured fee_sentence copied word for word rejected', (bool) preg_grep('/word for word/', SeoDrafter::validate($t)), $errs($t));
+$t = $good; $t['body_md'] .= "\n\n" . $old_fee . ' '; check('I5 the old injected fee sentence rejected', !$ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nThe Creator plan costs \$$wp a month. ";  check('I5 "costs $' . $wp . ' a month" rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nStudio is \$49/mo. ";       check('I5 another plan\'s price on Studio rejected', !$ok($t));
 $live = array(); foreach (PlanTiers::all() as $pt) { if (empty($pt['retired'])) { $live[$pt['name']] = number_format((int) $pt['price']); } }
@@ -277,9 +273,9 @@ $t = $good; $t['body_md'] .= "\n\nTrack sales with Google Analytics, built with 
 check('M1 SAFE_WORDS pass (Google, Maya, Mason, Sienna, Instagram)', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nHugging Face says the model is open.";              check('M1 "Hugging Face says" allowed', $ok($t), $errs($t));
 
-// fix round 2: fee per named plan from PlanTiers, worked examples, whole-token fee repair
-$pf = array(); foreach (PlanTiers::all() as $pt) { if (empty($pt['retired'])) { $pf[$pt['name']] = (int) ($pt['limits']['fee_percent'] ?? 0); } }
-$t = $good; $t['body_md'] .= "\n\nThe Free plan takes " . ($pf['Free'] ?? 0) . "% with no monthly fee. ";   check('R2 Free plan at its configured fee allowed', $ok($t), $errs($t));
+// fix round 2: fee per named plan (plans no longer have one), worked examples, whole-token fee repair
+$pf = array('Free' => 20, 'Creator' => 10, 'Studio' => 3);   // the old take-rate figures: any fee claim in a draft is rejected
+$t = $good; $t['body_md'] .= "\n\nThe Free plan takes " . ($pf['Free'] ?? 0) . "% with no monthly fee. ";   check('R2 any fee on the Free plan rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nThe Free plan takes 15% with no monthly fee. "; check('R2 Free plan at a wrong fee rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSuppose a creator earns \$2,000 a month in sales.";          check('R2 "suppose" example allowed', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nFor example, revenue of \$500 a month covers the plan.";            check('R2 "for example" allowed', $ok($t), $errs($t));
@@ -294,8 +290,8 @@ $t = $good; $t['body_md'] .= "\n\nYou can run the arithmetic for your own revenu
 $t = $good; $t['body_md'] .= "\n\nIf you post daily you can make \$3,000 a month.";             check('R2 "you can make $X" still rejected inside an "if you"', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nYou will earn \$3,000 a month.";                               check('R2 "you will earn $X" still rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nThe Free plan takes " . ($pf['Free'] ?? 0) . "% with no monthly fee, Creator takes " . ($pf['Creator'] ?? 0) . "% at \$49 a month, and Studio takes " . ($pf['Studio'] ?? 0) . "% at \$199 a month. ";
-check('R2 one sentence with each plan at its own fee allowed', $ok($t), $errs($t));
-$fs = PagesController::fee_short();
+check('R2 one sentence with each plan at a fee rejected', !$ok($t));
+$fs = '10% on Creator and 3% on Studio';
 check('R2 fix_fee_glue leaves intact fee wording alone', SeoDrafter::fix_fee_glue("It is $fs, and Creators know it.") === "It is $fs, and Creators know it.");
 check('R2 fix_fee_glue rejoins a split plan name', SeoDrafter::fix_fee_glue('runs 10% on Creato r, 3% on Studi o.') === 'runs 10% on Creator, 3% on Studio.', SeoDrafter::fix_fee_glue('runs 10% on Creato r, 3% on Studi o.'));
 check('R2 fix_fee_glue repairs a glued and split word', SeoDrafter::fix_fee_glue('3% on Studiodependin g on your plan') === '3% on Studio, depending on your plan', SeoDrafter::fix_fee_glue('3% on Studiodependin g on your plan'));
@@ -303,7 +299,7 @@ check('R2 fix_fee_glue separates a glued word', SeoDrafter::fix_fee_glue('3% on 
 
 // fix round 3: fee figures per clause (competitor clauses skipped), plan prices only when monthly, modal promises
 foreach (array("OnlyFans takes 20% while Creator Link Studio's Creator plan takes 10%.", "OnlyFans takes 20%, while the Creator plan takes 10%.", "The Creator plan takes 10%, versus 20% on OnlyFans.", "Fanvue keeps 15% and Creator Link Studio's Studio plan keeps 3%.") as $x) {
-    $t = $good; $t['body_md'] .= "\n\n$x "; check('R3 competitor comparison passes: ' . $x, $ok($t), $errs($t));
+    $t = $good; $t['body_md'] .= "\n\n$x "; check('R3 a fee on our plan is rejected even beside another platform: ' . $x, !$ok($t));
 }
 $t = $good; $t['body_md'] .= "\n\nThe Free plan takes 15%. ";       check('R3 "The Free plan takes 15%" still rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nCreator takes 20% of each sale.";                                 check('R3 "Creator takes 20%" still rejected', !$ok($t));

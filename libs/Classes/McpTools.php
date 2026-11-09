@@ -4,44 +4,11 @@
  * an EXISTING model method, always scoped to the authenticated creator's id —
  * no new business logic and no cross-creator access.
  *
- * Deliberately NOT exposed (need an external flow or move money/are irreversible;
- * add later on request): media upload (binary/S3), plan/promo/bundle CREATE &
- * UPDATE (need Stripe price/coupon), payouts & credit movement, messaging /
- * broadcast send, account deletion, and "run automation now" (immediate publish).
+ * Deliberately NOT exposed: binary media upload (S3), credit movement and account deletion.
  *
  * definitions() -> tools/list payload.  call() -> run one tool for a creator.
  */
 class McpTools {
-
-    /** Event tool input → model fields: a valid time zone, reminders as the stored CSV, and the one-line location kept in step with the address. */
-    /**
-     * A price argument in credits, held to the same rule as the app (Price: $1-$500, i.e. 10-5000 credits; 0 = free
-     * where allowed). Missing leaves $a unchanged; a bad value is refused with the reason, never adjusted.
-     */
-    private static function priced(array $a, $key, $allow_free = true): array {
-        if (!array_key_exists($key, $a) || $a[$key] === null || $a[$key] === '') { return $a; }
-        $chk = Price::check_credits((int) $a[$key], $allow_free);
-        if (!$chk['ok']) { throw new InvalidArgumentException($key . ': ' . $chk['message']); }
-        $a[$key] = (int) $chk['credits'];
-        return $a;
-    }
-
-    private static function event_fields(array $a, array $current = array()): array {
-        $a = self::priced($a, 'price_credits');
-        foreach (array('start_at', 'end_at') as $k) {   // UTC 'Y-m-d H:i:s'; anything unparseable is refused by check_times
-            if (!array_key_exists($k, $a) || trim((string) $a[$k]) === '') { continue; }
-            $t = strtotime(trim((string) $a[$k]) . (preg_match('/(Z|[+-]\d\d:?\d\d|UTC)$/i', trim((string) $a[$k])) ? '' : ' UTC'));
-            $a[$k] = $t === false ? 'invalid' : gmdate('Y-m-d H:i:s', $t);
-        }
-        if (array_key_exists('timezone', $a)) { $a['timezone'] = EventsModel::clean_timezone($a['timezone'], 'UTC'); }
-        if (array_key_exists('reminders', $a)) { $a['reminders'] = implode(',', EventsModel::clean_reminders($a['reminders'])); }
-        $keys = array('venue_name', 'street', 'city', 'region', 'postal_code');
-        $sent = array_intersect_key($a, array_flip($keys));
-        if (!empty($sent) && !array_key_exists('location', $a)) {   // partial update: rebuild from the saved address plus what changed
-            $a['location'] = EventsModel::address_line(array_merge(array_intersect_key($current, array_flip($keys)), $sent));
-        }
-        return $a;
-    }
 
     public static function definitions(){
         $none = array('type' => 'object', 'properties' => new stdClass(), 'required' => array());
@@ -51,14 +18,10 @@ class McpTools {
         $t = array();
 
         // ---- Analytics (read) ----
-        $t[] = array('name' => 'get_analytics',      'description' => 'Overview KPIs: posts, revenue, views, followers, subscribers.', 'inputSchema' => $none);
-        $t[] = array('name' => 'revenue_breakdown',  'description' => 'Revenue broken down by source (all-time).', 'inputSchema' => $none);
+        $t[] = array('name' => 'get_analytics',      'description' => 'Overview KPIs: posts, views, likes, comments, followers, unique visitors.', 'inputSchema' => $none);
         $t[] = array('name' => 'top_posts',          'description' => 'Best-performing posts.', 'inputSchema' => $limit);
-        $t[] = array('name' => 'recent_sales',       'description' => 'Most recent sales.', 'inputSchema' => $limit);
-        $t[] = array('name' => 'customer_stats',     'description' => 'Customer/buyer statistics.', 'inputSchema' => $none);
-        $t[] = array('name' => 'content_mix',        'description' => 'Breakdown of content by type/audience.', 'inputSchema' => $none);
+        $t[] = array('name' => 'content_mix',        'description' => 'Breakdown of content by type.', 'inputSchema' => $none);
         $t[] = array('name' => 'follower_count',     'description' => 'Total followers.', 'inputSchema' => $none);
-        $t[] = array('name' => 'subscriber_count',   'description' => 'Total active subscribers.', 'inputSchema' => $none);
         $t[] = array('name' => 'social_metrics',     'description' => 'Engagement on cross-posted copies (views, likes, comments, shares, saves, reach per platform), synced from the connected social accounts. Pass post_id for one post, or omit for the latest feed items.', 'inputSchema' => array(
             'type' => 'object', 'properties' => array(
                 'post_id' => array('type' => 'integer', 'description' => 'Studio post id (optional)'),
@@ -74,22 +37,17 @@ class McpTools {
             'properties' => array(
                 'caption'  => array('type' => 'string'),
                 'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => 'Up to 10 ready library assets, in display order.'),
-                'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers', 'ppv')),
-                'ppv_price_credits' => array('type' => 'integer', 'description' => 'Required when audience=ppv. Credits, $1 = 10: 10 to 5000 ($1 to $500).'),
             )));
-        $t[] = array('name' => 'update_post', 'description' => 'Update a post\'s caption/audience/pricing/comments.', 'inputSchema' => array(
+        $t[] = array('name' => 'update_post', 'description' => 'Update a post\'s caption/comments.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id'),
             'properties' => array(
                 'id' => array('type' => 'integer'),
                 'caption' => array('type' => 'string'),
-                'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers', 'ppv')),
-                'ppv_price_credits' => array('type' => 'integer'),
-                'tier_id' => array('type' => 'integer'),
                 'comments_enabled' => array('type' => 'boolean'),
             )));
         $share = array('type' => 'array', 'items' => array('type' => 'string'),
-            'description' => 'Optional cross-post targets: connected social account ids (see list_share_targets) and/or "fanvue" to mirror the full post to the connected Fanvue account.');
-        $t[] = array('name' => 'list_share_targets', 'description' => 'Connected cross-post targets (social accounts + Fanvue) usable as share_accounts.', 'inputSchema' => $none);
+            'description' => 'Optional cross-post targets: connected social account ids (see list_share_targets).');
+        $t[] = array('name' => 'list_share_targets', 'description' => 'Connected social accounts usable as share_accounts.', 'inputSchema' => $none);
         $ai_disc = array('type' => 'boolean', 'description' => 'AI disclosure on the cross-posts. Default: on when the post has AI-generated or AI-edited media (TikTok and YouTube get their AI flag, other platforms get a disclosure line on the caption).');
         $story   = array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Instagram or Facebook account ids (from share_accounts) that get this post as a Story instead of a feed post; prefix an id with "both:" to post it to the feed and as a Story. Media that is not 9:16 is fitted into 9:16 for the Story. Leave out for feed posts only.');
         $t[] = array('name' => 'publish_post',  'description' => 'Publish a post now (fails if it has no ready media). Optionally cross-post.', 'inputSchema' => array(
@@ -133,82 +91,6 @@ class McpTools {
         $t[] = array('name' => 'set_link_enabled', 'description' => 'Enable/disable a link.', 'inputSchema' => self::idAndActive('enabled'));
         $t[] = array('name' => 'delete_link',    'description' => 'Delete a link.', 'inputSchema' => $id);
 
-        // ---- Monetization objects (read + activate/deactivate + delete) ----
-        $t[] = array('name' => 'list_plans',      'description' => 'List subscription plans.', 'inputSchema' => $none);
-        $t[] = array('name' => 'set_plan_active', 'description' => 'Activate/deactivate a plan.', 'inputSchema' => self::idAndActive());
-        $t[] = array('name' => 'delete_plan',     'description' => 'Delete a plan.', 'inputSchema' => $id);
-        $t[] = array('name' => 'list_promo_codes','description' => 'List promo/discount codes.', 'inputSchema' => $none);
-        $t[] = array('name' => 'set_promo_active','description' => 'Activate/deactivate a promo code.', 'inputSchema' => self::idAndActive());
-        $t[] = array('name' => 'delete_promo_code','description' => 'Delete a promo code.', 'inputSchema' => $id);
-        $t[] = array('name' => 'list_bundles',    'description' => 'List content bundles.', 'inputSchema' => $none);
-        $t[] = array('name' => 'set_bundle_active','description' => 'Activate/deactivate a bundle.', 'inputSchema' => self::idAndActive());
-        $t[] = array('name' => 'delete_bundle',   'description' => 'Delete a bundle.', 'inputSchema' => $id);
-
-        // ---- Events (full CRUD; credit-priced, self-contained) ----
-        $t[] = array('name' => 'list_events',  'description' => 'List events.', 'inputSchema' => $none);
-        $t[] = array('name' => 'get_event',    'description' => 'Get one event.', 'inputSchema' => $id);
-        $t[] = array('name' => 'create_event', 'description' => 'Create an event.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('title', 'start_at'),
-            'properties' => array(
-                'title' => array('type' => 'string'), 'description' => array('type' => 'string'),
-                'start_at' => array('type' => 'string', 'description' => 'UTC datetime'), 'end_at' => array('type' => 'string'),
-                'timezone' => array('type' => 'string'), 'access_type' => array('type' => 'string'),
-                'price_credits' => array('type' => 'integer'), 'capacity' => array('type' => 'integer'),
-                'location' => array('type' => 'string'), 'external_url' => array('type' => 'string', 'description' => 'Meeting link for virtual events (only emailed to attendees)'),
-                'access_instructions' => array('type' => 'string'), 'tier_id' => array('type' => 'integer'),
-                'format' => array('type' => 'string', 'enum' => array('virtual', 'cls_video', 'in_person')),
-                'venue_name' => array('type' => 'string'), 'street' => array('type' => 'string'), 'city' => array('type' => 'string'),
-                'region' => array('type' => 'string', 'description' => 'State / region'), 'postal_code' => array('type' => 'string'),
-                'reminders' => array('type' => 'array', 'items' => array('type' => 'integer', 'enum' => array(10080, 1440, 180, 60, 15)),
-                    'description' => 'Reminder emails to attendees, in minutes before the start (10080 = 1 week, 1440 = 1 day, 180 = 3 hours, 60 = 1 hour, 15 = 15 minutes). [] = none. New events default to [1440].'),
-                'status' => array('type' => 'string', 'enum' => array('draft', 'published', 'canceled')),
-            )));
-        $t[] = array('name' => 'update_event', 'description' => 'Update an event (send id plus only the fields to change).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'),
-            'properties' => array(
-                'id' => array('type' => 'integer'),
-                'title' => array('type' => 'string'), 'description' => array('type' => 'string'),
-                'start_at' => array('type' => 'string', 'description' => 'UTC datetime'), 'end_at' => array('type' => 'string'),
-                'timezone' => array('type' => 'string'),
-                'access_type' => array('type' => 'string'), 'price_credits' => array('type' => 'integer'),
-                'tier_id' => array('type' => 'integer'), 'capacity' => array('type' => 'integer'),
-                'location' => array('type' => 'string'), 'external_url' => array('type' => 'string'),
-                'access_instructions' => array('type' => 'string'),
-                'format' => array('type' => 'string', 'enum' => array('virtual', 'cls_video', 'in_person')),
-                'venue_name' => array('type' => 'string'), 'street' => array('type' => 'string'), 'city' => array('type' => 'string'),
-                'region' => array('type' => 'string', 'description' => 'State / region'), 'postal_code' => array('type' => 'string'),
-                'reminders' => array('type' => 'array', 'items' => array('type' => 'integer', 'enum' => array(10080, 1440, 180, 60, 15)),
-                    'description' => 'Reminder emails to attendees, in minutes before the start (10080 = 1 week, 1440 = 1 day, 180 = 3 hours, 60 = 1 hour, 15 = 15 minutes). [] = none. New events default to [1440].'),
-                'status' => array('type' => 'string', 'enum' => array('draft', 'published', 'canceled')),
-            )));
-        $t[] = array('name' => 'delete_event', 'description' => 'Delete an event.', 'inputSchema' => $id);
-
-        // ---- Services (full CRUD) ----
-        $t[] = array('name' => 'list_services',  'description' => 'List services.', 'inputSchema' => $none);
-        $t[] = array('name' => 'get_service',    'description' => 'Get one service.', 'inputSchema' => $id);
-        $t[] = array('name' => 'create_service', 'description' => 'Create a service.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('name'),
-            'properties' => array(
-                'name' => array('type' => 'string'), 'description' => array('type' => 'string'),
-                'price_credits' => array('type' => 'integer'), 'duration_min' => array('type' => 'integer'),
-                'delivery_method' => array('type' => 'string', 'enum' => array('cls_video', 'zoom', 'teams', 'meet', 'webex', 'discord', 'phone', 'in_person', 'custom')),
-                'delivery_details' => array('type' => 'string', 'description' => 'Instructions shown to buyers after they book'),
-                'capacity' => array('type' => 'integer'), 'category' => array('type' => 'string'), 'refund_policy' => array('type' => 'string'),
-                'status' => array('type' => 'string', 'enum' => array('draft', 'published')),
-            )));
-        $t[] = array('name' => 'update_service', 'description' => 'Update a service (send id plus only the fields to change).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'),
-            'properties' => array(
-                'id' => array('type' => 'integer'),
-                'name' => array('type' => 'string'), 'description' => array('type' => 'string'),
-                'price_credits' => array('type' => 'integer'), 'duration_min' => array('type' => 'integer'),
-                'delivery_method' => array('type' => 'string', 'enum' => array('cls_video', 'zoom', 'teams', 'meet', 'webex', 'discord', 'phone', 'in_person', 'custom')),
-                'delivery_details' => array('type' => 'string', 'description' => 'Instructions shown to buyers after they book'), 'capacity' => array('type' => 'integer'),
-                'category' => array('type' => 'string'), 'refund_policy' => array('type' => 'string'),
-                'status' => array('type' => 'string', 'enum' => array('draft', 'published')),
-            )));
-        $t[] = array('name' => 'delete_service', 'description' => 'Delete a service.', 'inputSchema' => $id);
-
         // ---- Automations (Scheduler) ----
         $t[] = array('name' => 'list_automations', 'description' => 'List Scheduler automations.', 'inputSchema' => $none);
         $t[] = array('name' => 'get_automation',   'description' => 'Get one automation.', 'inputSchema' => $id);
@@ -218,10 +100,9 @@ class McpTools {
                 'name' => array('type' => 'string'), 'topic' => array('type' => 'string'),
                 'cadence' => array('type' => 'string', 'enum' => array('daily', 'weekly')),
                 'run_time' => array('type' => 'string', 'description' => 'HH:MM'), 'timezone' => array('type' => 'string'),
-                'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
                 'active' => array('type' => 'boolean'),
                 'size' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Output shape: 3:4 (default for feed images), 4:5, 9:16 (stories), 1:1 or 4:3. square, portrait and landscape still work.'),
-                'social_accounts' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Cross-post targets, e.g. ["fanvue"]. See list_share_targets.'),
+                'social_accounts' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Cross-post targets: social account ids. See list_share_targets.'),
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'influencer', 'character'), 'description' => '"influencer" renders one of the creator\'s trained AI influencers (influencer_id required); "character" renders the creator\'s Eromify character (character_id required, Eromify connected in Settings > Integrations). In both cases the topic is the scene only. Default "brand".'),
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
                 'character_id' => array('type' => 'string', 'description' => 'Eromify character id (from the creator\'s Eromify studio). Required when image_source is "character".'),
@@ -237,8 +118,7 @@ class McpTools {
                 'name' => array('type' => 'string'), 'topic' => array('type' => 'string'),
                 'cadence' => array('type' => 'string', 'enum' => array('daily', 'weekly')),
                 'run_time' => array('type' => 'string', 'description' => 'HH:MM'), 'timezone' => array('type' => 'string'),
-                'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
-                'tier_id' => array('type' => 'integer'), 'tier_ids' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => 'Membership tier ids a subscribers-only post is limited to (any match). Empty = all subscribers.'), 'comments_enabled' => array('type' => 'boolean'),
+                'comments_enabled' => array('type' => 'boolean'),
                 'use_brand' => array('type' => 'boolean'), 'active' => array('type' => 'boolean'),
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'influencer', 'character'), 'description' => '"influencer" renders one of the creator\'s trained AI influencers (influencer_id required); "character" renders the creator\'s Eromify character (character_id required, Eromify connected in Settings > Integrations). In both cases the topic is the scene only. Default "brand".'),
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
@@ -253,7 +133,7 @@ class McpTools {
         $t[] = array('name' => 'delete_automation',    'description' => 'Delete an automation.', 'inputSchema' => $id);
 
         // ---- Audience ----
-        $t[] = array('name' => 'list_audience',      'description' => 'List audience (followers/subscribers/buyers).', 'inputSchema' => $none);
+        $t[] = array('name' => 'list_audience',      'description' => 'List audience (followers).', 'inputSchema' => $none);
         $t[] = array('name' => 'audience_add_tag',   'description' => 'Tag an audience member.', 'inputSchema' => self::fanAnd('tag'));
         $t[] = array('name' => 'audience_remove_tag','description' => 'Remove a tag from an audience member.', 'inputSchema' => self::fanAnd('tag'));
         $t[] = array('name' => 'audience_save_note', 'description' => 'Save a note on an audience member.', 'inputSchema' => self::fanAnd('note'));
@@ -270,48 +150,6 @@ class McpTools {
                 'description' => array('type' => 'string'), 'voice' => array('type' => 'string'),
                 'colors' => array('type' => 'array', 'items' => array('type' => 'string')),
                 'keywords' => array('type' => 'array', 'items' => array('type' => 'string'))), 'required' => array()));
-
-        // ---- Monetization: create/update (no eager Stripe; artifacts made lazily at checkout) ----
-        $t[] = array('name' => 'create_plan', 'description' => 'Create a subscription plan.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('name'),
-            'properties' => array(
-                'name' => array('type' => 'string'),
-                'price' => array('type' => 'number', 'description' => 'Monthly price in dollars (0 or omit for a free tier; paid tiers must be >= $1).'),
-                'billing_interval' => array('type' => 'string', 'enum' => array('week', 'month', 'year')),
-                'description' => array('type' => 'string'), 'perks' => array('type' => 'string'),
-            )));
-        $t[] = array('name' => 'update_plan', 'description' => 'Update a subscription plan (send id + fields to change).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'),
-            'properties' => array('id' => array('type' => 'integer'), 'name' => array('type' => 'string'),
-                'price' => array('type' => 'number'), 'billing_interval' => array('type' => 'string', 'enum' => array('week', 'month', 'year')),
-                'description' => array('type' => 'string'), 'perks' => array('type' => 'string'))));
-        $t[] = array('name' => 'create_promo_code', 'description' => 'Create a discount code (Pro/Studio plans).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('code'),
-            'properties' => array(
-                'code' => array('type' => 'string', 'description' => '3-40 letters/numbers'),
-                'percent_off' => array('type' => 'integer', 'description' => '1-100. Give this or amount_off_credits.'),
-                'amount_off_credits' => array('type' => 'integer', 'description' => 'A fixed amount off instead of a percent. Credits, $1 = 10: 10 to 5000'),
-                'min_order_credits' => array('type' => 'integer', 'description' => 'Optional minimum order in credits ($1 = 10)'),
-                'first_purchase_only' => array('type' => 'boolean', 'description' => 'Only for fans who never bought from this creator'),
-                'applies_to' => array('type' => 'string', 'enum' => array('all', 'subscription', 'ppv')),
-                'max_redemptions' => array('type' => 'integer'), 'expires_at' => array('type' => 'string', 'description' => 'date/datetime'),
-            )));
-        $t[] = array('name' => 'update_promo_code', 'description' => 'Update a discount code.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'),
-            'properties' => array('id' => array('type' => 'integer'), 'code' => array('type' => 'string'),
-                'percent_off' => array('type' => 'integer'), 'amount_off_credits' => array('type' => 'integer'), 'min_order_credits' => array('type' => 'integer'),
-                'first_purchase_only' => array('type' => 'boolean'), 'applies_to' => array('type' => 'string', 'enum' => array('all', 'subscription', 'ppv')),
-                'max_redemptions' => array('type' => 'integer'), 'expires_at' => array('type' => 'string'))));
-        $t[] = array('name' => 'create_bundle', 'description' => 'Create a content bundle from owned media (Pro/Studio plans).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('name', 'price_credits', 'asset_ids'),
-            'properties' => array('name' => array('type' => 'string'), 'description' => array('type' => 'string'),
-                'price_credits' => array('type' => 'integer', 'description' => 'Credits, $1 = 10: 10 to 5000 ($1 to $500)'),
-                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
-        $t[] = array('name' => 'update_bundle', 'description' => 'Update a content bundle.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'),
-            'properties' => array('id' => array('type' => 'integer'), 'name' => array('type' => 'string'),
-                'description' => array('type' => 'string'), 'price_credits' => array('type' => 'integer'),
-                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
 
         // ---- Media creation ----
         $t[] = array('name' => 'generate_image', 'description' => 'Generate a brand AI image (Flux on fal.ai; costs AI credits like any AI image) and add it to the media library. Returns the new asset id.', 'inputSchema' => array(
@@ -330,35 +168,33 @@ class McpTools {
                 'name' => array('type' => 'string'))));
 
         // ---- Messaging ----
-        $t[] = array('name' => 'send_message', 'description' => 'Send a direct message to a user (must follow/subscribe to you or vice-versa). Optionally attach library media (asset_ids, up to 10) and set a price in credits (10-5000) the fan pays to unlock it.', 'inputSchema' => array(
+        $t[] = array('name' => 'send_message', 'description' => 'Send a direct message to a user (must follow you, or you follow them, or you already have a conversation). Optionally attach library media (asset_ids, up to 10).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('to_user_id'),
             'properties' => array('to_user_id' => array('type' => 'integer'), 'body' => array('type' => 'string'),
-                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer', 'description' => 'Credits, 10 to 5000 (everything on the platform is priced in credits); 0 or omitted = free'))));
-        $t[] = array('name' => 'create_launch_campaign', 'description' => 'Plan a launch campaign: an announcement, daily anticipation posts, a countdown and a live post, with matching messages to fans. Without confirm it returns the written drafts and creates nothing. With confirm: true it schedules every post and message at once (pass back the edited items, or omit items to schedule the drafts as written). Messages are Creator Link Studio messages; posts can also go to social accounts and Fanvue.', 'inputSchema' => array(
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
+        $t[] = array('name' => 'create_launch_campaign', 'description' => 'Plan a launch campaign: an announcement, daily anticipation posts, a countdown and a live post, with matching messages to fans. Without confirm it returns the written drafts and creates nothing. With confirm: true it schedules every post and message at once (pass back the edited items, or omit items to schedule the drafts as written). Messages are Creator Link Studio messages to followers; posts can also go to social accounts.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('what', 'launch_at'),
             'properties' => array(
                 'what' => array('type' => 'string', 'description' => 'What is launching, in a sentence.'),
                 'launch_at' => array('type' => 'string', 'description' => 'Launch time in the creator\'s timezone, "YYYY-MM-DD HH:MM".'),
                 'days' => array('type' => 'integer', 'description' => 'Days of anticipation posts before the launch, 0-7. Default 3.'),
                 'influencer_id' => array('type' => 'integer', 'description' => 'Write in this influencer\'s persona.'),
-                'destination' => array('type' => 'string', 'enum' => array('cls', 'fanvue')),
-                'segments' => array('type' => 'array', 'items' => array('type' => 'string', 'enum' => array('followers', 'subscribers', 'expired', 'buyers')), 'description' => 'Who receives the messages. Default followers.'),
+                'segments' => array('type' => 'array', 'items' => array('type' => 'string', 'enum' => BroadcastsModel::segments()), 'description' => 'Who receives the messages. Default followers.'),
                 'share_accounts' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Social account ids the posts are cross-posted to (see list_share_targets).'),
                 'asset_id' => array('type' => 'integer', 'description' => 'Library media used on every post.'),
-                'promo_code' => array('type' => 'string'), 'promo_percent' => array('type' => 'integer'), 'promo_days' => array('type' => 'integer', 'description' => 'Days the code stays valid after launch. Default 7.'),
                 'items' => array('type' => 'array', 'description' => 'Edited drafts to schedule: key, kind, type (post|message), at (local "YYYY-MM-DDTHH:MM"), text.', 'items' => array('type' => 'object')),
                 'confirm' => array('type' => 'boolean', 'description' => 'true schedules the campaign. Default false (drafts only).'),
             )));
-        $t[] = array('name' => 'send_broadcast', 'description' => 'Send one message to every fan in one or more audience segments (each gets it as a private DM). Optionally attach media and a price.', 'inputSchema' => array(
+        $t[] = array('name' => 'send_broadcast', 'description' => 'Send one message to every follower (each gets it as a private DM). Optionally attach media.', 'inputSchema' => array(
             'type' => 'object', 'required' => array(),
             'properties' => array('body' => array('type' => 'string'),
                 'segments' => array('type' => 'array', 'items' => array('type' => 'string', 'enum' => BroadcastsModel::segments())),
-                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer'))));
-        $t[] = array('name' => 'list_auto_messages', 'description' => 'Welcome / trigger messages sent automatically on Creator Link Studio events (new_follower, new_subscriber, first_message, new_purchase).', 'inputSchema' => array('type' => 'object', 'properties' => new stdClass()));
-        $t[] = array('name' => 'save_auto_message', 'description' => 'Set (and enable) the automatic message for a trigger. Optional media and price like send_message. enabled=false turns it off.', 'inputSchema' => array(
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
+        $t[] = array('name' => 'list_auto_messages', 'description' => 'Welcome / trigger messages sent automatically on Creator Link Studio events (new_follower, first_message).', 'inputSchema' => array('type' => 'object', 'properties' => new stdClass()));
+        $t[] = array('name' => 'save_auto_message', 'description' => 'Set (and enable) the automatic message for a trigger. Optional media like send_message. enabled=false turns it off.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('trigger'),
             'properties' => array('trigger' => array('type' => 'string', 'enum' => AutoMessagesModel::TRIGGERS), 'text' => array('type' => 'string'),
-                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer'), 'enabled' => array('type' => 'boolean'))));
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'enabled' => array('type' => 'boolean'))));
 
 
         // ---- AI influencers (create, train once, generate on demand) ----
@@ -457,11 +293,11 @@ class McpTools {
             'type' => 'object', 'required' => array('set_id'), 'properties' => array('set_id' => array('type' => 'integer'))));
         $t[] = array('name' => 'regenerate_carousel_slot', 'description' => 'Render one carousel slot again (job_id from get_carousel). A failed slot is retried; a finished one is replaced. Costs the slot\'s AI credits again.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('job_id'), 'properties' => array('job_id' => array('type' => 'integer'))));
-        $t[] = array('name' => 'list_scene_templates', 'description' => 'The creator\'s scenes (all their own: off ones included with is_active 0). A new account starts with its own copies of the starter scenes; adult ones only for accounts that turned adult content on.', 'inputSchema' => $none);
+        $t[] = array('name' => 'list_scene_templates', 'description' => 'The creator\'s scenes (all their own: off ones included with is_active 0). A new account starts with its own copies of the starter scenes.', 'inputSchema' => $none);
         $t[] = array('name' => 'create_scene_template', 'description' => 'Save a scene of the creator\'s own. prompt must contain {subject} where the influencer goes.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('title', 'prompt'),
             'properties' => array('title' => array('type' => 'string'), 'category' => array('type' => 'string'), 'prompt' => array('type' => 'string'),
-                'aspect' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Default shape, 3:4 when omitted'), 'is_adult' => array('type' => 'boolean'))));
+                'aspect' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Default shape, 3:4 when omitted'))));
         $t[] = array('name' => 'generate_from_scene_template', 'description' => 'Run a scene template with a trained influencer: four variants in one job. Costs AI credits per image like any influencer image. Returns a job id; poll get_influencer_job, then rate variants with vote_scene_variant.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'template_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'template_id' => array('type' => 'integer'), 'aspect' => array('type' => 'string', 'enum' => self::shapes()))));
@@ -475,7 +311,7 @@ class McpTools {
             'properties' => array('influencer_id' => array('type' => 'integer'), 'video_asset_id' => array('type' => 'integer', 'description' => 'The reference motion video'),
                 'image_asset_id' => array('type' => 'integer', 'description' => 'The first frame (an image of the influencer)'), 'quality' => array('type' => 'string', 'enum' => array('720p', '1080p')),
                 'prompt' => array('type' => 'string'))));
-        $t[] = array('name' => 'replace_character_in_video', 'description' => 'Replace one person in a source video with the influencer, keeping the original background, lighting, camera and motion. The source can be up to 15 seconds. attested MUST be true: it records that the account owner owns the source video or has the rights to use it. Explicit source videos are refused. subject says who to replace when several people are visible; outfit keeps the video\'s clothing (video) or uses the reference\'s (reference). Costs AI credits per second (influencer_model_options, purpose replace). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+        $t[] = array('name' => 'replace_character_in_video', 'description' => 'Replace one person in a source video with the influencer, keeping the original background, lighting, camera and motion. The source can be up to 15 seconds. attested MUST be true: it records that the account owner owns the source video or has the rights to use it. Videos flagged by the content check are refused. subject says who to replace when several people are visible; outfit keeps the video\'s clothing (video) or uses the reference\'s (reference). Costs AI credits per second (influencer_model_options, purpose replace). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'video_asset_id', 'attested'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'video_asset_id' => array('type' => 'integer'), 'attested' => array('type' => 'boolean', 'description' => 'True only when the user has confirmed they own or have rights to the source video'),
                 'subject' => array('type' => 'string'), 'outfit' => array('type' => 'string', 'enum' => array('video', 'reference')), 'lock_others' => array('type' => 'boolean', 'description' => 'Leave other people unchanged'),
@@ -571,13 +407,9 @@ class McpTools {
         $cid = (int) $creator_id;
         $iid = (int) ($a['id'] ?? 0);
         $ok  = function ($b) { return array('ok' => (bool) $b); };
-        CreatorAgreement::mcp_require((string) $name, $cid, $a);   // selling needs the Creator Agreement
-        // a token outlives the plan it was made on: selling and AI stop when the plan lapses (building stays open)
+        // a token outlives the plan it was made on: AI stops when the plan lapses (building stays open)
         $plan_owner = (new UsersModel())->get_user_by_id($cid);
         $plan_owner = (is_array($plan_owner) && count($plan_owner) === 1) ? $plan_owner[0] : null;
-        if (in_array((string) $name, CreatorAgreement::MCP_GATED, true) && !Plan::can_sell($plan_owner) && CreatorAgreement::mcp_sells((string) $name, $cid, $a)) {
-            throw new RuntimeException('Upgrade to ' . PlanTiers::TIERS['creator']['name'] . ' to sell.');
-        }
         if (in_array((string) $name, self::AI_TOOLS, true) && !Plan::can_use_ai($plan_owner)) {
             throw new RuntimeException('Upgrade to ' . PlanTiers::TIERS['creator']['name'] . ' to use AI tools.');
         }
@@ -586,13 +418,9 @@ class McpTools {
 
             // Analytics
             case 'get_analytics':     return (new AnalyticsModel())->overview($cid);
-            case 'revenue_breakdown': return (new AnalyticsModel())->revenue_breakdown($cid);
             case 'top_posts':         return (new AnalyticsModel())->top_posts($cid, self::lim($a, 5));
-            case 'recent_sales':      return (new AnalyticsModel())->recent_sales($cid, self::lim($a, 8));
-            case 'customer_stats':    return (new AnalyticsModel())->customer_stats($cid);
             case 'content_mix':       return (new AnalyticsModel())->content_mix($cid);
             case 'follower_count':    return array('followers' => (new FollowsModel())->count_followers($cid));
-            case 'subscriber_count':  return array('subscribers' => (new CreatorSubscriptionsModel())->count_members($cid));
             case 'social_metrics': {
                 $m = new SocialPostMetricsModel();
                 if (!empty($a['post_id'])) {
@@ -608,37 +436,26 @@ class McpTools {
             case 'create_post': {
                 $caption = trim((string) ($a['caption'] ?? ''));
                 if ($caption === '') { throw new InvalidArgumentException('caption is required'); }
-                $aud = in_array((string) ($a['audience'] ?? 'free'), array('free', 'subscribers', 'ppv'), true) ? (string) ($a['audience'] ?? 'free') : 'free';
                 $p = new PostsModel();
-                $pid = (int) $p->create_draft($cid, $caption, $aud);
+                $pid = (int) $p->create_draft($cid, $caption, 'free');
                 if ($pid <= 0) { throw new RuntimeException('Could not create the post'); }
-                $a = self::priced($a, 'ppv_price_credits');
-                $p->update_fields($cid, $pid, array('caption' => $caption, 'audience' => $aud, 'ppv_price_credits' => (int) ($a['ppv_price_credits'] ?? 0)));
+                $p->update_fields($cid, $pid, array('caption' => $caption));
                 $media = array();   // a carousel: the images in the order given, the first one as the cover
                 foreach ((new MediaAssetsModel())->get_owned_ready($cid, array_slice((array) ($a['asset_ids'] ?? array()), 0, 10)) as $m) { $media[] = (int) $m['id']; }
                 if (!empty($media)) { $p->set_assets($cid, $pid, $media, $media[0]); }
                 return array('post_id' => $pid, 'state' => 'draft', 'asset_ids' => $media);
             }
             case 'update_post': {
-                $a = self::priced($a, 'ppv_price_credits');
-                $f = array_intersect_key($a, array_flip(array('caption', 'audience', 'ppv_price_credits', 'tier_id', 'tier_ids', 'comments_enabled')));
-                if (isset($f['tier_id']) && !isset($f['tier_ids'])) { $f['tier_ids'] = array((int) $f['tier_id']); $f['tier_id'] = 0; }
+                $f = array_intersect_key($a, array_flip(array('caption', 'comments_enabled')));
                 $pm  = new PostsModel();
                 $cur = self::need($pm->get_one($cid, $iid), 'Post not found');
-                // Buyers keep what they paid for: a sold pay-per-view post stays pay-per-view (the web editor's rule).
-                if (isset($f['audience']) && (string) $cur['audience'] === 'ppv' && (string) $f['audience'] !== 'ppv'
-                    && !empty((new PpvUnlocksModel())->stats_for_posts(array($iid))[$iid]['unlocks'])) {
-                    throw new InvalidArgumentException('This post has been bought, so it has to stay pay-per-view. Buyers keep it.');
-                }
                 $res = $pm->update_fields($cid, $iid, $f);
-                // A live post re-runs the publish gate an edit could affect (adult media needs an age-verified creator).
-                if (in_array((string) $cur['state'], array('published', 'scheduled'), true)) { AgeVerification::hold_unverified_adult_post($cid, $iid, (string) $cur['state'] === 'published'); }
+                // A live post re-runs the content check an edit could affect (flagged media sends it back to drafts).
+                if (in_array((string) $cur['state'], array('published', 'scheduled'), true)) { ModerationHold::hold($cid, $iid, (string) $cur['state'] === 'published'); }
                 return $ok($res);
             }
             case 'list_share_targets': {
                 $targets = array();
-                $fv = (new FanvueAccountsModel())->get_connected_for_user($cid);
-                if ($fv) { $targets[] = array('id' => FanvueShareService::ACCOUNT_ID, 'platform' => 'fanvue', 'username' => (string) ($fv['handle'] ?? '')); }
                 foreach ((new SocialAccountsModel())->get_connected_for_user($cid) as $acc) {
                     $targets[] = array('id' => (string) $acc['post_for_me_social_account_id'], 'platform' => (string) $acc['platform'], 'username' => (string) ($acc['username'] ?? ''));
                 }
@@ -650,7 +467,7 @@ class McpTools {
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 if ($p->count_missing_assets($iid) > 0) { throw new RuntimeException('Post has no ready media; add media before publishing'); }
                 self::refuse_blocked_media($p, $iid);
-                self::refuse_unverified_adult($cid, $iid);   // trigger 2: adult media publishes once the creator is age verified
+                self::refuse_flagged_media($cid, $iid);
                 // Only the call that actually publishes notifies + cross-posts (an agent retry must not fan out twice).
                 if (!$p->publish_once($cid, $iid)) { return array('ok' => true, 'already_published' => true); }
                 PostNotifier::published($cid, $iid);
@@ -663,7 +480,7 @@ class McpTools {
                 $post = $p->get_one($cid, $iid);
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 self::refuse_blocked_media($p, $iid);
-                self::refuse_unverified_adult($cid, $iid);
+                self::refuse_flagged_media($cid, $iid);
                 $res = $ok($p->set_state($cid, $iid, 'scheduled', $when));
                 return self::with_share($res, $cid, $post, $a, str_replace(' ', 'T', $when) . 'Z');
             }
@@ -677,7 +494,7 @@ class McpTools {
             case 'storage_usage':return array('bytes' => (int) (new MediaAssetsModel())->total_bytes($cid), 'count' => (int) (new MediaAssetsModel())->count_for_creator($cid));
             case 'get_plan_usage': return Plan::usage(self::user($cid));
             case 'set_media_description': return $ok((new MediaAssetsModel())->set_description($cid, $iid, (string) ($a['description'] ?? '')));
-            case 'delete_media': if ((new MediaAssetsModel())->sold_asset_ids(array($iid), $cid)) { throw new InvalidArgumentException('This file has been bought, so it cannot be removed. Buyers keep it.'); } $r = (new MediaAssetsModel())->remove_from_library($cid, $iid); (new CollectionsModel())->remove_asset_everywhere($iid); return array('ok' => true, 'kept_for_posts' => (int) $r['posts']);   // a post that uses the file keeps it
+            case 'delete_media': $r = (new MediaAssetsModel())->remove_from_library($cid, $iid); (new CollectionsModel())->remove_asset_everywhere($iid); return array('ok' => true, 'kept_for_posts' => (int) $r['posts']);   // a post that uses the file keeps it
 
             // Collections
             case 'list_collections':  return array('collections' => (array) (new CollectionsModel())->get_for_creator($cid));
@@ -699,81 +516,6 @@ class McpTools {
             case 'update_link':      return $ok((new CreatorLinksModel())->update_link($cid, $iid, (string) ($a['title'] ?? ''), (string) ($a['url'] ?? '')));
             case 'set_link_enabled': return $ok((new CreatorLinksModel())->set_enabled($cid, $iid, !empty($a['enabled']) ? 1 : 0));
             case 'delete_link':      return $ok((new CreatorLinksModel())->delete_link($cid, $iid));
-
-            // Plans / promo / bundles (read + toggle + delete)
-            case 'list_plans':       return array('plans' => (array) (new CreatorPlansModel())->get_for_user($cid));
-            case 'set_plan_active':  return $ok((new CreatorPlansModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
-            case 'delete_plan': {
-                $open = (new CreatorSubscriptionsModel())->count_open_for_plan($cid, $iid);
-                if ($open > 0) { throw new InvalidArgumentException($open . ' member(s) are on this plan. Turn it off with set_plan_active instead; delete it once nobody is on it.'); }
-                return $ok((new CreatorPlansModel())->delete_plan($cid, $iid));
-            }
-            case 'list_promo_codes': return array('promo_codes' => (array) (new CreatorPromoCodesModel())->get_for_user($cid));
-            case 'set_promo_active': return $ok((new CreatorPromoCodesModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
-            case 'delete_promo_code':return $ok((new CreatorPromoCodesModel())->delete_code($cid, $iid));
-            case 'list_bundles':     return array('bundles' => (array) (new ContentBundlesModel())->get_for_creator($cid));
-            case 'set_bundle_active':return $ok((new ContentBundlesModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
-            case 'delete_bundle':    return $ok((new ContentBundlesModel())->delete_bundle($cid, $iid));
-
-            // Events
-            case 'list_events':  return array('events' => (array) (new EventsModel())->list_for_creator($cid));
-            case 'get_event':    return self::need((new EventsModel())->get_one($cid, $iid), 'Event not found');
-            case 'create_event': {
-                if (trim((string) ($a['title'] ?? '')) === '' || trim((string) ($a['start_at'] ?? '')) === '') {
-                    throw new InvalidArgumentException('title and start_at are required');
-                }
-                $a += array('access_type' => 'free', 'status' => 'draft'); // fields the model reads unguarded
-                $f = self::event_fields($a);
-                $bad = (new EventsModel())->check_times((string) $f['start_at'], (string) ($f['end_at'] ?? ''));
-                if ($bad !== '') { throw new InvalidArgumentException($bad); }
-                return array('id' => (int) (new EventsModel())->create($cid, $f));
-            }
-            case 'update_event': {
-                // Same rules as the web: canceling refunds every ticket and tells attendees; a sold event can't be hidden.
-                $em = new EventsModel();
-                $cur = self::need($em->get_one($cid, $iid), 'Event not found');
-                if ((string) $cur['status'] === 'canceled') { throw new InvalidArgumentException('This event was canceled, so it can no longer be edited.'); }
-                $status = array_key_exists('status', $a) ? (string) $a['status'] : '';
-                unset($a['status']);
-                if ($status === 'draft' && (string) $cur['status'] === 'published' && $em->has_paid_going($iid)) {
-                    throw new InvalidArgumentException('This event has paid attendees. Cancel it instead so they are refunded.');
-                }
-                $fields = self::event_fields($a, (array) $cur);
-                if (array_key_exists('start_at', $fields) || array_key_exists('end_at', $fields)) {   // same date rules as the web (a sold event can't move into the past)
-                    $bad = $em->check_times((string) ($fields['start_at'] ?? $cur['start_at']), (string) (array_key_exists('end_at', $fields) ? $fields['end_at'] : $cur['end_at']), (array) $cur);
-                    if ($bad !== '') { throw new InvalidArgumentException($bad); }
-                }
-                if (in_array($status, array('draft', 'published'), true)) { $fields['status'] = $status; }
-                $res = $em->update_event($cid, $iid, $fields);
-                if ($status === 'canceled') {
-                    $r = EventRefunds::cancel_all((array) $em->get_one($cid, $iid));
-                    return array('ok' => true, 'canceled' => true, 'refunded' => (int) $r['refunded_n'], 'notified' => (int) $r['notified']);
-                }
-                return $ok($res);
-            }
-            case 'delete_event': {
-                $ev = self::need((new EventsModel())->get_one($cid, $iid), 'Event not found');
-                if ((string) $ev['status'] !== 'canceled') { throw new InvalidArgumentException('Cancel the event before deleting it (update_event with status "canceled" refunds and tells attendees).'); }
-                if ((new ReplayUnlocksModel())->count_for_event($iid) > 0) { throw new InvalidArgumentException(EventsModel::REPLAY_SOLD_MESSAGE); }
-                return $ok((new EventsModel())->delete_event($cid, $iid));
-            }
-
-            // Services
-            case 'list_services':  return array('services' => (array) (new ServicesModel())->list_for_creator($cid));
-            case 'get_service':    return self::need((new ServicesModel())->get_one($cid, $iid), 'Service not found');
-            case 'create_service': {
-                if (trim((string) ($a['name'] ?? '')) === '') { throw new InvalidArgumentException('name is required'); }
-                $a += array('delivery_method' => 'custom', 'status' => 'draft'); // fields the model reads unguarded
-                unset($a['scheduling_url']);   // no booking link (for now)
-                $a = self::priced($a, 'price_credits');
-                return array('id' => (int) (new ServicesModel())->create($cid, $a));
-            }
-            case 'update_service': { unset($a['scheduling_url']); $a = self::priced($a, 'price_credits'); return $ok((new ServicesModel())->update_service($cid, $iid, $a)); }
-            case 'delete_service': {
-                $svm = new ServicesModel();
-                if ($svm->get_one($cid, $iid) && $svm->stats($iid)['rows'] > 0) { throw new RuntimeException('This service has bookings, so it can\'t be deleted. Set status to draft to stop new bookings.'); }
-                return $ok($svm->delete_service($cid, $iid));
-            }
 
             // Automations
             case 'list_automations':    return array('automations' => (array) (new SchedulerRulesModel())->list_for_creator($cid));
@@ -808,55 +550,6 @@ class McpTools {
             case 'save_profile': return $ok((new CreatorProfileModel())->save($cid, $a));
             case 'get_brand':    return (array) (new CreatorBrandModel())->get_for_user($cid);
             case 'save_brand':   return $ok((new CreatorBrandModel())->save($cid, $a));
-
-            // Plans (create/update — no eager Stripe; price/coupon made lazily at checkout)
-            case 'create_plan': {
-                if (trim((string) ($a['name'] ?? '')) === '') { throw new InvalidArgumentException('name is required'); }
-                return array('id' => (int) (new CreatorPlansModel())->add($cid, self::planFields($a, null)));
-            }
-            case 'update_plan': {
-                $m = new CreatorPlansModel(); $row = $m->get_one($cid, $iid);
-                if (!$row) { throw new InvalidArgumentException('Plan not found'); }
-                return $ok($m->update_plan($cid, $iid, self::planFields($a, $row)));
-            }
-
-            // Promo codes
-            case 'create_promo_code': {
-                self::requirePlan($cid, 'promo_codes', 'Discount codes require an active plan');
-                return array('id' => (int) (new CreatorPromoCodesModel())->add($cid, self::promoFields($a, null)));
-            }
-            case 'update_promo_code': {
-                $m = new CreatorPromoCodesModel(); $row = $m->get_owned($cid, $iid);
-                if (!$row) { throw new InvalidArgumentException('Promo code not found'); }
-                return $ok($m->update_code($cid, $iid, self::promoFields($a, $row)));
-            }
-
-            // Bundles
-            case 'create_bundle': {
-                self::requirePlan($cid, 'bundles', 'Content bundles require an active plan');
-                $name = trim((string) ($a['name'] ?? ''));
-                if ($name === '') { throw new InvalidArgumentException('name is required'); }
-                if (!isset($a['price_credits'])) { throw new InvalidArgumentException('price_credits is required'); }
-                $price = (int) self::priced($a, 'price_credits', false)['price_credits'];
-                $ids = self::ownedReadyAssetIds($cid, $a['asset_ids'] ?? array());
-                if (!$ids) { throw new InvalidArgumentException('Provide at least one owned, ready media asset_id'); }
-                $m = new ContentBundlesModel();
-                $bid = (int) $m->add($cid, $name, (string) ($a['description'] ?? ''), $price);
-                $m->set_items($bid, $ids);
-                return array('id' => $bid);
-            }
-            case 'update_bundle': {
-                $m = new ContentBundlesModel(); $row = $m->get_owned($cid, $iid);
-                if (!$row) { throw new InvalidArgumentException('Bundle not found'); }
-                $f = array(
-                    'name'          => array_key_exists('name', $a) ? (string) $a['name'] : (string) $row['name'],
-                    'description'   => array_key_exists('description', $a) ? (string) $a['description'] : (string) ($row['description'] ?? ''),
-                    'price_credits' => array_key_exists('price_credits', $a) ? (int) self::priced($a, 'price_credits', false)['price_credits'] : (int) $row['price_credits'],
-                );
-                $m->update_bundle($cid, $iid, $f);
-                if (array_key_exists('asset_ids', $a)) { $m->set_items($iid, self::ownedReadyAssetIds($cid, $a['asset_ids'])); }
-                return array('ok' => true);
-            }
 
             // Media creation
             case 'generate_image': {
@@ -910,14 +603,14 @@ class McpTools {
                 $to = (int) ($a['to_user_id'] ?? 0);
                 $body = trim((string) ($a['body'] ?? ''));
                 if ($to <= 0 || $to === $cid) { throw new InvalidArgumentException('Invalid recipient'); }
-                list($asset_ids, $price) = self::message_media($cid, $a);
+                $asset_ids = self::message_media($cid, $a);
                 if ($body === '' && empty($asset_ids)) { throw new InvalidArgumentException('body or asset_ids is required'); }
                 $mm = new MessagesModel();
                 $conv = (int) $mm->open_between($cid, $to);
-                if ($conv <= 0) { throw new RuntimeException('You can only message people who follow you, subscribe to you, or whom you follow'); }
-                $mid = $mm->send($conv, $cid, mb_substr($body, 0, 2000), null, $asset_ids, $price);
-                InboxAutomationService::notify_new_message($to, $cid, MessagesModel::preview_text($body, count($asset_ids), $price), $conv);
-                return array('conversation_id' => $conv, 'message_id' => (int) $mid, 'price_credits' => $price);
+                if ($conv <= 0) { throw new RuntimeException('You can only message people who follow you or whom you follow'); }
+                $mid = $mm->send($conv, $cid, mb_substr($body, 0, 2000), null, $asset_ids);
+                InboxAutomationService::notify_new_message($to, $cid, MessagesModel::preview_text($body, count($asset_ids)), $conv);
+                return array('conversation_id' => $conv, 'message_id' => (int) $mid);
             }
             case 'create_launch_campaign': {
                 $u = self::user($cid);
@@ -930,7 +623,6 @@ class McpTools {
                         if (empty($d['success'])) { throw new RuntimeException((string) $d['message']); }
                         $a['items'] = $d['items'];
                     }
-                    $a['also_cls'] = true;
                     $r = LaunchCampaign::confirm($cid, $u, $a);
                 }
                 if (empty($r['success'])) { throw new RuntimeException((string) ($r['message'] ?? 'Could not build the campaign.')); }
@@ -939,11 +631,11 @@ class McpTools {
             }
             case 'send_broadcast': {
                 $body = trim((string) ($a['body'] ?? ''));
-                list($asset_ids, $price) = self::message_media($cid, $a);
+                $asset_ids = self::message_media($cid, $a);
                 if ($body === '' && empty($asset_ids)) { throw new InvalidArgumentException('body or asset_ids is required'); }
-                $segs = BroadcastsModel::clean_segments($a['segments'] ?? ($a['segment'] ?? array('all')));
-                if (empty($segs)) { $segs = array('all'); }
-                list($bid, $count, $queued) = (new BroadcastsModel())->create_and_send($cid, $segs, mb_substr($body, 0, 2000), $asset_ids, $price);
+                $segs = BroadcastsModel::clean_segments($a['segments'] ?? ($a['segment'] ?? array('followers')));
+                if (empty($segs)) { $segs = array('followers'); }
+                list($bid, $count, $queued) = (new BroadcastsModel())->create_and_send($cid, $segs, mb_substr($body, 0, 2000), $asset_ids);
                 if ((int) $count <= 0) { throw new RuntimeException('No one is in that audience yet'); }
                 return array('broadcast_id' => (int) $bid, 'recipients' => (int) $count, 'queued' => (bool) $queued);
             }
@@ -953,8 +645,7 @@ class McpTools {
                 foreach (InboxAutomationService::trigger_meta() as $k => $meta) {
                     $r = $rows[$k] ?? null;
                     $out[] = array('trigger' => $k, 'label' => $meta[0], 'when' => $meta[1], 'enabled' => $r ? !empty($r['enabled']) : false,
-                        'text' => $r ? (string) $r['text'] : '', 'asset_ids' => $r ? (array) $r['asset_ids'] : array(),
-                        'price' => $r ? (int) $r['price_credits'] : 0);   // credits
+                        'text' => $r ? (string) $r['text'] : '', 'asset_ids' => $r ? (array) $r['asset_ids'] : array());
                 }
                 return array('auto_messages' => $out);
             }
@@ -967,12 +658,12 @@ class McpTools {
                     return array('trigger' => $trigger, 'enabled' => false);
                 }
                 $text = trim((string) ($a['text'] ?? ''));
-                list($asset_ids, $price) = self::message_media($cid, $a);
+                $asset_ids = self::message_media($cid, $a);
                 if ($text === '' && empty($asset_ids)) {
                     $cur = $model->get_one($cid, $trigger);
-                    $text = (string) $cur['text']; $asset_ids = (array) $cur['asset_ids']; $price = (int) $cur['price_credits'];
+                    $text = (string) $cur['text']; $asset_ids = (array) $cur['asset_ids'];
                 }
-                $model->save($cid, $trigger, $text, true, $asset_ids, $price);
+                $model->save($cid, $trigger, $text, true, $asset_ids);
                 return array('trigger' => $trigger, 'enabled' => true);
             }
 
@@ -1063,7 +754,7 @@ class McpTools {
             case 'create_scene_template': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(SceneTemplates::save($cid, 0, array('title' => (string) ($a['title'] ?? ''), 'category' => (string) ($a['category'] ?? ''),
-                    'base_prompt' => (string) ($a['prompt'] ?? ''), 'default_aspect' => (string) ($a['aspect'] ?? Aspect::DEFAULT_IMAGE), 'is_adult' => !empty($a['is_adult']))));
+                    'base_prompt' => (string) ($a['prompt'] ?? ''), 'default_aspect' => (string) ($a['aspect'] ?? Aspect::DEFAULT_IMAGE))));
             }
             case 'generate_from_scene_template': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
@@ -1181,54 +872,6 @@ class McpTools {
         if (!Plan::can_use_creator_features(self::user($cid))) { throw new RuntimeException('This needs an active plan. Choose one at /account/billing.'); }
     }
 
-    private static function planFields($a, $row){
-        $g = function ($k, $d) use ($a, $row) { return array_key_exists($k, $a) ? $a[$k] : ($row[$k] ?? $d); };
-        $bi = $g('billing_interval', 'month');
-        if (!in_array($bi, array('week', 'month', 'year'), true)) { $bi = 'month'; }
-        $cents = array_key_exists('price', $a) ? (int) round(((float) $a['price']) * 100) : (int) ($row['price_cents'] ?? 0);
-        if ($cents !== 0 && $cents < 100) { throw new InvalidArgumentException('A paid tier must be at least $1.00 (use 0 for a free tier)'); }
-        return array(
-            'name' => trim((string) $g('name', '')), 'price_cents' => $cents, 'billing_interval' => $bi,
-            'trial_enabled' => (int) ($row['trial_enabled'] ?? 0), 'trial_value' => (int) ($row['trial_value'] ?? 0),
-            'trial_unit' => (string) ($row['trial_unit'] ?? 'day'),
-            'description' => (string) $g('description', ''), 'perks' => (string) $g('perks', ''),
-        );
-    }
-
-    private static function promoFields($a, $row){
-        $g = function ($k, $d) use ($a, $row) { return array_key_exists($k, $a) ? $a[$k] : ($row[$k] ?? $d); };
-        $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $g('code', '')));
-        if (strlen($code) < 3 || strlen($code) > 40) { throw new InvalidArgumentException('code must be 3-40 letters/numbers'); }
-        $amt = (int) $g('amount_off_credits', 0);
-        $pct = $amt > 0 ? 0 : (int) $g('percent_off', 0);   // a percent off, or an amount off (Stripe's two kinds)
-        if ($amt > 0) {
-            $chk = Price::check_credits($amt);
-            if (!$chk['ok']) { throw new InvalidArgumentException('amount_off_credits: ' . $chk['message']); }
-        } elseif ($pct < 1 || $pct > 100) { throw new InvalidArgumentException('Give percent_off (1-100) or amount_off_credits'); }
-        $min = (int) $g('min_order_credits', 0);
-        if ($min > 0 && !Price::check_credits($min)['ok']) { throw new InvalidArgumentException('min_order_credits: ' . Price::check_credits($min)['message']); }
-        if ($min > 0 && $amt > 0 && $amt >= $min) { throw new InvalidArgumentException('min_order_credits must be more than amount_off_credits'); }
-        $applies = $g('applies_to', 'all');
-        if (!in_array($applies, array('all', 'subscription', 'ppv'), true)) { $applies = 'all'; }
-        $max = $g('max_redemptions', null);
-        $max = ($max === null || $max === '' || (int) $max <= 0) ? null : (int) $max;
-        $exp = $g('expires_at', null);
-        $exp = (!empty($exp) && ($ts = strtotime((string) $exp))) ? date('Y-m-d H:i:s', $ts) : null;
-        return array('code' => $code, 'percent_off' => $pct, 'amount_off_credits' => $amt > 0 ? $amt : null, 'min_order_credits' => $min > 0 ? $min : null,
-            'first_purchase_only' => !empty($g('first_purchase_only', 0)), 'applies_to' => $applies, 'max_redemptions' => $max, 'expires_at' => $exp);
-    }
-
-    /** Owned assets that are 'ready' and not deleted (bundle/item rules). */
-    private static function ownedReadyAssetIds($cid, $ids){
-        $ready = array();
-        foreach ((array) (new MediaAssetsModel())->get_for_creator($cid, array()) as $x) {
-            if (($x['status'] ?? '') === 'ready' && empty($x['deleted_at'])) { $ready[(int) $x['id']] = true; }
-        }
-        $out = array();
-        foreach ((array) $ids as $id) { $id = (int) $id; if (isset($ready[$id])) { $out[$id] = $id; } }
-        return array_values($out);
-    }
-
     /** Every shape key a tool accepts: the ratios plus the older names. */
     private static function shapes(){ return array_merge(Aspect::keys(), array_keys(Aspect::LEGACY)); }
 
@@ -1268,7 +911,7 @@ class McpTools {
 
 
     /** The creator's influencer from influencer_id (or id), or an error. */
-    /** Owned, ready asset ids + credit price from a tool call's asset_ids / price (dollars). */
+    /** Owned, ready asset ids from a tool call's asset_ids. */
     private static function message_media($cid, array $a): array {
         $ids = array_slice(array_map('intval', (array) ($a['asset_ids'] ?? array())), 0, 10);
         $asset_ids = array();
@@ -1276,13 +919,7 @@ class McpTools {
             foreach ((new MediaAssetsModel())->get_owned_ready($cid, $ids) as $row) { $asset_ids[] = (int) $row['id']; }
             if (empty($asset_ids)) { throw new InvalidArgumentException('asset_ids must be ready media in your library'); }
         }
-        $price = 0;
-        if (!empty($asset_ids) && isset($a['price']) && (float) $a['price'] > 0) {   // credits, same rule as the app
-            $pr = Price::from_credits($a['price']);
-            if (!$pr['ok']) { throw new InvalidArgumentException('price: ' . $pr['message']); }
-            $price = (int) $pr['credits'];
-        }
-        return array($asset_ids, $price);
+        return $asset_ids;
     }
 
     private static function influencer($cid, array $a){
@@ -1310,10 +947,10 @@ class McpTools {
         if (!$row) { throw new InvalidArgumentException($msg); }
         return $row;
     }
-    /** Trigger 2 of age verification, as the Studio applies it: an adult post publishes once the creator is age verified (one-time, in Settings). */
-    private static function refuse_unverified_adult($creator_id, $post_id){
-        if (AgeVerification::post_is_adult((int) $post_id) && !AgeVerification::is_verified((int) $creator_id)) {
-            throw new RuntimeException('This post is marked adult. Verify your age once in Settings (Show adult content), then publish it.');
+    /** The content check, as the Studio applies it: a post with flagged media stays in drafts (held, with a notice) until staff clear it. */
+    private static function refuse_flagged_media($creator_id, $post_id){
+        if (ModerationHold::hold((int) $creator_id, (int) $post_id)) {
+            throw new RuntimeException('An image in this post was flagged by our content check, so it stays in drafts. Remove the image, or wait for our team to review it.');
         }
     }
 

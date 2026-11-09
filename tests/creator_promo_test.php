@@ -24,8 +24,8 @@ $ok($card !== '' && strpos($card, 'Founding Creator Offer') !== false && strpos(
 $ok(strpos($card, '$99/month') < strpos($card, '$49 <small>'), '$99 sits above $49');
 $cc = preg_match('#sx-plan--creator.*?sx-plan--studio#s', $before, $m2) ? $m2[0] : '';
 preg_match_all('#<dt>([^<]*)</dt><dd>([^<]*)</dd>#', $cc, $rows); $f = array_combine($rows[1], $rows[2]);
-$ok(($f['Platform take rate'] ?? '') === '10%' && ($f['Team seats'] ?? '') === '1' && ($f['AI influencers'] ?? '') === '1' && ($f['AI credits'] ?? '') === '500 / month'
-    && ($f['Scheduled automations'] ?? '') === '5' && ($f['Storage'] ?? '') === '25 GB' && ($f['Inbox automation &amp; AI replies'] ?? $f['Inbox automation & AI replies'] ?? '') === 'Included', 'Creator benefits intact: 10%, 1 seat, 1 AI influencer, 500 credits, 5 automations, 25 GB, inbox AI');
+$ok(!isset($f['Platform take rate']) && ($f['Team seats'] ?? '') === '1' && ($f['AI influencers'] ?? '') === '1' && ($f['AI credits'] ?? '') === '500 / month'
+    && ($f['Scheduled automations'] ?? '') === '5' && ($f['Storage'] ?? '') === '25 GB' && ($f['Inbox automation &amp; AI replies'] ?? $f['Inbox automation & AI replies'] ?? '') === 'Included', 'Creator benefits intact: no take rate row, 1 seat, 1 AI influencer, 500 credits, 5 automations, 25 GB, inbox AI');
 $ok(preg_match('#sx-plan--studio.*?\$199#s', $before) === 1, 'Studio card still $199');
 $after = $get('?promo_at=' . rawurlencode('2026-11-01 00:00:00'));
 $ok(strpos($after, 'sx-plan--promo') === false && strpos($after, 'Founding Creator Offer') === false && strpos($after, 'Save $50') === false && strpos($after, '<s>$99') === false && strpos($after, 'priceValidUntil') === false, '/pricing after the deadline: no badge, no saving, no strikethrough, no end date');

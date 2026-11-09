@@ -1,7 +1,7 @@
 <?php
 /**
  * Posts (Content Studio). A post references vault assets via post_assets (a file
- * is never coupled to one post). Audience is free | subscribers. Lifecycle:
+ * is never coupled to one post). Every post is free to view. Lifecycle:
  * draft -> scheduled -> published -> archived. All creator-scoped.
  */
 class PostsModel extends Model {
@@ -10,12 +10,12 @@ class PostsModel extends Model {
         parent::__construct();
     }
 
-    public function create_draft($creator_id, $caption = '', $audience = 'free'){
+    public function create_draft($creator_id, $caption = ''){
         $now = date('Y-m-d H:i:s');
         return parent::insert('posts', array(
             'creator_id' => (int) $creator_id,
             'caption'    => (string) $caption,
-            'audience'   => $audience === 'subscribers' ? 'subscribers' : 'free',
+            'audience'   => 'free',
             'state'      => 'draft',
             'created_at' => $now,
             'updated_at' => $now,
@@ -39,25 +39,9 @@ class PostsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
-    /** Add to a post's cumulative earnings (cents). Used when a PPV unlock is sold. */
-    public function add_earnings($post_id, $cents){
-        return parent::sql(
-            "UPDATE posts SET earnings_cents = earnings_cents + :c, updated_at = :now WHERE id = :id",
-            array('c' => (int) $cents, 'now' => date('Y-m-d H:i:s'), 'id' => (int) $post_id)
-        );
-    }
-
     public function update_fields($creator_id, $id, array $fields){
         $data = array('updated_at' => date('Y-m-d H:i:s'));
         if (array_key_exists('caption', $fields))  { $data['caption'] = (string) $fields['caption']; }
-        if (array_key_exists('audience', $fields)) {
-            $aud = in_array($fields['audience'], array('subscribers', 'ppv'), true) ? $fields['audience'] : 'free';
-            $data['audience'] = $aud;
-            // Price is meaningful only for PPV; clear it otherwise.
-            $data['ppv_price_credits'] = ($aud === 'ppv' && (int) ($fields['ppv_price_credits'] ?? 0) > 0)
-                ? (int) $fields['ppv_price_credits'] : null;
-        }
-        if (array_key_exists('tier_id', $fields))  { $data['tier_id'] = ((int) $fields['tier_id'] > 0) ? (int) $fields['tier_id'] : null; }
         if (array_key_exists('comments_enabled', $fields)) { $data['comments_enabled'] = !empty($fields['comments_enabled']) ? 1 : 0; }
         if (array_key_exists('on_cls', $fields))           { $data['on_cls'] = !empty($fields['on_cls']) ? 1 : 0; }
         // AI disclosure on cross-posts: null = on whenever the post has AI media, 0 = off, 1 = on.
@@ -75,48 +59,8 @@ class PostsModel extends Model {
         if (array_key_exists('campaign_id', $fields)) { $data['campaign_id'] = ((int) $fields['campaign_id'] > 0) ? (int) $fields['campaign_id'] : null; }
         $res = parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
-        // Multi-tier targeting lives in post_tiers. Passing tier_ids replaces the set; a
-        // non-subscriber audience clears it. (tier_id stays for legacy single-tier rows.)
-        if (array_key_exists('tier_ids', $fields)) {
-            $this->set_tiers((int) $id, (array) $fields['tier_ids']);
-        } elseif (array_key_exists('audience', $fields) && $data['audience'] !== 'subscribers') {
-            $this->set_tiers((int) $id, array());
-        }
-        if (array_key_exists('audience', $fields) || array_key_exists('on_cls', $fields)) { PublicThumbService::queue_purge(array('post' => (int) $id)); }   // gated or off the site: public copies come down
+        if (array_key_exists('on_cls', $fields)) { PublicThumbService::queue_purge(array('post' => (int) $id)); }   // off the site: public copies come down
         return $res;
-    }
-
-    /** Replace the tiers a subscribers-only post is limited to. Empty = every active subscriber. */
-    public function set_tiers($post_id, array $plan_ids){
-        $post_id = (int) $post_id;
-        parent::delete_all('post_tiers', 'post_id = :p', array('p' => $post_id));
-        foreach (array_unique(array_filter(array_map('intval', $plan_ids))) as $pid) {
-            parent::insert('post_tiers', array('post_id' => $post_id, 'plan_id' => $pid));
-        }
-    }
-
-    /** post_id => [plan_id, ...] for the given posts (posts with no rows are omitted). */
-    public function tiers_for_posts(array $post_ids){
-        $ids = array_filter(array_map('intval', $post_ids));
-        if (!$ids) { return array(); }
-        $in = implode(',', $ids);
-        $out = array();
-        foreach ((array) parent::select("SELECT post_id, plan_id FROM post_tiers WHERE post_id IN ($in)") as $r) {
-            $out[(int) $r['post_id']][] = (int) $r['plan_id'];
-        }
-        return $out;
-    }
-
-    /**
-     * Is a viewer with these active plan ids (and this max active price) entitled to a
-     * subscribers-only post? Tier rows win (any match); a legacy tier_id with no rows keeps
-     * the old "this tier and higher" rule; nothing set = any active subscriber.
-     */
-    public static function tier_entitled(array $post, array $post_tiers, array $viewer_plan_ids, $viewer_max_price, array $plan_prices){
-        if (!empty($post_tiers)) { return count(array_intersect($post_tiers, array_map('intval', $viewer_plan_ids))) > 0; }
-        $tier_id = (int) ($post['tier_id'] ?? 0);
-        if ($tier_id > 0) { return $viewer_max_price !== null && (int) $viewer_max_price >= (int) ($plan_prices[$tier_id] ?? 0); }
-        return !empty($viewer_plan_ids);
     }
 
     /**
@@ -199,7 +143,7 @@ class PostsModel extends Model {
     public function get_assets($post_id){
         return parent::select(
             "SELECT pa.asset_id, pa.sort_order, pa.is_cover,
-                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.is_adult, ma.provenance, ma.width, ma.height,
+                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.provenance, ma.width, ma.height,
                     ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at,
                     ma.public_thumb_key, ma.public_display_key, ma.public_width, ma.public_height
              FROM post_assets pa
@@ -232,37 +176,29 @@ class PostsModel extends Model {
         return parent::update('posts', array($column => (int) $value), 'id = :id', array('id' => (int) $id));
     }
 
-    /** Published posts for a creator's public profile, newest first. */
     /**
-     * Per-post moderation gate for the given posts, considering IMAGES only (videos are
-     * not scanned, so they never gate a post). Returns post_id => 'blocked'|'pending'|'flagged':
-     *   - 'blocked'  → has an image the moderator blocked (suspected sexual/minors):
-     *                  hide from EVERYONE (incl. the creator) and never publishable.
-     *   - 'pending'  → has an image not yet cleared (unscanned/error): hide from everyone
-     *                  but the creator until it's scanned ("scanned before available").
-     *   - 'flagged'  → all images scanned and at least one is adult: hide from viewers with
-     *                  "show adult content" off.
-     * Posts with all images approved are omitted (fully visible).
+     * Content check hold: true when any of the post's images or videos is flagged (or blocked) by the content check.
+     * Such a post is not published; it stays in drafts until staff clear the image (ModerationHold).
      */
-    /**
-     * Age-gate view of one post's media: 'adult' when any image/video is flagged or approved-as-adult (even if others
-     * are still being scanned), 'pending' when some are not scanned yet and none is adult, else 'ok'.
-     */
-    public function adult_status($post_id){
+    public function has_flagged_media($post_id): bool {
+        return $this->media_hold_state($post_id) !== '';
+    }
+
+    /** 'blocked' (a moderator-blocked image: never publishable) | 'flagged' (held until staff clear it) | '' (clean). */
+    public function media_hold_state($post_id): string {
         $rows = parent::select(
-            "SELECT SUM(ma.moderation_status = 'flagged' OR ma.is_adult = 1) AS adult_n,
-                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged','n_a')) AS unscanned_n
+            "SELECT SUM(ma.moderation_status = 'blocked') AS blocked_n, SUM(ma.moderation_status = 'flagged') AS flagged_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id = :p AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')",
             array('p' => (int) $post_id)
         );
         $r = (is_array($rows) && count($rows) === 1) ? $rows[0] : array();
-        if ((int) ($r['adult_n'] ?? 0) > 0) { return 'adult'; }
-        if ((int) ($r['unscanned_n'] ?? 0) > 0) { return 'pending'; }
-        return 'ok';
+        if ((int) ($r['blocked_n'] ?? 0) > 0) { return 'blocked'; }
+        if ((int) ($r['flagged_n'] ?? 0) > 0) { return 'flagged'; }
+        return '';
     }
 
-    /** Published or scheduled posts that use this asset (for the re-hold after a scan flags it). */
+    /** Published or scheduled posts that use this asset (for the hold after a scan flags it). */
     public function live_posts_for_asset($asset_id){
         return (array) parent::select(
             "SELECT DISTINCT p.id, p.creator_id FROM post_assets pa JOIN posts p ON p.id = pa.post_id
@@ -271,55 +207,57 @@ class PostsModel extends Model {
         );
     }
 
+    /** Drafts held for $reason that use this asset (for the release after staff clear it). */
+    public function held_posts_for_asset($asset_id, $reason){
+        return (array) parent::select(
+            "SELECT DISTINCT p.id, p.creator_id, p.caption FROM post_assets pa JOIN posts p ON p.id = pa.post_id
+             WHERE pa.asset_id = :a AND p.state = 'draft' AND p.held_reason = :r",
+            array('a' => (int) $asset_id, 'r' => (string) $reason)
+        );
+    }
+
+    /** The post is no longer held (it stays a draft for the creator to publish). */
+    public function clear_hold($creator_id, $id){
+        return parent::update('posts', array('held_reason' => null, 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
     /**
-     * Creator-facing version of moderation_map() for the Studio: 'blocked' | 'pending'
-     * (unscanned/error, hidden from fans until scanned) | 'adult' (shown to opted-in fans) | 'ok'.
+     * Creator-facing version of moderation_map() for the Studio: 'blocked' | 'flagged' (held by the content check)
+     * | 'pending' (unscanned/error, hidden from viewers until scanned) | 'ok'.
      */
     public function studio_moderation_map(array $post_ids){
         $ids = array_filter(array_map('intval', $post_ids));
         if (!$ids) { return array(); }
-        $in = implode(',', $ids);
-        $rows = parent::select(
-            "SELECT pa.post_id,
-                    SUM(ma.moderation_status = 'blocked') AS blocked_n,
-                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged','n_a')) AS unscanned_n,
-                    SUM(ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)) AS adult_n
-             FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
-             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
-             GROUP BY pa.post_id"
-        );
         $out = array();
-        foreach ((array) $rows as $r) {
-            $pid = (int) $r['post_id'];
-            if ((int) $r['blocked_n'] > 0)        { $out[$pid] = 'blocked'; }
-            elseif ((int) $r['unscanned_n'] > 0)  { $out[$pid] = 'pending'; }
-            elseif ((int) $r['adult_n'] > 0)      { $out[$pid] = 'adult'; }
-            else                                  { $out[$pid] = 'ok'; }
-        }
+        foreach ($this->moderation_map($ids) as $pid => $st) { $out[$pid] = $st; }
+        foreach ($ids as $pid) { if (!isset($out[$pid])) { $out[$pid] = 'ok'; } }
         return $out;
     }
 
+    /**
+     * Per-post moderation gate (images and videos): post_id => 'blocked' | 'flagged' | 'pending'. Posts whose media
+     * is all approved are omitted. 'blocked' (suspected minors) and 'flagged' (the content check flagged it) are never
+     * shown to anyone but the creator; 'pending'/'error' (unscanned) hide the post until it is scanned.
+     */
     public function moderation_map(array $post_ids){
         $ids = array_filter(array_map('intval', $post_ids));
         if (!$ids) { return array(); }
         $in = implode(',', $ids);
-        // Adult content is NOT held for human approval (Daniel, 2026-09-21): a 'flagged' image
-        // is simply adult and shows to opted-in viewers right away. Only 'blocked' (suspected
-        // minors) is a hard stop; 'pending'/'error' (unscanned) hide the post until scanned.
         $rows = parent::select(
             "SELECT pa.post_id,
                     SUM(ma.moderation_status = 'blocked') AS blocked_n,
-                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged','n_a')) AS held_n,
-                    SUM(ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)) AS adult_n
+                    SUM(ma.moderation_status = 'flagged') AS flagged_n,
+                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged','n_a')) AS held_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
              GROUP BY pa.post_id"
         );
         $out = array();
         foreach ((array) $rows as $r) {
-            if ((int) $r['blocked_n'] > 0)   { $out[(int) $r['post_id']] = 'blocked'; }
-            elseif ((int) $r['held_n'] > 0)  { $out[(int) $r['post_id']] = 'pending'; }   // unscanned / scan error
-            elseif ((int) $r['adult_n'] > 0) { $out[(int) $r['post_id']] = 'adult'; }
+            if ((int) $r['blocked_n'] > 0)     { $out[(int) $r['post_id']] = 'blocked'; }
+            elseif ((int) $r['flagged_n'] > 0) { $out[(int) $r['post_id']] = 'flagged'; }
+            elseif ((int) $r['held_n'] > 0)    { $out[(int) $r['post_id']] = 'pending'; }   // unscanned / scan error
         }
         return $out;
     }
@@ -337,7 +275,7 @@ class PostsModel extends Model {
             $p['q2'] = '%' . addcslashes(htmlspecialchars(mb_substr($q, 0, 100), ENT_QUOTES, 'UTF-8'), '%_\\') . '%';
         }
         return parent::select(
-            "SELECT * FROM posts WHERE creator_id = :c AND state = 'published' AND on_cls = 1" . $find . "
+            "SELECT * FROM posts WHERE creator_id = :c AND state = 'published' AND on_cls = 1 AND audience = 'free'" . $find . "
              ORDER BY published_at DESC, id DESC" . $page,
             $p
         );
@@ -349,7 +287,7 @@ class PostsModel extends Model {
         if (!$ids) { return array(); }
         $rows = parent::select(
             "SELECT pa.post_id, pa.asset_id, pa.sort_order, pa.is_cover,
-                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.is_adult, ma.provenance, ma.width, ma.height,
+                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.provenance, ma.width, ma.height,
                     ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at,
                     ma.public_thumb_key, ma.public_display_key, ma.public_width, ma.public_height
              FROM post_assets pa
@@ -371,13 +309,6 @@ class PostsModel extends Model {
             array('p' => (int) $post_id)
         );
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['n'] : 0;
-    }
-
-    /** Remember the Fanvue post this one was mirrored to (see FanvueShareService). */
-    public function set_fanvue_post_uuid($creator_id, $id, $uuid){
-        return parent::update('posts',
-            array('fanvue_post_uuid' => ($uuid !== '' && $uuid !== null) ? (string) $uuid : null, 'updated_at' => date('Y-m-d H:i:s')),
-            'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
     public function set_state($creator_id, $id, $state, $scheduled_at = null, $published_at = null){
@@ -408,7 +339,7 @@ class PostsModel extends Model {
                   'published_at' => !empty($post['published_at']) ? $post['published_at'] : $now),
             "id = :id AND creator_id = :c AND state <> 'published'",
             array('id' => (int) $id, 'c' => (int) $creator_id)) > 0;
-        if ($moved) { Analytics::event('post_published', array('user_id' => (int) $creator_id, 'creator_id' => (int) $creator_id, 'meta' => 'post ' . (int) $id . ' ' . (string) ($post['audience'] ?? ''))); }
+        if ($moved) { Analytics::event('post_published', array('user_id' => (int) $creator_id, 'creator_id' => (int) $creator_id, 'meta' => 'post ' . (int) $id)); }
         return $moved;
     }
 
@@ -461,12 +392,9 @@ class PostsModel extends Model {
     public function duplicate($creator_id, $id){
         $src = $this->get_one($creator_id, $id);
         if (!$src) { return 0; }
-        $new_id = (int) $this->create_draft($creator_id, (string) $src['caption'], $src['audience']);
+        $new_id = (int) $this->create_draft($creator_id, (string) $src['caption']);
         $this->update_fields($creator_id, $new_id, array(
-            'caption' => (string) $src['caption'], 'audience' => $src['audience'],
-            'tier_id' => $src['tier_id'], 'comments_enabled' => $src['comments_enabled'],
-            'ppv_price_credits' => (int) ($src['ppv_price_credits'] ?? 0),
-            'tier_ids' => $this->tiers_for_posts(array($id))[(int) $id] ?? array(),
+            'caption' => (string) $src['caption'], 'comments_enabled' => $src['comments_enabled'],
         ));
         $assets = $this->get_assets($id);
         $ids = array(); $cover = 0;
@@ -519,7 +447,6 @@ class PostsModel extends Model {
         if (!$owned) { return 0; }
         $asset_ids = array_column((array) parent::select("SELECT asset_id FROM post_assets WHERE post_id = :p", array('p' => (int) $id)), 'asset_id');
         parent::delete_all('post_assets', 'post_id = :p', array('p' => (int) $id));
-        parent::delete_all('post_tiers',  'post_id = :p', array('p' => (int) $id));
         $res = parent::delete('posts', 'id = :id AND creator_id = :c', 1,
             array('id' => (int) $id, 'c' => (int) $creator_id));
         PublicThumbService::queue_purge(array('assets' => $asset_ids));   // its media may no longer be in any free post

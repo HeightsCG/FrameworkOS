@@ -1,19 +1,17 @@
 <?php include __DIR__ . '/_shell.php'; ?>
 <?php
-/* /admin/moderation — moderation, reports, verification (identity + Didit age checks) and past-due billing,
+/* /admin/moderation — moderation, reports, verification (identity checks) and past-due billing,
    each in its own panel, with the sub-menu showing one or all. The panels keep the DOM hooks the handlers in
-   public/js/admin.js key on (#admMod, #admReports, #admVerif, #admAge, [data-billing-retry], [data-age-reset]). Support is its own tab (support.php). */
+   public/js/admin.js key on (#admMod, #admReports, #admVerif, [data-billing-retry]). Support is its own tab (support.php). */
 $queue = (array) $this->queue;
-$ac = (array) $this->age_counts;
-$av_label = array('pending' => 'Pending', 'verified' => 'Verified', 'failed' => 'Failed');
 $n = array(
     'moderation'   => count($queue),
     'reports'      => count((array) $this->reports_queue),
-    'verification' => 0,   // ID and age checks are decided by Didit: pending ones wait on the user, never on staff
+    'verification' => 0,   // ID checks are decided by Didit: pending ones wait on the user, never on staff
     'billing'      => count((array) $this->billing),
 );
 $total = array_sum($n);
-$verif = (int) $ac['pending'];   // shown in the Verification panel and chip, but never counted as waiting on staff (Didit decides)
+$verif = 0; foreach ((array) $this->verifications as $v) { if ((string) $v['status'] === 'pending') { $verif++; } }   // shown in the Verification panel and chip, but never counted as waiting on staff (Didit decides)
 $show = in_array((string) $this->show, array_keys($n), true) ? (string) $this->show : 'all';
 $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Reports', 'verification' => 'Verification', 'billing' => 'Billing');
 ?>
@@ -46,7 +44,7 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
                 </div>
                 <div class="adm-card__body">
                     <a class="adm-card__creator" href="/@<?php echo $e($a['creator_handle']); ?>" target="_blank" rel="noopener">@<?php echo $e($a['creator_handle']); ?></a>
-                    <?php if ($a['status'] === 'flagged' && ($a['labels'] !== '' || $a['score'] !== null)): ?><span class="adm-card__ai"><?php echo $a['labels'] !== '' ? $e($a['labels']) : 'adult'; ?><?php echo $a['score'] !== null ? ' · ' . number_format($a['score'] * 100) . '%' : ''; ?></span><?php endif; ?>
+                    <?php if ($a['status'] === 'flagged' && ($a['labels'] !== '' || $a['score'] !== null)): ?><span class="adm-card__ai"><?php echo $a['labels'] !== '' ? $e($a['labels']) : 'flagged'; ?><?php echo $a['score'] !== null ? ' · ' . number_format($a['score'] * 100) . '%' : ''; ?></span><?php endif; ?>
                     <span class="adm-card__when"><?php echo $e($fmt($a['created_at'], true)); ?></span>
                 </div>
                 <div class="adm-card__acts">
@@ -88,9 +86,8 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
 
     <section class="adm-group adm-panel adm-box" data-group="verification" data-panel="verification" data-empty="<?php echo $verif === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'verification') || ($show === 'all' && $verif === 0)) ? ' hidden' : ''; ?>>
         <header class="adm-box__h"><h2 class="adm-box__t">Verification <b class="adm-count"><?php echo $verif; ?></b></h2></header>
-        <?php $age_open = (int) $ac['pending'] + (int) $ac['failed']; /* on the All view a part with nothing waiting stays out of the way; the Verification view shows both */ ?>
         <?php $vlabel = array('approved' => array('Verified', 'ok'), 'rejected' => array('Declined', 'bad'), 'pending' => array('In progress', 'gray'), 'revoked' => array('Badge removed', 'gray')); ?>
-        <div class="adm-part" data-part-empty="<?php echo empty($this->verifications) ? '1' : '0'; ?>"<?php echo $show === 'all' ? ' hidden' : ''; ?>>
+        <div class="adm-part" data-part-empty="<?php echo empty($this->verifications) ? '1' : '0'; ?>">
         <div class="adm-part__h"><h3 class="adm-h3">ID checks <b class="adm-count"><?php echo count((array) $this->verifications); ?></b></h3></div>
         <?php if (empty($this->verifications)): ?>
             <?php echo adm_empty('No creator has started an ID check yet', 'fa-id-card'); ?>
@@ -115,33 +112,6 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
         <?php endif; ?>
         </div>
 
-        <div class="adm-part" data-part-empty="<?php echo $age_open === 0 ? '1' : '0'; ?>"<?php echo ($show === 'all' && $age_open === 0) ? ' hidden' : ''; ?>>
-        <div class="adm-part__h"><h3 class="adm-h3">Age checks <b class="adm-count"><?php echo (int) $ac['pending']; ?> pending</b></h3>
-            <div class="adm-seg" role="tablist" aria-label="Age check status" id="admAgeTabs">
-                <button type="button" class="adm-seg__b is-on" role="tab" aria-selected="true" data-age="open">Needs a look <b><?php echo (int) $ac['pending'] + (int) $ac['failed']; ?></b></button>
-                <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-age="pending">Pending <b><?php echo (int) $ac['pending']; ?></b></button>
-                <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-age="failed">Failed <b><?php echo (int) $ac['failed']; ?></b></button>
-                <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-age="verified">Verified <b><?php echo (int) $ac['verified']; ?></b></button>
-                <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-age="all">All <b><?php echo count((array) $this->age_rows); ?></b></button>
-            </div>
-        </div>
-        <table class="adm-t" id="admAgeTable"<?php echo $age_open === 0 ? ' hidden' : ''; ?>>
-            <thead><tr><th>Account</th><th>Status</th><th>Provider</th><th>Adult content</th><th>Updated</th><th></th></tr></thead>
-            <tbody id="admAge">
-            <?php foreach ((array) $this->age_rows as $av): $an = trim((string) $av['name']); $an = $an !== '' ? $an : ('@' . $av['u_name']); $st = (string) $av['status']; ?>
-                <tr class="adm-agerow adm-t__link" data-age-row="<?php echo (int) $av['user_id']; ?>" data-status="<?php echo $e($st); ?>" data-href="/admin/user/<?php echo (int) $av['user_id']; ?>"<?php echo $st === 'verified' ? ' hidden' : ''; ?>>
-                    <td class="adm-t__who"><?php echo adm_who($an, $av['u_name'], '/admin/user/' . (int) $av['user_id'], '', '@' . $av['u_name'] . ' · ' . ($av['role_name'] ?: 'User')); ?></td>
-                    <td><?php echo adm_pill($av_label[$st] ?? ucfirst($st)); ?><?php if ($st === 'verified' && (string) $av['verified_at'] !== ''): ?> <span class="adm-t__muted"><?php echo $e($fmt($av['verified_at'])); ?></span><?php endif; ?></td>
-                    <td class="adm-t__muted"><?php echo $e(ucfirst((string) $av['provider'])); ?></td>
-                    <td class="adm-t__muted"><?php echo !empty($av['adult_content_enabled']) ? 'Shown' : 'Hidden'; ?></td>
-                    <td class="adm-t__muted adm-t__nowrap"><?php echo $e($fmt($av['updated_at'], true)); ?></td>
-                    <td class="adm-t__act"><?php echo adm_row_menu('Age check actions', array(array('text' => 'Reset age verification…', 'attrs' => 'data-age-reset', 'danger' => true))); ?></td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <div class="adm-empty" id="admAgeNone"<?php echo $age_open > 0 ? ' hidden' : ''; ?>><i class="fa-solid fa-user-check" aria-hidden="true"></i><p>No age checks need a look.</p></div>
-        </div>
     </section>
 
     <!-- Billing: past due -->

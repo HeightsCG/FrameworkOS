@@ -184,9 +184,6 @@ try {
     $msg->mark_read($conv, $fan);
     check('mark read clears it', $msg->total_unread($fan) === 0);
 
-    /* ---- 3. host after the window ---- */
-    check('LiveAccess lets the host past the closed window (code check)', strpos(file_get_contents($root . '/libs/Classes/LiveAccess.php'), "\$phase === 'closed' && !\$host") !== false);
-
     /* ---- 11. domains ---- */
     $dm = new CreatorDomainsModel();
     $host = 'audit' . $tag . '.example.com';

@@ -24,7 +24,7 @@
 .aud__search input{ flex:1 1 auto; min-width:0; border:0; outline:none; background:transparent; font-family:inherit; font-size:.88rem; color:#242424; }
 
 /* Table */
-.aud-table{ --aud-cols:minmax(210px,1fr) minmax(180px,230px) 110px 130px 172px;
+.aud-table{ --aud-cols:minmax(210px,1fr) minmax(180px,230px) 130px 172px;
     background:#fff; border:1px solid #EBEBEB; border-radius:var(--r-sm); overflow:hidden; box-shadow:0 1px 2px rgba(28, 28, 28, .04); }
 .aud-table__cap{ display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.7rem 1.1rem; border-bottom:1px solid #F2F2F2; }
 .aud-table__cap-l{ display:inline-flex; align-items:center; gap:.45rem; font-size:.78rem; font-weight:600; color:#A0A0A0; }
@@ -53,11 +53,7 @@
 .aud-cell--rel{ display:flex; flex-wrap:wrap; gap:.35rem; }
 .aud-badge{ display:inline-flex; align-items:center; gap:.3rem; padding:.16rem .5rem; border-radius:999px; background:#F3F3F3; color:#707070; font-size:.7rem; font-weight:600; white-space:nowrap; }
 .aud-badge i{ font-size:.66rem; }
-.aud-badge--sub{ background:#FFF2EA; color:#C2410C; }
-.aud-badge--buy{ background:#e7f6ee; color:#1f8a54; }
 
-.aud-cell--spend{ display:flex; flex-direction:column; align-items:flex-end; gap:.05rem; }
-.aud-spend{ font-size:.92rem; font-weight:700; color:#242424; }
 .aud-spend__meta{ font-size:.73rem; color:#A0A0A0; }
 .aud-cell--since{ font-size:.82rem; color:#707070; }
 
@@ -89,11 +85,10 @@
 /* Responsive: collapse the grid into stacked cards */
 @media (max-width:760px){
     .aud-table__head{ display:none; }
-    .aud-row__main{ grid-template-columns:1fr auto; grid-template-areas:"member actions" "rel rel" "spend since"; gap:.55rem .8rem; }
+    .aud-row__main{ grid-template-columns:1fr auto; grid-template-areas:"member actions" "rel since"; gap:.55rem .8rem; }
     .aud-cell--member{ grid-area:member; }
     .aud-cell--actions{ grid-area:actions; align-items:flex-start; }
     .aud-cell--rel{ grid-area:rel; }
-    .aud-cell--spend{ grid-area:spend; flex-direction:row; align-items:baseline; gap:.4rem; }
     .aud-cell--since{ grid-area:since; justify-self:end; align-self:center; }
     .aud-row__detail{ padding-left:1.1rem; }
 }

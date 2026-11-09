@@ -61,7 +61,7 @@ ob_start();
     <h2 class="ct-h">Check Your Inbox</h2>
     <p class="sx-p" id="tl_done_text">Check your inbox in a few minutes.</p>
     <div class="tl-next tl-next--done"><p class="tl-next__h"><?php echo $e($persona ? 'Your AI influencer concept is on its way. Bring your character to life.' : 'You found what your audience wants. Turn those ideas into content.'); ?></p>
-        <p class="tl-next__p"><?php echo $e($persona ? 'Create the character on ' . $site . ', generate photos and video of the same person, and publish them to ten platforms.' : 'Write the posts in ' . $site . ', publish them to ten platforms at once, or let an automation post on a schedule.'); ?></p>
+        <p class="tl-next__p"><?php echo $e($persona ? 'Create the character on ' . $site . ', generate photos and video of the same person, and publish them to nine platforms.' : 'Write the posts in ' . $site . ', publish them to nine platforms at once, or let an automation post on a schedule.'); ?></p>
         <div class="tl-next__acts"><a class="sx-btn sx-btn--primary" href="<?php echo $e($start); ?>" rel="nofollow" data-auth="register" data-track="tool_cta_click" data-track-tool="<?php echo $e($slug); ?>">Start Free<?php echo Sections::icon('arrow-right', 18); ?></a>
         <a class="sx-btn sx-btn--secondary" href="<?php echo $e($persona ? '/features/ai-influencer' : '/features/publishing'); ?>" data-track="tool_cta_click" data-track-tool="<?php echo $e($slug); ?>"><?php echo $e($persona ? 'See the AI Influencer' : 'See Publishing'); ?></a></div></div>
 </div>
@@ -83,7 +83,7 @@ if ($persona) {
 } else {
     echo Sections::open('alt', 'How It Works', 'Real questions make better posts than guesses. This tool finds them for you.');
     echo Sections::cards(array(
-        array('icon' => 'search', 'title' => 'Find The Communities', 'text' => 'We look up the biggest public communities and channels about your niche and leave adult ones out.'),
+        array('icon' => 'search', 'title' => 'Find The Communities', 'text' => 'We look up the biggest public communities and channels about your niche and leave out ones that are not safe for work.'),
         array('icon' => 'message', 'title' => 'Read The Questions', 'text' => 'We read up to 150 recent posts that ask a question, from this week and the newest.'),
         array('icon' => 'sparkles', 'title' => 'Get Post Ideas', 'text' => 'You get 30 to 40 ideas grouped by theme, plus the communities worth watching, by email.'),
     ), 3);

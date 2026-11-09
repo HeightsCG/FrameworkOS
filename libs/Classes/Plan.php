@@ -16,19 +16,16 @@ class Plan {
      * a cover (site_header.php) that says what it does and links to the plans; nothing on it can be used.
      */
     const COVERS = array(
-        'dashboard'   => array('icon' => 'fa-chart-line',     'title' => 'Analytics',      'text' => 'See what earns: revenue by offering, your top posts, audience growth and your best customers.'),
+        'dashboard'   => array('icon' => 'fa-chart-line',     'title' => 'Analytics',      'text' => 'See your top posts, how each piece of content performs and how your audience grows.'),
         'studio'      => array('video' => '13', 'icon' => 'fa-photo-film',     'title' => 'Content Studio', 'text' => 'Upload once and publish everywhere, with a media library, a calendar and automations that post for you.'),
         'influencers' => array('video' => '20', 'icon' => 'fa-user-astronaut', 'title' => 'Influencers',    'text' => 'Create an AI influencer and generate on-brand photos and videos for your posts.'),
-        'audience'    => array('icon' => 'fa-users',          'title' => 'Audience',       'text' => 'Every follower, subscriber and buyer in one list, with tags, notes and messaging.'),
-        'events'      => array('icon' => 'fa-calendar-days',  'title' => 'Events',         'text' => 'Sell tickets to workshops, livestreams and meetups, with video calls built in.'),
-        'services'    => array('icon' => 'fa-briefcase',      'title' => 'Services',       'text' => 'Sell bookings and one-to-one sessions, delivered by video call or in person.'),
+        'audience'    => array('icon' => 'fa-users',          'title' => 'Audience',       'text' => 'Every follower in one list, with tags, notes and messaging.'),
     );
 
     /** Creator-only Settings sections a Free account sees as a locked panel (same idea as COVERS), keyed by section. */
     const SETTINGS_COVERS = array(
         'brand'     => array('video' => '04', 'icon' => 'fa-wand-magic-sparkles', 'title' => 'Brand Identity',   'text' => 'Set your colors, voice and audience once, and every caption and image the Studio writes follows them.'),
-        'plans'     => array('video' => '05', 'icon' => 'fa-gem',                 'title' => 'Membership Plans', 'text' => 'Sell monthly memberships with tiers and free trials, plus promo codes and content bundles.'),
-        'inbox'     => array('video' => '07', 'icon' => 'fa-robot',               'title' => 'Inbox Automation', 'text' => 'Welcome new fans, answer messages and send scheduled messages with media and a price, automatically.'),
+        'inbox'     => array('video' => '07', 'icon' => 'fa-robot',               'title' => 'Inbox Automation', 'text' => 'Welcome new fans, answer messages and send scheduled messages with media, automatically.'),
         'connected' => array('video' => '06', 'icon' => 'fa-share-nodes',         'title' => 'Integrations',     'text' => 'Connect your social accounts and publish each post to all of them from one place.'),
         'domain'    => array('video' => '',   'icon' => 'fa-globe',               'title' => 'Custom Domain',    'text' => 'Put your public page on your own domain.'),
     );
@@ -49,46 +46,23 @@ class Plan {
 
     /**
      * Build before you pay (2026-10-08): any Creator account, Free included, can build. Studio, profile, media
-     * uploads, draft and scheduled free posts, and plans, bundles, services and events saved as drafts.
+     * uploads, and draft and scheduled posts.
      */
     public static function can_build($user): bool
     {
         return is_array($user) && self::is_creator_row($user);
     }
 
-    /** Selling needs a paid plan (Creator or Studio): paid posts, turning on anything with a price, payouts. */
-    public static function can_sell($user): bool
-    {
-        return is_array($user) && self::is_creator_row($user) && self::has_paid_plan($user);
-    }
-
-    /** AI generation, influencer training and the DM agent need a paid plan too (Free has no AI credits). */
+    /** AI generation, influencer training and the DM agent need a paid plan (Free has no AI credits). */
     public static function can_use_ai($user): bool
     {
-        return self::can_sell($user);
+        return self::can_use_creator_features($user);
     }
 
-    /** Older name for can_sell(): callers that were not split into build / sell / AI keep the paid-plan gate. */
+    /** The creator tools gate: a Creator account on a paid plan (Creator or Studio). */
     public static function can_use_creator_features($user): bool
     {
-        return self::can_sell($user);
-    }
-
-    /**
-     * A due scheduled post that sells while its creator has no paid plan goes back to drafts (nothing is deleted),
-     * so it waits for the upgrade instead of going out. True when the post was held.
-     */
-    public static function hold_unsellable_post($creator_id, $post_id): bool
-    {
-        $rows = (new UsersModel())->get_user_by_id((int) $creator_id);
-        if (is_array($rows) && count($rows) === 1 && self::can_sell($rows[0])) { return false; }
-        $model = new PostsModel();
-        $post  = $model->get_one((int) $creator_id, (int) $post_id);
-        if (!$post || !CreatorAgreement::post_is_paid($post)) { return false; }
-        $model->hold_for_plan((int) $creator_id, (int) $post_id, 'plan');
-        Notify::send((int) $creator_id, 'creator_activity', 'Your scheduled post was held',
-            'Paid posts go out on the ' . PlanTiers::TIERS['creator']['name'] . ' plan. It is in your drafts: upgrade, then publish it.', '/studio', 'fa-clock');
-        return true;
+        return is_array($user) && self::is_creator_row($user) && self::has_paid_plan($user);
     }
 
     /**
@@ -175,7 +149,7 @@ class Plan {
     }
 
     /**
-     * A numeric limit for the user's tier (e.g. 'seats', 'storage_gb', 'fee_percent'), plus any
+     * A numeric limit for the user's tier (e.g. 'seats', 'storage_gb'), plus any
      * add-on slots that raise it (extra AI influencers on Creator).
      * Returns null when the user has no plan; 0 means "unlimited"; below 0 means "not included".
      */
@@ -290,22 +264,6 @@ class Plan {
         $row  = PlanTiers::row($key);
         $noun = $row ? $row['noun'] : (string) $key;
         return 'This is locked because your ' . self::tier_name($user) . ' plan includes fewer ' . $noun . ' than you have. It\'s saved, not deleted. Upgrade to use it again.';
-    }
-
-    /**
-     * The platform's take-rate % for a creator's earnings (paid subscriptions +
-     * PPV), from their plan tier. Falls back to the global default when the creator
-     * has no active plan. This is what replaces the flat Main::platform_fee_percent().
-     */
-    public static function fee_percent($creator): float
-    {
-        $fee = self::limit($creator, 'fee_percent');
-        // founding creators: the fee locked in by the offer, while the Creator plan stays active or past due (Founding)
-        if (is_array($creator) && (int) ($creator['is_founding'] ?? 0) === 1 && self::tier($creator) === Founding::PLAN) {
-            $locked = Founding::fee_override($creator);
-            if ($locked !== null) { return (float) $locked; }
-        }
-        return ($fee === null) ? (float) Main::platform_fee_percent() : (float) $fee;
     }
 
     /**
@@ -489,35 +447,6 @@ class Plan {
     }
 
     /**
-     * What $gross_cents of sales would have cost on each plan (monthly price + add-ons + take
-     * rate), compared with the user's current plan. Returns the offered higher plan that would
-     * have saved the most, as ['tier' => def, 'savings_cents' => int, 'current_cents', 'other_cents'],
-     * or null when no higher plan is cheaper.
-     */
-    public static function upgrade_savings($user, $gross_cents)
-    {
-        $cur = self::features($user);
-        if (!$cur) { return null; }
-        $gross = max(0, (int) $gross_cents);
-        $cost  = function (array $t, $addon_cents) use ($gross) {
-            return (int) $t['price'] * 100 + (int) $addon_cents + (int) round($gross * (float) $t['limits']['fee_percent'] / 100);
-        };
-        $addons = 0;
-        foreach (PlanTiers::addons_for($cur['key']) as $a) { $addons += self::addon_quantity($user, $a['key']) * (int) $a['price'] * 100; }
-        $now  = $cost($cur, self::has_paid_plan($user) ? $addons : 0);
-        $best = null;
-        foreach (PlanTiers::offered() as $t) {
-            if ((int) $t['rank'] <= (int) $cur['rank']) { continue; }
-            $other = $cost($t, 0);
-            $save  = $now - $other;
-            if ($save > 0 && ($best === null || $save > $best['savings_cents'])) {
-                $best = array('tier' => $t, 'savings_cents' => $save, 'current_cents' => $now, 'other_cents' => $other);
-            }
-        }
-        return $best;
-    }
-
-    /**
      * Take the AI credits a run costs (PlanTiers::AI_PRICES) before it starts. Returns
      * ['ok' => true, 'price'] or ['ok' => false, 'price', 'balance', 'message'] when the account
      * cannot pay (the caller shows the Buy credits prompt). Free's starter credits land first.
@@ -565,7 +494,7 @@ class Plan {
         $named = array('video' => 'a video', 'enhance' => 'an enhancement', 'replicate' => 'this replica', 'edit' => 'this edit', 'angle' => 'this reference',
             'carousel' => 'this carousel image', 'motion' => 'this video', 'talking' => 'this video', 'replace' => 'this video', 'scene' => 'this video', 'speech' => 'this audio', 'voice_design' => 'this voice design');
         $what = isset($named[(string) $type]) ? $named[(string) $type] : ($n > 1 ? $n . ' images' : 'an image');
-        return 'You need ' . number_format((int) $price) . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . number_format((int) $balance) . '. AI credits are separate from your wallet credits: buy AI credits in Billing, AI Credits.';
+        return 'You need ' . number_format((int) $price) . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . number_format((int) $balance) . '. Buy AI credits in Billing, AI Credits.';
     }
 
     /**

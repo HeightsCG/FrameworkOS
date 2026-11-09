@@ -6,7 +6,7 @@
  * the survivor, every link to it in other published articles is rewritten, and the keywords that pointed at the merged
  * articles are marked covered. The sitemap and the RSS feed read published articles only, so they follow.
  *
- *   APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_merge.php --approved            # the five approved groups, in order
+ *   APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_merge.php --approved            # the approved groups, in order
  *   ... --into=<slug> --from=<slug,slug> --format=<guide|checklist|comparison|cost|troubleshooting|glossary>   # one group
  *   ... --into=<slug> --format=<x> [--link=/path]        # restructure only (no sources), link to a page the piece must reference
  *   ... --dry-run     print what would happen, no Claude call, nothing written
@@ -25,20 +25,15 @@ spl_autoload_register(function ($class) use ($root) {
 $opts = getopt('', array('approved', 'restructure::', 'into:', 'from:', 'format:', 'link:', 'sections:', 'rhythm:', 'dry-run'));   // --restructure (the first set) or --restructure=slop2
 $dry = isset($opts['dry-run']);
 
-/** The approved merges, in run order (formats differ from one group to the next, so no two consecutive articles share one). */
+/** The approved merges, in run order (formats differ from one group to the next, so no two consecutive articles share one). Selling and platform-comparison groups removed 2026-11-09. */
 const APPROVED = array(
-    array('into' => 'how-to-monetize-content-as-a-creator',    'from' => array('how-to-monetize-digital-content', '30-day-plan-to-monetize-online-content'), 'format' => 'guide',           'link' => '/monetize-your-content'),
     array('into' => 'how-to-train-a-lora-character',          'from' => array('lora-training-for-ai-influencers', 'flux-lora-training'),                    'format' => 'checklist',       'link' => '/lora-character-training'),
-    array('into' => 'how-to-make-money-with-an-ai-influencer', 'from' => array('ai-influencer-monetization', 'virtual-influencer-income'),                  'format' => 'cost',            'link' => '/features/ai-influencer'),
-    array('into' => 'fanvue-alternative',                     'from' => array(),                                                                          'format' => 'troubleshooting', 'link' => '/fanvue-alternatives'),
-    array('into' => 'how-to-choose-an-onlyfans-alternative',  'from' => array(),                                                                          'format' => 'comparison',      'link' => '/onlyfans-alternatives'),
 );
 
 /** The a_ai_slop restructure (2026-10-12): five articles, each into a different format, with a different section count than now. */
 const RESTRUCTURE = array(
     array('into' => 'custom-ai-influencer-training-when-to-invest',     'from' => array(), 'format' => 'cost',            'link' => '/lora-character-training'),
     array('into' => 'best-ai-tools-consistent-ai-influencer-characters', 'from' => array(), 'format' => 'comparison',      'link' => '/consistent-ai-model-face'),
-    array('into' => 'how-to-price-a-subscription-tier',                 'from' => array(), 'format' => 'guide',           'link' => '/features/memberships'),
     array('into' => 'automated-dm-replies-for-creators',                'from' => array(), 'format' => 'troubleshooting', 'link' => '/features/dm-agent'),
     array('into' => 'lora-training-dataset-tips',                       'from' => array(), 'format' => 'checklist',       'link' => '/lora-character-training'),
 );
@@ -47,9 +42,6 @@ const RESTRUCTURE = array(
 const RESTRUCTURE2 = array(   // live corpus 2026-10-12: section counts 5,6,7 dominate (6 x5, 7 x4, 5 x2), 8 and 9 once each, every section 100-320 words; these five take counts and rhythms the corpus does not have
     array('into' => 'consistent-ai-character-across-images',    'from' => array(), 'format' => 'glossary',        'link' => '/consistent-ai-model-face',  'sections' => 2,  'rhythm' => 'one long section and one short'),
     array('into' => 'how-to-train-a-lora-character',           'from' => array(), 'format' => 'checklist',       'link' => '/lora-character-training',   'sections' => 3,  'rhythm' => 'three list-heavy sections of very different lengths: the middle one three times the first'),
-    array('into' => 'how-to-make-money-with-an-ai-influencer',  'from' => array(), 'format' => 'troubleshooting', 'link' => '/features/ai-influencer',   'sections' => 10, 'rhythm' => 'ten short symptom sections of one or two paragraphs each'),
-    array('into' => 'how-to-choose-an-onlyfans-alternative',   'from' => array(), 'format' => 'comparison',      'link' => '/onlyfans-alternatives',     'sections' => 4,  'rhythm' => 'the longest section in the middle'),
-    array('into' => 'how-to-monetize-content-as-a-creator',    'from' => array(), 'format' => 'cost',            'link' => '/monetize-your-content',     'sections' => 8,  'rhythm' => 'two long sections and the rest one paragraph each'),
 );
 
 $groups = array();

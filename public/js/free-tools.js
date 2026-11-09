@@ -199,7 +199,7 @@
 
     /* ---------- AI disclosure caption checker ---------- */
 
-    var PLATFORMS = ['Instagram', 'TikTok', 'YouTube', 'Facebook', 'Threads', 'X', 'Bluesky', 'LinkedIn', 'Pinterest', 'Fanvue'];
+    var PLATFORMS = ['Instagram', 'TikTok', 'YouTube', 'Facebook', 'Threads', 'X', 'Bluesky', 'LinkedIn', 'Pinterest'];
     var HARD_LIMITS = { 'X': 280, 'Bluesky': 300, 'Threads': 500 };   // post length limits
     var OWN_LABEL = { 'TikTok': 'TikTok has its own AI-generated content label. Turn it on when you post.', 'YouTube': 'YouTube has its own altered or synthetic content setting. Turn it on when you upload.' };
     var CLEAR = /\b(ai[\s-]?generated|generated (with|by|using) ai|made (with|using) ai|created (with|using|by) ai|ai[\s-]?assisted|ai[\s-]?edited|synthetic (media|content|image|video)|this is an ai|i am an ai|i'm an ai|virtual (influencer|creator|character))\b|#(aigenerated|madewithai|createdwithai|aiassisted|syntheticmedia|virtualinfluencer)\b/i;

@@ -279,7 +279,7 @@ class InfluencerVideoActions {
                     S3Service::delete_key($key);
                     if (empty($m['ok'])) { $verdict = array('ok' => false, 'error' => 'The source video could not be checked right now. Try again in a few minutes.'); }
                     elseif (!empty($m['minors'])) { $verdict = array('ok' => false, 'error' => 'That video cannot be used.'); }
-                    elseif (!empty($m['adult'])) { $verdict = array('ok' => false, 'error' => 'Explicit source videos cannot be used for character replacement.'); }
+                    elseif (!empty($m['adult'])) { $verdict = array('ok' => false, 'error' => 'That video was flagged by our content check and cannot be used for character replacement.'); }
                 }
             }
             @unlink($f);

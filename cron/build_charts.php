@@ -1,16 +1,13 @@
 <?php
 /**
  * Dev step: regenerate every chart and diagram SVG under public/images/charts/ by rendering the pages that carry one, then
- * delete files no page references any more. Run on dev after the sourced fee data (PagesController::COMPETITORS, PlanTiers)
- * changes, and ship the directory with the deploy. Production never writes these files.
+ * delete files no page references any more. Run on dev after chart data changes, and ship the directory with the deploy. Production never writes these files.
  * Usage: APPLICATION_ENV=development php cron/build_charts.php [--base=http://framework.contentos.cvk]
  */
 $path = dirname(__DIR__);
 $opts = getopt('', array('base::'));
 $base = rtrim((string) ($opts['base'] ?? 'http://framework.contentos.cvk'), '/');
-$pages = array('/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/compare/eromify',
-               '/best-creator-monetization-platforms', '/monetize-your-content',
-               '/pricing', '/features', '/');   // the three screen schematics (Sections::ui_sketch) live here too
+$pages = array('/pricing', '/features', '/');
 $dir = $path . '/public/images/charts/';
 if (!is_dir($dir)) { mkdir($dir, 0775, true); }
 $referenced = array(); $fail = 0;

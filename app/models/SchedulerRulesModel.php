@@ -9,11 +9,11 @@ class SchedulerRulesModel extends Model {
 
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
-        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'character_id', 'character_name', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'audience', 'tier_id', 'comments_enabled', 'on_cls',
+        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'character_id', 'character_name', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'comments_enabled', 'on_cls',
         'use_brand', 'ai_assist', 'caption_text', 'caption_mode', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
-    const CLS_SEGMENTS = array('all', 'followers', 'subscribers', 'expired', 'buyers');
+    const CLS_SEGMENTS = array('followers');   // followers only (2026-11-09); older rows saying 'all' mean the same
 
     /** Decode message_targets → ['cls' => [segments]] (older rows stored a single segment string). */
     public static function targets(array $rule){
@@ -21,6 +21,7 @@ class SchedulerRulesModel extends Model {
         $t = is_array($t) ? $t : array();
         $cls = $t['cls'] ?? array();
         if (is_string($cls)) { $cls = ($cls === '') ? array() : array($cls); }
+        if (in_array('all', array_map('strval', (array) $cls), true)) { $cls[] = 'followers'; }
         $cls = array_values(array_intersect(self::CLS_SEGMENTS, array_map('strval', (array) $cls)));
         return array('cls' => $cls);
     }
@@ -73,8 +74,6 @@ class SchedulerRulesModel extends Model {
         $durs = $vm ? array_values(array_map('strval', (array) ($vm['durations'] ?? array()))) : array();
         $out['video_duration']   = $vm ? (in_array((string) ($f['video_duration'] ?? ''), $durs, true) ? (string) $f['video_duration'] : ($durs[0] ?? '5')) : null;
         $out['content_level']    = 'safe';   // legacy column, always 'safe'; nothing reads it
-        $out['audience']         = (($f['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
-        $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;
         $out['comments_enabled'] = !empty($f['comments_enabled']) ? 1 : 0;
         $out['on_cls']           = (isset($f['on_cls']) && (string) (int) $f['on_cls'] === '0') ? 0 : 1;   // the post goes on the creator's Creator Link Studio page (default, as before)
         $out['use_brand']        = !empty($f['use_brand']) ? 1 : 0;

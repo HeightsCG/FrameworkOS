@@ -20,7 +20,7 @@
 .dash__range-btn.is-active{ background:#fff; color:var(--acc-ink); box-shadow:0 1px 2px rgba(20, 20, 20, .06); }
 
 /* --- KPI cards --- */
-.dash__kpis{ display:grid; grid-template-columns:repeat(6, 1fr); gap:.8rem; margin-bottom:1.2rem; }
+.dash__kpis{ display:grid; grid-template-columns:repeat(4, 1fr); gap:.8rem; margin-bottom:1.2rem; }
 .kpi__value{ display:flex; flex-direction:column; align-items:flex-start; gap:.3rem; }
 .kpi__delta{ font-size:.68rem; font-weight:700; padding:.08rem .35rem; border-radius:999px; letter-spacing:.01em; white-space:nowrap; }
 .kpi__delta--up{ background:rgba(26,158,106,.12); color:#188055; }
@@ -83,7 +83,7 @@
 .dash__heat-cell:hover{ outline:1.5px solid var(--acc); }
 
 /* --- stat strip (customers & subscribers) --- */
-.dash__stats{ display:grid; grid-template-columns:repeat(4, 1fr); gap:1.4rem; }
+.dash__stats{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); gap:1.4rem; }   /* the row splits evenly however many numbers it holds */
 .dash__stat{ display:flex; flex-direction:column; gap:.25rem; }
 .dash__stat + .dash__stat{ border-left:1px solid var(--line2, #F2F2F2); padding-left:1.4rem; }
 .dash__stat-label{ font-size:.78rem; font-weight:600; color:var(--muted); }
@@ -157,13 +157,16 @@
 .dash__row-meta .dash__bucket{ font-size:.72rem; }
 
 @media (max-width:1100px){
-    .dash__kpis{ grid-template-columns:repeat(3, 1fr); }
+    .dash__kpis{ grid-template-columns:repeat(2, 1fr); }
 }
 @media (max-width:820px){
     .dash__kpis{ grid-template-columns:repeat(2, 1fr); }
     .dash__tab{ font-size:.86rem; padding:.55rem .2rem; }
     .dash__tab + .dash__tab{ margin-left:.7rem; }
-    .dash__stats{ grid-template-columns:repeat(2, 1fr); gap:1rem; }
+    .dash__stats{ grid-auto-flow:row; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:1rem; }
+    .dash__table{ min-width:560px; }
+    .dash__table td:first-child{ max-width:180px; }
+    .dash__cell-post .dash__row-title, .dash__cell-post .dash__row-meta{ display:block; overflow:hidden; text-overflow:ellipsis; }
     .dash__stat + .dash__stat{ border-left:0; padding-left:0; }
     .dash__cols{ grid-template-columns:1fr; }
     .dash__break-row{ grid-template-columns:120px 1fr 78px; gap:.6rem; }

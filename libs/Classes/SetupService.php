@@ -6,20 +6,18 @@
  */
 class SetupService {
 
-    const TTL = 300;   // seconds between Stripe payouts re-checks on ordinary page loads (DB checks are instant)
+    const TTL = 300;   // seconds between full re-checks on ordinary page loads
 
     /** Ordered step definitions. 'cta' is the Title Case button label. */
     public static function steps(): array {
         return array(
-            // plan step: only for an account that cannot sell yet (and ticks once it can). Title, text and link are set per account in progress().
-            'plan'       => array('title' => 'Choose a plan',                    'text' => 'Your page goes public and selling and AI tools open.',                       'cta' => 'Choose a Plan',             'url' => '/account/billing?tab=plan',                     'optional' => false, 'skippable' => false),
+            // plan step: only for an account without a paid plan yet (and ticks once it can). Title, text and link are set per account in progress().
+            'plan'       => array('title' => 'Choose a plan',                    'text' => 'Your page goes public and AI tools open.',                       'cta' => 'Choose a Plan',             'url' => '/account/billing?tab=plan',                     'optional' => false, 'skippable' => false),
             // handle step (begin): only for accounts still on the neutral signup handle, see handle_applies().
             'handle'     => array('title' => 'Choose your handle',               'text' => 'Pick the name fans see in your profile link.',                               'cta' => 'Choose Your Handle',        'url' => '/account/settings?section=account',              'optional' => false, 'skippable' => false),
             // handle step (end)
             'profile'    => array('title' => 'Complete your profile',            'text' => 'Add a display name and photo so fans recognize you.',                        'cta' => 'Complete Your Profile',     'url' => '/account/settings?section=creator',              'optional' => false),
             'brand'      => array('title' => 'Set your brand identity',          'text' => 'Tell the studio your voice and colors. Captions and AI replies use them.',   'cta' => 'Set Your Brand',            'url' => '/account/settings?section=brand',                'optional' => false),
-            'tiers'      => array('title' => 'Create a membership tier',         'text' => 'Create at least one membership tier to sell subscriptions.',                'cta' => 'Create a Tier',             'url' => '/account/settings?section=plans',                'optional' => false),
-            'payouts'    => array('title' => 'Set up payouts',                   'text' => 'Connect Stripe to receive your earnings.',                                   'cta' => 'Set Up Payouts',            'url' => '/account/settings?section=wallet&tab=cashout',   'optional' => false),
             'socials'    => array('title' => 'Connect a social account',         'text' => 'Connect a social account to cross-post from the studio.',                    'cta' => 'Connect a Social Account',  'url' => '/account/settings?section=connected',            'optional' => false),
             'first_post' => array('title' => 'Publish your first post',          'text' => 'It goes on your profile and the Home feed, and can cross-post to your socials.',                                       'cta' => 'Publish Your First Post',   'url' => '/studio',                                        'optional' => false),
             'inbox'      => array('title' => 'Turn on AI replies',               'text' => 'Let AI draft replies to fan DMs. Add a welcome message while you are there.',  'cta' => 'Turn On AI Replies',        'url' => '/account/settings?section=inbox',                'optional' => false),
@@ -38,34 +36,31 @@ class SetupService {
         $defs  = self::steps();
         if (!self::handle_applies($model, $creator_id)) { unset($defs['handle']); }
         // handle step (end)
-        // Free builds before it pays: the selling and AI steps (live tier, payouts, AI replies) wait for the upgrade.
+        // Free builds before it pays: the AI replies step waits for the upgrade.
         $owner = (new UsersModel())->get_user_by_id($creator_id);
         $owner = (is_array($owner) && count($owner) === 1) ? $owner[0] : null;
-        $can_sell = Plan::can_sell($owner);
-        if (!$can_sell) {
-            unset($defs['tiers'], $defs['payouts'], $defs['inbox']);
+        $paid_plan = Plan::can_use_creator_features($owner);
+        if (!$paid_plan) {
+            unset($defs['inbox']);
             $defs['first_post']['text'] = 'It goes live on your page when you upgrade.';   // Free has no public page or feed yet
         }
         $done  = array(); $skipped = array();
         if ($row && !empty($row['steps_json']))   { $done    = (array) json_decode((string) $row['steps_json'], true); }
         if ($row && !empty($row['skipped_json'])) { $skipped = (array) json_decode((string) $row['skipped_json'], true); }
         unset($skipped['plan']);   // never skippable
-        // plan step: shown while the account cannot sell, and kept (ticked) once it was shown and they started a plan.
-        if ($can_sell && !isset($done['plan']) && (string) ($owner['signup_role'] ?? '') !== 'creator') { unset($defs['plan']); }   // signed up as a creator: they started on Free, so the step shows ticked
-        elseif (!$can_sell) { unset($done['plan']); $defs['plan'] = self::plan_step($owner) + $defs['plan']; }   // back on Free after a plan: not done any more
+        // plan step: shown while the account has no paid plan, and kept (ticked) once it was shown and they started a plan.
+        if ($paid_plan && !isset($done['plan']) && (string) ($owner['signup_role'] ?? '') !== 'creator') { unset($defs['plan']); }   // signed up as a creator: they started on Free, so the step shows ticked
+        elseif (!$paid_plan) { unset($done['plan']); $defs['plan'] = self::plan_step($owner) + $defs['plan']; }   // back on Free after a plan: not done any more
 
         // Cheap DB checks run on every load so a step ticks the moment it's done — including after
-        // the checklist was once marked complete (steps can be added later). Only the Stripe payouts
-        // call is throttled (TTL), except when forced or returning from Stripe.
+        // the checklist was once marked complete (steps can be added later).
         if (count(array_intersect_key($done, $defs)) < count($defs)) {
             $now = date('Y-m-d H:i:s');
             $stripe_ok = $force || !$row || empty($row['checked_at'])
-                || (strtotime((string) $row['checked_at']) < time() - self::TTL)
-                || isset($_GET['payout_return']) || isset($_GET['payout_refresh']);
+                || (strtotime((string) $row['checked_at']) < time() - self::TTL);
             $changed = false;
             foreach ($defs as $key => $meta) {
                 if (isset($done[$key])) { continue; }
-                if ($key === 'payouts' && !$stripe_ok) { continue; }
                 if (self::check($model, $key, $creator_id)) { $done[$key] = $now; $changed = true; }
             }
             if ($changed || $stripe_ok || !$row) {
@@ -102,12 +97,10 @@ class SetupService {
 
     private static function check(CreatorSetupModel $m, $key, $creator_id): bool {
         switch ($key) {
-            case 'plan':       $u = (new UsersModel())->get_user_by_id($creator_id); return Plan::can_sell((is_array($u) && count($u) === 1) ? $u[0] : null);
+            case 'plan':       $u = (new UsersModel())->get_user_by_id($creator_id); return Plan::can_use_creator_features((is_array($u) && count($u) === 1) ? $u[0] : null);
             case 'handle':     return !UsersModel::is_neutral_username($m->current_username($creator_id));   // handle step
             case 'profile':    return $m->has_profile($creator_id);
             case 'brand':      return $m->has_brand($creator_id);
-            case 'tiers':      return $m->has_active_tier($creator_id);
-            case 'payouts':    return $m->has_payouts($creator_id);
             case 'socials':    return $m->has_connected_social($creator_id);
             case 'first_post': return $m->has_first_post($creator_id);
             case 'inbox':      return $m->has_inbox_ready($creator_id);
@@ -115,7 +108,7 @@ class SetupService {
         return false;
     }
 
-    /** The plan step for an account that cannot sell: the founding trial when it applies, else Choose a Plan; the link opens that plan's checkout. */
+    /** The plan step for an account without a paid plan: the founding trial when it applies, else Choose a Plan; the link opens that plan's checkout. */
     public static function plan_step(?array $owner): array {
         $plan = UpgradePrompt::plan($owner);
         if (UpgradePrompt::founding($owner)) {

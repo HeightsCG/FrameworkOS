@@ -241,7 +241,7 @@ jQuery(function ($) {
         $('<span class="cs-tile__type"><i class="fa-solid ' + typeIcon(a.type) + '"></i></span>').appendTo($t);
         if (a.type === 'video' && a.duration) $('<span class="cs-tile__badge"><i class="fa-solid fa-play"></i> ' + fmtDuration(a.duration) + '</span>').appendTo($t);
         if (a.type === 'audio') $('<span class="cs-tile__badge"><i class="fa-solid fa-music"></i> ' + (fmtDuration(a.duration) || '') + '</span><span class="cs-tile__name">' + esc(a.name || 'Audio') + '</span>').appendTo($t);
-        if (a.moderation === 'flagged') $('<span class="cs-tile__adult" title="Marked adult — shown only to fans with adult content on">18+</span>').appendTo($t);
+        if (a.moderation === 'flagged') $('<span class="cs-tile__flag" title="Flagged by our content check"><i class="fa-solid fa-flag"></i> Flagged</span>').appendTo($t);
         else if (a.moderation === 'pending' && a.status === 'ready') $('<span class="cs-tile__scan" title="Checking content…"><i class="fa-solid fa-shield-halved"></i></span>').appendTo($t);
         if (a.usage_count > 0) $('<span class="cs-tile__use">In ' + a.usage_count + '</span>').appendTo($t);
         if (a.status === 'processing' || a.status === 'uploading') $('<div class="cs-tile__state"><span class="spinner-border spinner-border-sm"></span> Processing…</div>').appendTo($t);
@@ -715,11 +715,11 @@ jQuery(function ($) {
     // =====================================================================
     // Post composer
     // =====================================================================
-    var composer = { id: null, caption: '', audience: 'free', tier_ids: [], ppv_price: 50, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    var composer = { id: null, caption: '', comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'post', validation: { ok: true, reason: '' }, saveTimer: null };
     composer.share = new Set();
     function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram',bluesky:'fa-bluesky',threads:'fa-threads'}; return m[pl]||''; }
-    function socialIconClass(pl){ if (pl === 'fanvue') return 'fa-solid fa-bolt'; var b = socialIcon(pl); return b ? 'fa-brands ' + b : 'fa-solid fa-share-nodes'; }
-    function socialPlatformName(p){ var m = { x: 'X', twitter: 'X', instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', bluesky: 'Bluesky', threads: 'Threads', youtube: 'YouTube', linkedin: 'LinkedIn', pinterest: 'Pinterest', fanvue: 'Fanvue' }; p = String(p || '').toLowerCase(); return m[p] || (p.charAt(0).toUpperCase() + p.slice(1)); }
+    function socialIconClass(pl){ var b = socialIcon(pl); return b ? 'fa-brands ' + b : 'fa-solid fa-share-nodes'; }
+    function socialPlatformName(p){ var m = { x: 'X', twitter: 'X', instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', bluesky: 'Bluesky', threads: 'Threads', youtube: 'YouTube', linkedin: 'LinkedIn', pinterest: 'Pinterest' }; p = String(p || '').toLowerCase(); return m[p] || (p.charAt(0).toUpperCase() + p.slice(1)); }
 
     /* ---- distribution: filterable list of every connected account; checkboxes keep data-acct so composer.share is unchanged ---- */
     function renderSocial(){
@@ -798,57 +798,10 @@ jQuery(function ($) {
     var pickerAssets = [], pickerSel = new Set();
     var TZ = (CFG.creator && CFG.creator.timezone) ? CFG.creator.timezone : 'UTC';
     $('#csCompTz').text(TZ);
-    // subscription tiers for audience targeting
-    /* ---- tier picker: checkboxes, any number of tiers; a select-all row on top. Empty selection is invalid for subscribers-only. ---- */
-    var TIER_NAMES = {};
-    function allTierIds() { return (CFG.plans || []).map(function (p) { return String(p.id); }); }
-    (function () {
-        var $g = $('#csCompTiers');
-        var plans = CFG.plans || [];
-        if (!plans.length) { $g.append('<p class="cs-pe__empty">No membership tiers yet. Add one in <a href="/account/settings?section=plans">Settings</a>.</p>'); return; }
-        $g.append('<label class="cs-pe__dest cs-pe__dest--all" for="csPeTierAll"><input class="form-check-input" type="checkbox" id="csPeTierAll" data-tier-all="1"><span class="cs-pe__destname">All tiers</span><span class="cs-pe__destplat" id="csPeTierCount"></span></label>');
-        plans.forEach(function (p) {
-            TIER_NAMES[String(p.id)] = p.name;
-            var id = 'csPeTier_' + p.id, price = p.price_cents > 0 ? ('$' + (p.price_cents / 100).toFixed(2) + '/mo') : 'Free';
-            $g.append('<label class="cs-pe__dest" for="' + id + '"><input class="form-check-input" type="checkbox" id="' + id + '" data-tier="' + esc(String(p.id)) + '">' +
-                '<span class="cs-pe__destname">' + esc(p.name) + '</span><span class="cs-pe__destplat">' + esc(price) + '</span></label>');
-        });
-    })();
-    function peRenderTiers() {
-        var sel = composer.tier_ids || [], total = allTierIds().length;
-        $('#csCompTiers input[data-tier]').each(function () {
-            var on = sel.indexOf(String($(this).data('tier'))) >= 0;
-            $(this).prop('checked', on).closest('.cs-pe__dest').toggleClass('is-on', on);
-        });
-        var all = total > 0 && sel.length === total;
-        $('#csPeTierAll').prop('checked', all).prop('indeterminate', !all && sel.length > 0).closest('.cs-pe__dest').toggleClass('is-on', all);
-        $('#csPeTierCount').text(total ? (sel.length + ' of ' + total + ' selected') : '');
-        if (sel.length) peClearError('tier');
-    }
-    function tierSummary() {
-        var sel = composer.tier_ids || [], total = allTierIds().length;
-        if (!total) return 'All';
-        if (sel.length === total) return 'All tiers';
-        if (sel.length === 0) return 'No tiers';
-        if (sel.length === 1) return TIER_NAMES[sel[0]] || '1 tier';
-        return sel.length + ' tiers';
-    }
-    $('#csCompTiers').on('change', 'input[data-tier]', function () {
-        var id = String($(this).data('tier')), i = composer.tier_ids.indexOf(id);
-        if (this.checked && i < 0) composer.tier_ids.push(id); else if (!this.checked && i >= 0) composer.tier_ids.splice(i, 1);
-        composer.lastTiers = composer.tier_ids.slice();
-        peRenderTiers(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
-    });
-    $('#csCompTiers').on('change', '#csPeTierAll', function () {
-        composer.tier_ids = this.checked ? allTierIds() : [];
-        composer.lastTiers = composer.tier_ids.slice();
-        peRenderTiers(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
-    });
-
     $('#csNewPostBtn').on('click', function () { openComposer(null); });
 
     /* ---- sections + nav ---- */
-    var PE_SECTIONS = ['content', 'audience', 'distribution', 'publish'];
+    var PE_SECTIONS = ['content', 'distribution', 'publish'];
     var peOpener = null, peSaving = false;
     function peShowSection(key, focusHeading) {
         if (PE_SECTIONS.indexOf(key) < 0) key = 'content';
@@ -874,10 +827,6 @@ jQuery(function ($) {
     function peUpdateSummaries() {
         var n = composer.assets.length;
         peSum('content', (n ? (n + ' media') : 'No media') + ' · ' + (composer.caption.trim() ? 'Caption added' : 'No caption'));
-        var aud = 'Everyone';
-        if (composer.audience === 'subscribers') { aud = 'Subscribers · ' + tierSummary(); }
-        else if (composer.audience === 'ppv') { aud = 'Pay-per-view · ' + credits(composer.ppv_price); }
-        peSum('audience', aud);
         peUpdateDestCount();
         if (composer.state === 'published') { peSum('publish', 'Published'); }
         else if (composer.mode === 'schedule') { var d = peScheduleDate(); peSum('publish', d ? ('Scheduled · ' + peFmtDate(d)) : 'Scheduled · pick a time'); }
@@ -906,7 +855,7 @@ jQuery(function ($) {
     });
 
     /* ---- validation: every section, inline message + nav flag ---- */
-    var PE_ERR_SECTION = { media: 'content', caption: 'content', price: 'audience', tier: 'audience', share: 'distribution', schedule: 'publish' };
+    var PE_ERR_SECTION = { media: 'content', caption: 'content', share: 'distribution', schedule: 'publish' };
     function peSetError(key, msg, $field) {
         $('#csPeErr_' + key).text(msg).prop('hidden', false);
         if ($field) $field.addClass('is-invalid');
@@ -930,19 +879,10 @@ jQuery(function ($) {
         var errors = [];
         if (composer.caption.length > 3000) errors.push({ key: 'caption', msg: 'Captions can be up to 3,000 characters.', $f: $('#csCompCaption'), focus: '#csCompCaption' });
         if (kind !== 'draft' && !composer.caption.trim() && !composer.assets.length) errors.push({ key: 'media', msg: 'Add a photo, video, or caption before publishing.', focus: '#csCompCaption' });
-        if (composer.audience === 'subscribers' && allTierIds().length && !composer.tier_ids.length) errors.push({ key: 'tier', msg: 'Pick at least one tier.', focus: '#csPeTierAll' });
-        var priceBad = false;
-        if (composer.audience === 'ppv') {
-            // Same rule as the server (Price): whole credits, 10 to 5,000.
-            var p = Number(composer.ppv_price);
-            priceBad = !isFinite(p) || p < 10 || p > 5000 || Math.floor(p) !== p;
-            if (priceBad) errors.push({ key: 'price', msg: 'Enter a price from 10 to 5,000 credits, in whole credits.', $f: $('#csCompPpvPrice'), focus: '#csCompPpvPrice' });
-        }
-        // The server's own verdict on the saved post (media processing, moderation, PPV rules), routed to its section.
+        // The server's own verdict on the saved post (media processing, moderation), routed to its section.
         if (kind !== 'draft' && composer.validation && composer.validation.ok === false && (composer.caption.trim() || composer.assets.length)) {
             var reason = composer.validation.reason || 'This post can\u2019t be published yet.';
-            if (/price/i.test(reason)) { if (!priceBad) errors.push({ key: 'price', msg: reason, $f: $('#csCompPpvPrice'), focus: '#csCompPpvPrice' }); }
-            else errors.push({ key: 'media', msg: reason, focus: '#csCompMedia [data-pe-add], #csCompCaption' });
+            errors.push({ key: 'media', msg: reason, focus: '#csCompMedia [data-pe-add], #csCompCaption' });
         }
         var offSel = $('#csCompSocial .cs-pe__dest.is-off:not(.is-posted) input[data-acct]:checked').length;   // a row already posted to is disabled on purpose
         if (offSel) errors.push({ key: 'share', msg: 'A selected account is disconnected. Unselect it or reconnect it in Settings.', focus: '#csPeDestSearch' });
@@ -956,7 +896,7 @@ jQuery(function ($) {
     }
     function peShowServerError(msg) {
         var text = msg || 'Something went wrong.';
-        var key = /media|photo|video|caption|processing|blocked|removed/i.test(text) ? 'media' : (/price|pay-per-view/i.test(text) ? 'price' : (/date|time|future|schedule/i.test(text) ? 'schedule' : ''));
+        var key = /media|photo|video|caption|processing|blocked|removed/i.test(text) ? 'media' : (/date|time|future|schedule/i.test(text) ? 'schedule' : '');
         if (key) { peSetError(key, text); peShowSection(PE_ERR_SECTION[key], false); setTimeout(function () { $('#csPeErr_' + key).closest('.cs-pe__field').find('.form-control, .form-select, .cs-pe__mbtn').first().trigger('focus'); }, 30); }
         else { peShowSection('publish', false); $('#csCompValidation').prop('hidden', false).html('<i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' + esc(text)); }
     }
@@ -988,7 +928,7 @@ jQuery(function ($) {
     var compose_caption = '';   // an idea handed over from /ideas (?compose=), used by the next new post only
     function newComposer() {
         clearTimeout(composer.saveTimer);
-        composer = { id: null, caption: compose_caption, audience: 'free', tier_ids: allTierIds(), lastTiers: allTierIds(), ppv_price: 50, lastPpv: 50, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
+        composer = { id: null, caption: compose_caption, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'post', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
         compose_caption = '';
         composer.share = new Set();
         composer.shared_before = new Set();
@@ -1001,11 +941,8 @@ jQuery(function ($) {
     }
     function setComposer(p) {
         clearTimeout(composer.saveTimer);
-        composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
-        composer.tier_ids = (p.tier_ids && p.tier_ids.length) ? p.tier_ids.map(String) : (p.tier_id ? [String(p.tier_id)] : allTierIds()); composer.lastTiers = composer.tier_ids.slice();
+        composer.id = p.id; composer.caption = p.caption || '';
         composer.moderation = p.moderation || 'ok';
-        composer.age_verified = (p.age_verified !== false);   // an adult post publishes once the creator is age verified
-        composer.ppv_price = p.ppv_price_credits || 50; composer.lastPpv = composer.ppv_price;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.on_cls = (p.on_cls != null) ? (p.on_cls ? 1 : 0) : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
@@ -1033,25 +970,24 @@ jQuery(function ($) {
 
     // What the post looked like when the editor opened (or after an explicit save): "Discard changes" reverts to this.
     function peStateFields() {
-        return { caption: composer.caption, audience: composer.audience, tier_ids: (composer.audience === 'subscribers' ? composer.tier_ids.slice().sort() : []), ppv_price: (composer.audience === 'ppv' ? String(composer.ppv_price || '') : ''),
+        return { caption: composer.caption,
                  asset_ids: composer.assets.map(function (a) { return a.id; }), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
     }
     function peSnapshot() { composer.snapshot = { id: composer.id, fields: peStateFields() }; }
     function peChangedSinceOpen() { return !composer.snapshot || JSON.stringify(peStateFields()) !== JSON.stringify(composer.snapshot.fields); }
 
-    // Notice shown in the composer when the post's media is flagged adult (or still scanning).
+    // Notice shown in the composer when the post's media is flagged or blocked by the content check (or still scanning).
     function renderModNote() {
         var $note = $('#csCompModNote');
         if (composer.moderation === 'blocked') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--blocked').prop('hidden', false)
                 .html('<i class="fa-solid fa-ban"></i> This post contains media that was <strong>blocked</strong> by our content check and can\'t be published. Remove it to continue.');
-        } else if (composer.moderation === 'flagged' || composer.moderation === 'adult') {
-            $note.attr('class', 'cs-comp__modnote cs-comp__modnote--adult').prop('hidden', false)
-                .html('<i class="fa-solid fa-circle-exclamation"></i> This post is marked <strong>adult</strong> — it will only be shown to fans who have adult content turned on.'
-                    + (composer.age_verified === false ? ' Publishing it needs a one-time age check: you will be asked when you publish.' : ''));
+        } else if (composer.moderation === 'flagged') {
+            $note.attr('class', 'cs-comp__modnote cs-comp__modnote--flagged').prop('hidden', false)
+                .html('<i class="fa-solid fa-flag"></i> An image in this post was <strong>flagged</strong> by our content check. The post stays in your drafts until our team reviews it, or you remove the image.');
         } else if (composer.moderation === 'pending') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--scan').prop('hidden', false)
-                .html('<i class="fa-solid fa-shield-halved"></i> Checking your media for adult content — it won\'t be visible to fans until the check finishes.');
+                .html('<i class="fa-solid fa-shield-halved"></i> Checking your media. It won\'t be visible until the check finishes.');
         } else {
             $note.prop('hidden', true).empty();
         }
@@ -1065,11 +1001,6 @@ jQuery(function ($) {
         $('#csPeStatus').toggleClass('is-published', pub).toggleClass('is-scheduled', sch);
         $('#csCompCaption').val(composer.caption);
         peRenderCount();
-        $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === composer.audience ? 'true' : 'false'); });
-        $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
-        peRenderTiers();
-        $('#csCompPpv').prop('hidden', composer.audience !== 'ppv');
-        $('#csCompPpvPrice').val(composer.ppv_price || 50);
         $('#csCompComments').prop('checked', composer.comments_enabled != 0);
         $('#csPeMode .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('mode') === composer.mode ? 'true' : 'false'); });
         $('#csPeMode').prop('hidden', pub);
@@ -1190,7 +1121,7 @@ jQuery(function ($) {
     function scheduleSave() { clearTimeout(composer.saveTimer); if (composer.caption.trim() || composer.assets.length || composer.id) setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
     function saveNow(cb) {
         clearTimeout(composer.saveTimer);
-        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_ids: (composer.audience === 'subscribers' ? composer.tier_ids.slice() : []), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
+        var data = { id: composer.id || 0, caption: composer.caption, asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
         var sentIds = data.asset_ids.join(',');
         ApiDataSvc.apiCall('post', 'post_save', data, function (resp) { var o = JSON.parse(resp);
                 if (o && o.success) {
@@ -1220,7 +1151,7 @@ jQuery(function ($) {
     /* What the Story looks like: the cover whole and centred on a blurred copy of itself, as SocialFrame makes it on the server. */
     function renderStoryPreview() {
         var a = composer.assets[0], cr = CFG.creator || {};
-        var teaser = composer.audience === 'subscribers';   // members-only posts send the blurred teaser, never the media
+        var teaser = false;
         var fg = '', bg = '';
         var sv = (typeof mc !== 'undefined' && mc.story) || null;
         if (sv && sv.display_url) {   // the prepared version itself (MediaCompliance): exactly what goes out
@@ -1241,14 +1172,11 @@ jQuery(function ($) {
         $('#csPreviewCard').html('<div class="cs-pv__story' + (teaser ? ' is-teaser' : '') + '"><div class="cs-pv__storybar"></div>' + head + bg + fg + '</div>');
     }
     function renderPreview() {
-        peMediaCheckSoon();   // every change the preview follows (media, audience, destinations, placement) re-checks the media in the background
+        peMediaCheckSoon();   // every change the preview follows (media, destinations, placement) re-checks the media in the background
         var storyOn = peStoryOn();
         $('#csCompViewStory').prop('hidden', !storyOn);
-        if (!storyOn && composer.view === 'story') { peSetView('sub'); }
+        if (!storyOn && composer.view === 'story') { peSetView('post'); }
         if (composer.view === 'story') { if (pvTimer) { clearInterval(pvTimer); pvTimer = null; } renderStoryPreview(); return; }
-        var isPpv = composer.audience === 'ppv';
-        // PPV is locked for everyone until purchased, so it shows locked in both preview views.
-        var locked = isPpv || (composer.view === 'pub' && composer.audience === 'subscribers');
         var assets = composer.assets;
         var media;
         if (!assets.length) {
@@ -1257,7 +1185,7 @@ jQuery(function ($) {
             if (composer.pvIdx == null || composer.pvIdx >= assets.length || composer.pvIdx < 0) composer.pvIdx = 0;
             var slides = assets.map(function (a, i) {
                 var inner;
-                if (a.type === 'video' && a.video_url && !locked) {
+                if (a.type === 'video' && a.video_url) {
                     inner = '<video src="' + esc(a.video_url) + '"' + (a.thumb_url ? ' poster="' + esc(a.thumb_url) + '"' : '') + ' controls preload="metadata" playsinline></video>';
                 } else {
                     inner = a.thumb_url ? '<img src="' + esc(a.thumb_url) + '" alt="">' : '<div class="cs-pv__slideph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>';
@@ -1271,9 +1199,7 @@ jQuery(function ($) {
                       '<button type="button" class="cs-pv__nav cs-pv__nav--next" data-pv="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
                       '<div class="cs-pv__dots">' + assets.map(function (a, i) { return '<span class="cs-pv__dot' + (i === composer.pvIdx ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
             }
-            var lockLabel = isPpv ? ('Unlock for ' + credits(composer.ppv_price)) : 'Subscribe to unlock';
-            var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>' + lockLabel + '</span></div>' : '';
-            media = '<div class="cs-pv__media cs-pv__media--carousel' + (locked ? ' is-locked' : '') + '">' + slides + lock + nav + '</div>';
+            media = '<div class="cs-pv__media cs-pv__media--carousel">' + slides + nav + '</div>';
         }
         var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
         var cr = CFG.creator || {};
@@ -1298,7 +1224,7 @@ jQuery(function ($) {
         var shared = composer.shared_before || new Set();
         var ids = (composer.assets || []).filter(function (a) { return !a.missing; }).map(function (a) { return a.id; });
         var share = Array.from(composer.share || []).filter(function (id) { return composer.state !== 'published' || !shared.has(id); });   // already posted: nothing to check
-        return { asset_ids: ids, audience: composer.audience || 'free', share_accounts: share,
+        return { asset_ids: ids, share_accounts: share,
             story_accounts: (composer.story_accounts || []).filter(function (e) { return share.indexOf(String(e).replace(/^both:/, '')) >= 0; }) };
     }
     function peMediaCheckSoon(force) {
@@ -1459,7 +1385,7 @@ jQuery(function ($) {
         var $b = $(this), html = $b.html();
         $b.prop('disabled', true).addClass('is-busy').html('<span class="spinner-border spinner-border-sm"></span> Writing…');
         $('#csCompCaption').prop('disabled', true).attr('placeholder', 'Writing a caption…');
-        ApiDataSvc.apiCall('post', 'post_caption_auto', { asset_ids: composer.assets.map(function (a) { return a.id; }), audience: composer.audience, hint: composer.caption.trim(), caption_mode: $('#csPeCaptionMode').val() || 'standard' }, function (resp) {
+        ApiDataSvc.apiCall('post', 'post_caption_auto', { asset_ids: composer.assets.map(function (a) { return a.id; }), hint: composer.caption.trim(), caption_mode: $('#csPeCaptionMode').val() || 'standard' }, function (resp) {
             var o = null; try { o = JSON.parse(resp); } catch (e) {}
             $(document).trigger('cs:caption-written', [o]);
             $b.prop('disabled', false).removeClass('is-busy').html(html);
@@ -1469,27 +1395,11 @@ jQuery(function ($) {
         });
     });
     $('#csCompCaption').on('input', function () { composer.caption = this.value; peRenderCount(); peClearError('caption'); peClearError('media'); updatePreviewCaption(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
-    function peSetAudience(aud) {
-        if (composer.audience === 'subscribers') composer.lastTiers = composer.tier_ids.slice();
-        if (composer.audience === 'ppv') composer.lastPpv = composer.ppv_price;
-        composer.audience = aud;
-        composer.tier_ids = (aud === 'subscribers') ? ((composer.lastTiers && composer.lastTiers.length) ? composer.lastTiers.slice() : allTierIds()) : [];
-        if (aud === 'ppv') composer.ppv_price = composer.lastPpv || 50;
-        $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === aud ? 'true' : 'false'); });
-        $('#csCompTier').prop('hidden', aud !== 'subscribers'); peRenderTiers();
-        $('#csCompPpv').prop('hidden', aud !== 'ppv'); $('#csCompPpvPrice').val(composer.ppv_price || 50);
-        if (aud !== 'ppv') peClearError('price');
-        renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
-    }
-    $('#csCompAudience').on('click', '.cs-pe__choice', function () { peSetAudience($(this).data('aud')); });
-    $('#csCompAudience, #csPeMode').on('keydown', '.cs-pe__choice', function (e) {
+    $('#csPeMode').on('keydown', '.cs-pe__choice', function (e) {
         if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
         e.preventDefault(); var items = $(this).parent().find('.cs-pe__choice'), i = items.index(this);
         items.eq((i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length).trigger('focus').trigger('click');
     });
-    $('#csCompPpvPrice').on('input', function () { composer.ppv_price = this.value; composer.lastPpv = this.value; peClearError('price'); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
-    // On blur a valid number is shown with cents ("5" -> "5.00"); it is never changed to a different amount.
-    $('#csCompPpvPrice').on('blur', function () { var d = parseFloat(this.value); if (!isNaN(d)) { this.value = Math.round(d); composer.ppv_price = this.value; composer.lastPpv = this.value; } renderPreview(); peUpdateSummaries(); scheduleSave(); });
     $('#csCompComments').on('change', function () { composer.comments_enabled = this.checked ? 1 : 0; updatePreviewCaption(); peMarkDirty(); scheduleSave(); });
     function peSetMode(mode) {
         composer.mode = mode;
@@ -1573,12 +1483,6 @@ jQuery(function ($) {
         function fail(o) {
             done();
             if (window.cls_need_agreement(o)) { return; }
-            if (o && o.need_age_verification) {   // trigger 2: adult media, creator not yet age verified
-                if (!o.url) { peShowServerError('Could not start age verification. ' + (o.error || 'Please try again.')); return; }
-                Swal.fire({ title: 'Verify your age', text: 'This post is marked adult. One quick age check, then it publishes. The draft is saved.', icon: 'info', showCancelButton: true, confirmButtonText: 'Verify Now', cancelButtonText: 'Later' })
-                    .then(function (r) { if (r.isConfirmed) { window.location = o.url; } });
-                return;
-            }
             peShowServerError(o && o.message);
         }
         saveNow(function (ok) {
@@ -1621,7 +1525,7 @@ jQuery(function ($) {
                 } else if (composer.id && snap && snap.id) {
                     // Put the post back the way it was when the editor opened.
                     var f = snap.fields;
-                    ApiDataSvc.apiCall('post', 'post_save', { id: composer.id, caption: f.caption, audience: f.audience, tier_ids: f.tier_ids, ppv_price: f.ppv_price, asset_ids: f.asset_ids, cover_id: f.asset_ids[0] || 0, comments_enabled: f.comments_enabled, on_cls: f.on_cls }, function () { afterComposer(); });
+                    ApiDataSvc.apiCall('post', 'post_save', { id: composer.id, caption: f.caption, asset_ids: f.asset_ids, cover_id: f.asset_ids[0] || 0, comments_enabled: f.comments_enabled, on_cls: f.on_cls }, function () { afterComposer(); });
                 }
                 composerModal.hide();
             }
@@ -1644,17 +1548,14 @@ jQuery(function ($) {
         });
     })();
     // Hand-off from Generate Carousel ("Use In Post"): the draft it made opens in the composer.
-    // Also /studio?post=<id>: back from the age check (and any deep link), the post opens so the creator can publish it.
+    // Also /studio?post=<id> (the link in a content check notice, and any deep link): the post opens in the composer.
     (function () {
         var post = '';
         try { post = sessionStorage.getItem('cs_open_post') || ''; sessionStorage.removeItem('cs_open_post'); } catch (e) {}
-        var q = new URLSearchParams(location.search), url_post = q.get('post') || '', age = q.get('age_verification');
-        if (url_post != '' || age != null) {
-            q.delete('post'); q.delete('age_verification');
+        var q = new URLSearchParams(location.search), url_post = q.get('post') || '';
+        if (url_post != '') {
+            q.delete('post');
             history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : ''));
-            if (age == 'verified') { toastr.success('Age verified. You can publish adult posts now.'); }
-            else if (age == 'failed') { toastr.error('Age verification failed. Press Publish to try again.'); }
-            else if (age != null) { toastr.info('Your age check is still being processed. Try publishing again in a moment.'); }
         }
         if (parseInt(post, 10) > 0) { openComposer(parseInt(post, 10)); }
         else if (parseInt(url_post, 10) > 0) { openComposer(parseInt(url_post, 10)); }
@@ -1671,7 +1572,6 @@ jQuery(function ($) {
     $('#csPostsRetry').on('click', loadPosts);
     $('#csPostsEmptyNew').on('click', function () { openComposer(null); });
 
-    function fmtMoney(c) { return credits(Math.round(Math.max(0, c || 0) / 10)); }   // earnings are stored in cents; shown as credits
     function sharePostDialog(id) {
         var soc = CFG.social || { accounts: [], can_post: false };
         if (!soc.accounts || !soc.accounts.length) { toastr.info('Connect social accounts in Settings first.'); return; }
@@ -1741,14 +1641,9 @@ jQuery(function ($) {
             ? '<img src="' + esc(p.cover_url) + '" alt="">'
             : '<i class="fa-solid ' + typeIcon(p.cover_type || 'image') + '"></i>';
         if (p.asset_count > 1) cover += '<span class="cs-post__num">' + p.asset_count + '</span>';
-        var badge = p.held ? '<span class="cs-badge cs-badge--held">' + (p.held_reason === 'age_verification' ? 'Held: verify your age to publish' : 'Held: upgrade to publish') + '</span>' : '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
-        var aud = p.audience === 'subscribers'
-            ? '<span class="cs-post__aud"><i class="fa-solid fa-lock"></i> Subscribers</span>'
-            : (p.audience === 'ppv'
-                ? '<span class="cs-post__aud cs-post__aud--ppv"><i class="fa-solid fa-coins"></i> PPV · ' + credits(p.ppv_price_credits || 0) + '</span>'
-                : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>');
-        var adult = (p.moderation === 'flagged' || p.moderation === 'adult') ? '<span class="cs-post__adult" title="Marked adult — shown only to fans with adult content on">18+</span>'
-            : (p.moderation === 'pending') ? '<span class="cs-post__adult" title="Checking content — hidden from fans until the check finishes"><i class="fa-solid fa-shield-halved"></i> Checking</span>'
+        var badge = p.held ? '<span class="cs-badge cs-badge--held">' + (p.held_reason === 'moderation' ? 'Held: flagged by content check' : 'Held: upgrade to publish') + '</span>' : '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
+        var modtag = (p.moderation === 'flagged') ? '<span class="cs-post__flag" title="Flagged by our content check — held in drafts until reviewed"><i class="fa-solid fa-flag"></i> Flagged</span>'
+            : (p.moderation === 'pending') ? '<span class="cs-post__scan" title="Checking content — hidden until the check finishes"><i class="fa-solid fa-shield-halved"></i> Checking</span>'
             : (p.moderation === 'blocked') ? '<span class="cs-post__blocked" title="Blocked by content check — cannot be published"><i class="fa-solid fa-ban"></i> Blocked</span>' : '';
         var when = p.when ? '<span class="cs-post__when">' + esc(p.when_label) + ' ' + esc(p.when) + '</span>' : '';
         var missing = p.media_missing ? '<span class="cs-post__warn"><i class="fa-solid fa-triangle-exclamation"></i> Media removed</span>' : '';
@@ -1756,8 +1651,6 @@ jQuery(function ($) {
         var stats =
             '<span class="cs-post__stat"><i class="fa-regular fa-eye"></i> ' + p.views + '</span>' +
             '<span class="cs-post__stat"><i class="fa-regular fa-comment"></i> ' + p.comments + '</span>' +
-            (p.audience === 'ppv' ? '<span class="cs-post__stat" title="Unlocks"><i class="fa-solid fa-lock-open"></i> ' + p.ppv_unlocks + '</span>' : '') +
-            '<span class="cs-post__stat cs-post__earn">' + fmtMoney(p.earnings_cents) + '</span>' +
             (p.shared_count > 0 ? '<span class="cs-post__stat"><i class="fa-solid fa-share-nodes"></i> ' + p.shared_count + '</span>' : '');
         var reschedule = (p.state === 'scheduled')
             ? '<li><button class="dropdown-item" data-post-act="reschedule"><i class="fa-solid fa-clock"></i> Reschedule</button></li>' : '';
@@ -1769,7 +1662,7 @@ jQuery(function ($) {
             '<div class="cs-post__cover" data-post-edit>' + cover + '</div>' +
             '<div class="cs-post__main" data-post-edit>' +
                 '<div class="cs-post__cap">' + cap + '</div>' +
-                '<div class="cs-post__meta">' + badge + aud + adult + when + missing + '</div>' +
+                '<div class="cs-post__meta">' + badge + modtag + when + missing + '</div>' +
             '</div>' +
             '<div class="cs-post__stats">' + stats + '</div>' +
             '<div class="cs-post__act">' +
@@ -1986,7 +1879,7 @@ jQuery(function ($) {
     var schedModal, schedRules = [], schedRunning = {};
     var schedPlan = CFG.automation_plan || { can_create: true, included: true, message: '', upgrade_name: '' };   // what the plan allows; refreshed by scheduler_list
     var DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-    var schedForm = { audience: 'free', cadence: 'daily' };
+    var schedForm = { cadence: 'daily' };
 
     $('#csTabScheduler').on('shown.bs.tab', loadScheduler);
     $('#csSchedRetry').on('click', loadScheduler);
@@ -2026,7 +1919,7 @@ jQuery(function ($) {
     function schedTargetsChecked() { return $('#csSchedTargets input[data-clsseg]:checked').map(function () { return String($(this).data('clsseg')); }).get(); }
     function schedCard(r) {
         var isMsg = r.kind === 'message';
-        var aud = isMsg ? schedTargetsSummary(r) : (r.audience === 'subscribers' ? 'Subscribers only' : 'Everyone');
+        var aud = isMsg ? schedTargetsSummary(r) : 'Everyone';
         var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : ((r.image_source === 'character' && r.character_name) ? (r.character_name + ' · ' + r.topic) : r.topic));
         var lastRun = r.last_status === 'success'
             ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
@@ -2055,7 +1948,7 @@ jQuery(function ($) {
                 '<div class="cs-sched__meta">' +
                     '<span class="cs-sched__metaitem"><i class="fa-regular fa-clock"></i>' + esc(r.cadence_summary) + '</span>' +
                     (r.credits_per_run > 0 ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-wand-magic-sparkles"></i>' + fmtNum(r.credits_per_run) + ' AI credits per post · about ' + fmtNum(r.credits_per_month) + ' a month</span>' : '') +
-                    '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (isMsg ? 'users' : (r.audience === 'subscribers' ? 'lock' : 'globe')) + '"></i>' + esc(aud) + '</span>' +
+                    '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (isMsg ? 'users' : 'globe') + '"></i>' + esc(aud) + '</span>' +
                     (r.next_run ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-forward"></i>Next ' + esc(r.next_run) + '</span>' : '') +
                     lastRun +
                 '</div>' +
@@ -2220,9 +2113,7 @@ jQuery(function ($) {
                 : (schedForm.image_source === 'character' ? (schedForm.character_name || 'My Character') : 'Brand photo');
             var size = aspectKey($('#csSchedSize').val());
             schedSum('content', src + ' · ' + ((CFG.aspect && CFG.aspect.names[size]) || size) + (schedIsVideo() ? ' · Video' : ''));
-            var aud = schedForm.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
-            var tier = schedForm.audience === 'subscribers' ? ($('#csSchedTierSel option:selected').text() || 'All tiers') : ($('#csSchedAi').is(':checked') ? 'AI captions' : 'Own caption');
-            schedSum('publishing', aud + ' · ' + tier);
+            schedSum('publishing', $('#csSchedAi').is(':checked') ? 'AI captions' : 'Own caption');
             var n = $('#csSchedSocial input[data-sacct]:checked').length, page = $('#csSchedDestCls').is(':checked');
             var parts = []; if (page) { parts.push('Creator Link Studio'); } if (n) { parts.push(n + ' social account' + (n === 1 ? '' : 's')); }
             schedSum('destinations', parts.length ? parts.join(' + ') : 'Nowhere selected');
@@ -2287,7 +2178,7 @@ jQuery(function ($) {
         var ib = CFG.inbox || {}, $wrap = $('#csSchedTargets').empty();
         var cls = (sel && sel.cls) || []; if (typeof cls === 'string') { cls = cls ? [cls] : []; }
         var on = new Set(cls.map(String));
-        (ib.cls_segments || ['all', 'followers', 'subscribers']).forEach(function (g) {
+        (ib.cls_segments || ['followers']).forEach(function (g) {
             var id = 'csSchedSeg_' + g;
             $wrap.append('<label class="cs-social" for="' + id + '"><input class="form-check-input" type="checkbox" id="' + id + '" data-clsseg="' + esc(g) + '"' + (on.has(g) ? ' checked' : '') + '><span class="cs-social__name">' + esc(schedSegLabel(g)) + '</span></label>');
         });
@@ -2323,7 +2214,7 @@ jQuery(function ($) {
         });
         updateSchedDestCount();
     }
-    function socialPlatformLabel(p) { var m = { x: 'X', twitter: 'X', instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', bluesky: 'Bluesky', threads: 'Threads', youtube: 'YouTube', linkedin: 'LinkedIn', pinterest: 'Pinterest', fanvue: 'Fanvue' }; p = String(p || '').toLowerCase(); return m[p] || (p.charAt(0).toUpperCase() + p.slice(1)); }
+    function socialPlatformLabel(p) { var m = { x: 'X', twitter: 'X', instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', bluesky: 'Bluesky', threads: 'Threads', youtube: 'YouTube', linkedin: 'LinkedIn', pinterest: 'Pinterest' }; p = String(p || '').toLowerCase(); return m[p] || (p.charAt(0).toUpperCase() + p.slice(1)); }
     function updateSchedDestCount() {
         var n = $('#csSchedSocial input[data-sacct]:checked, #csSchedDestCls:checked').length, total = $('#csSchedSocial input[data-sacct], #csSchedDestCls').length;
         $('#csSchedDestCount').text(total > 1 ? (n + ' of ' + total + ' selected') : '');
@@ -2385,7 +2276,6 @@ jQuery(function ($) {
         renderSchedVideoModels(rule ? rule.video_model_key : '', rule ? rule.video_duration : '');
         setSchedMedia(schedForm.media_type);
         setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? (rule.image_source === 'character' ? rule.character_id : rule.influencer_id) : '');
-        setSchedAudience(rule ? rule.audience : 'free', rule ? rule.tier_id : '');
         setSchedCadence(schedForm.cadence);
 
         // header: live name, status only for an existing rule; footer: delete only for an existing rule
@@ -2538,19 +2428,6 @@ jQuery(function ($) {
         if (c) { schedForm.character_name = c.name || ''; }
         schedClearError('character'); syncSchedSourceTiles(); updateSchedSummaries();
     });
-    // Audience: Everyone or Subscribers; the Tier select only exists for subscribers and remembers its value.
-    function setSchedAudience(a, tierId) {
-        schedForm.audience = (a === 'subscribers') ? 'subscribers' : 'free';
-        $('#csSchedAudience').val(schedForm.audience);
-        if (tierId !== undefined && tierId !== null && String(tierId) !== '') { schedForm.tier_id = String(tierId); }
-        if (schedForm.tier_id && !$('#csSchedTierSel option[value="' + schedForm.tier_id + '"]').length) { schedForm.tier_id = ''; }
-        $('#csSchedTierSel').val(schedForm.tier_id || '');
-        $('#csSchedTier').prop('hidden', schedForm.audience !== 'subscribers');
-        $('#csSchedAudienceRow').toggleClass('is-single', schedForm.audience !== 'subscribers');
-        updateSchedSummaries();
-    }
-    $('#csSchedAudience').on('change', function () { setSchedAudience(this.value, undefined); });
-    $('#csSchedTierSel').on('change', function () { schedForm.tier_id = String(this.value || ''); updateSchedSummaries(); });
     $('#csSchedCadence').on('click', '.cs-seg__opt', function () { setSchedCadence($(this).data('cad')); });
     function setSchedCadence(c) {
         schedForm.cadence = (c === 'weekly') ? 'weekly' : 'daily';
@@ -2621,8 +2498,7 @@ jQuery(function ($) {
             character_id: (kind === 'post' && schedForm.image_source === 'character') ? (schedForm.character_id || '') : '', character_name: (kind === 'post' && schedForm.image_source === 'character') ? (schedForm.character_name || '') : '',
             media_type: (kind === 'post' && schedIsVideo()) ? 'video' : 'image', video_prompt: $('#csSchedVideoPrompt').val() || '',
             video_model_key: $('#csSchedVideoModel').val() || '', video_duration: $('#csSchedVideoDur').val() || '',
-            size: $('#csSchedSize').val(), audience: schedForm.audience,
-            tier_id: schedForm.audience === 'subscribers' ? (schedForm.tier_id || '') : '',
+            size: $('#csSchedSize').val(),
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',
             use_brand: $('#csSchedBrand').is(':checked') ? '1' : '0',
             ai_assist: $('#csSchedAi').is(':checked') ? '1' : '0', caption_text: $('#csSchedCaption').val() || '', caption_mode: $('#csSchedCapMode').val() || 'standard',

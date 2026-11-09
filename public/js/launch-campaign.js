@@ -38,12 +38,11 @@ $(function () {
             $('#lcAt').val(o.launch_at);
             $('#lcInfl').html('<option value="0">Yourself</option>' + (o.influencers || []).map(function (i) { return '<option value="' + i.id + '">' + esc(i.name) + '</option>'; }).join(''));
             $('#lcInflWrap').prop('hidden', !(o.influencers || []).length);
-            $('#lcDest').html('<option value="cls">Creator Link Studio</option>' + (o.fanvue ? '<option value="fanvue">Creator Link Studio And Fanvue</option>' : ''));
             var segs = '';
             $.each(o.labels || {}, function (key, label) {
                 if (key === 'all') { return; }
                 var n = (o.counts && o.counts[key] != null) ? o.counts[key] : 0;
-                segs += '<label class="lc__check"><input class="form-check-input" type="checkbox" value="' + esc(key) + '"' + (key === 'followers' || key === 'subscribers' ? ' checked' : '') + '> ' + esc(label) + ' <small>' + n + '</small></label>';
+                segs += '<label class="lc__check"><input class="form-check-input" type="checkbox" value="' + esc(key) + '"' + (key === 'followers' ? ' checked' : '') + '> ' + esc(label) + ' <small>' + n + '</small></label>';
             });
             $('#lcSegs').html(segs);
             $('#lcAccs').html((o.accounts || []).map(function (a) { return '<label class="lc__check"><input class="form-check-input" type="checkbox" value="' + esc(a.id) + '"> ' + esc(a.name) + ' <small>' + esc(a.platform) + '</small></label>'; }).join(''));
@@ -65,7 +64,6 @@ $(function () {
         return {
             what: $('#lcWhat').val().trim(), launch_at: $('#lcAt').val(), days: $('#lcDays').val(), influencer_id: $('#lcInfl').val() || 0,
             asset_id: asset ? asset.id : 0,
-            destination: $('#lcDest').val() || 'cls', promo_code: $('#lcCode').val().trim(), promo_percent: $('#lcPct').val() || 0, promo_days: $('#lcValid').val() || 7,
             segments: $('#lcSegs input:checked').map(function () { return this.value; }).get(),
             share_accounts: $('#lcAccs input:checked').map(function () { return this.value; }).get()
         };
@@ -97,10 +95,6 @@ $(function () {
     $('#lcOpen').on('click', function () { bootstrap.Modal.getOrCreateInstance($modal[0]).show(); if (!opts) { load(); } });
     $('#lcRetry').on('click', load);
     $('#lcWhat, #lcAt').on('input change', can_write);
-    $('#lcCode').on('input', function () {
-        this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        $('#lcPct, #lcValid').prop('disabled', this.value == '');
-    });
     // The shared Library picker (ai-tools.js) opens over this window; the chosen image goes on every post.
     $('#lcPick, #lcPickChoose').on('click', function () {
         if (!window.AiTools) { toastr.error('The image picker did not load. Reload the page and try again.'); return; }
@@ -110,7 +104,6 @@ $(function () {
 
     $('#lcWrite').on('click', function () {
         var s = setup();
-        if (s.promo_code != '' && !(parseInt(s.promo_percent, 10) >= 1 && parseInt(s.promo_percent, 10) <= 100)) { error('Set the promo discount between 1 and 100 percent.'); $('#lcPct').trigger('focus'); return; }
         var $b = $(this), html = $b.html();
         busy = true; error('');
         $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span> Writing');
@@ -120,7 +113,6 @@ $(function () {
             stage('review');
             var notes = [];
             if (!o.written) { notes.push('The writer was unavailable, so these are plain starting points to edit.'); }
-            if (s.destination === 'fanvue') { notes.push('Posts also go to Fanvue. Messages are sent on Creator Link Studio only.'); }
             $('#lcNote').text(notes.join(' ')).prop('hidden', !notes.length);
             render_items(o.items || []);
         });
@@ -139,7 +131,7 @@ $(function () {
             bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
             toastr.success(o.message || 'Campaign scheduled');
             if (o.share_errors && o.share_errors.length) { toastr.warning('Some cross-posts were not scheduled: ' + o.share_errors[0]); }
-            $('#lcWhat, #lcCode, #lcPct').val(''); $('#lcPct, #lcValid').prop('disabled', true);
+            $('#lcWhat').val('');
             set_asset(null);
             stage('form');
         });

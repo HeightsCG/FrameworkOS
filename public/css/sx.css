@@ -763,10 +763,10 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .cos-agree__text { max-height: 200px; overflow: auto; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--sx-line, rgba(255,255,255,.14)); border-radius: 6px; font-size: .8125rem; line-height: 1.55; color: var(--sx-t2); }
 .cos-legal { margin: 14px 0 0; font-size: .8125rem; line-height: 1.5; color: var(--sx-muted) !important; text-align: center; }
 .cos-legal a { color: var(--sx-ink); text-decoration: underline; text-underline-offset: 2px; }
-/* Six footer columns under the brand block (Product, AI, Compare, Integrations, Free Tools, Press; 2026-10-15). Terms, privacy and the account links sit in the bottom bar. */
+/* Five footer columns under the brand block (Product, AI, Integrations, Free Tools, Press; Compare removed 2026-11-09). Terms, privacy and the account links sit in the bottom bar. */
 .sf__top { grid-template-columns: minmax(0, 1fr); gap: 40px; }
 .sf__brand { max-width: 640px; }
-.sf__cols { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.sf__cols { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .sf__bottom > span { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
 .sf__legal { display: flex; flex-wrap: wrap; gap: 8px 20px; }
 .sf__legal a { color: var(--sx-muted); text-decoration: none; }

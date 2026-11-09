@@ -7,7 +7,7 @@
  *
  * To REMOVE entirely (grep "heycatch" / "HeyCatch" finds every line):
  *   - delete libs/Classes/HeyCatch.php and libs/Layout/heycatch.php
- *   - delete the `include ... heycatch.php` line in each <head> (libs/Layout/*.php, profile/view.php, live/guest_frame.php)
+ *   - delete the `include ... heycatch.php` line in each <head> (libs/Layout/*.php, profile/view.php)
  *   - delete the HeyCatch block in app/Bootstrap.php::start_app
  *   - the `user_id`/`email` fields on the verify_email API response are harmless and may stay
  *   - profile/view.php calls CLSHeyCatch(...) through a shim that is defined only by the include; drop that line too

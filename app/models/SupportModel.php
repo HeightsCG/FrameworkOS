@@ -9,13 +9,9 @@ class SupportModel extends Model {
     /** Self-serve answers: shown under Quick Answers on /support and given to AI Assist as how-to facts. */
     const QUICK_ANSWERS = array(
         array('How do I change my username, email or password?', 'Go to Settings from the menu at the top right. Account holds your username, profile photo and details; Security holds your password and two-step sign-in.', '/account/settings'),
-        array('How do I buy credits or turn on automatic top-ups?', 'Open Settings, then Wallet. You can buy credits there and set a balance at which more credits are bought automatically.', '/account/settings?section=wallet'),
-        array('How do I cancel a membership?', 'Open Settings, then My Subscriptions, and cancel the membership. You keep access until the end of the period you paid for.', '/account/settings?section=subscriptions'),
-        array('Where is something I bought?', 'Everything you unlock or buy is kept on your Purchases page.', '/purchases'),
         array('How do I stop someone contacting me?', 'Block them from their profile or from your inbox. Blocked users can\'t see your content or message you. You can review blocks in Settings, then Blocked Users.', '/account/settings?section=blocked'),
-        array('How do creators get paid?', 'Earnings collect in the creator\'s balance and can be cashed out to their bank account once payout setup is complete, from Settings, then Wallet.', '/account/settings?section=wallet'),
         array('How are AI posts labelled on other platforms?', 'A post with AI-generated or AI-edited media is disclosed when it is cross-posted, unless you switch AI Disclosure off for that post. TikTok and YouTube receive their own AI label. Instagram, Facebook, X, Threads, LinkedIn, Pinterest and Bluesky have no label we can set, so a short disclosure line is added as the last line of the caption. You can change that line per account in Settings, then Integrations.', '/account/settings?section=connected'),
-        array('Can I post carousels and Stories to Instagram and Facebook?', 'Free posts with several photos or videos go out as a carousel, up to 10 items on Instagram, Facebook and Threads, 9 on LinkedIn and 4 on X and Bluesky. Members-only and pay-per-view posts send one blurred preview only. To post a Story, tick the Instagram or Facebook account in Distribution and switch on Post As Story. Stories take 9:16 media only, each item becomes its own Story, and a Story has no caption, so it cannot carry the AI disclosure line.', '/studio'),
+        array('Can I post carousels and Stories to Instagram and Facebook?', 'Posts with several photos or videos go out as a carousel, up to 10 items on Instagram, Facebook and Threads, 9 on LinkedIn and 4 on X and Bluesky. Members-only and pay-per-view posts send one blurred preview only. To post a Story, tick the Instagram or Facebook account in Distribution and switch on Post As Story. Stories take 9:16 media only, each item becomes its own Story, and a Story has no caption, so it cannot carry the AI disclosure line.', '/studio'),
         array('What do automated inbox replies tell fans?', 'The first automated reply to each fan includes a line saying replies may be automated. An automated reply never claims to be a person. If a fan asks whether they are talking to a real person and the draft does not say it is AI, the reply is held for you to approve. You can edit the first-reply line in Settings, then Inbox Automation.', '/account/settings'),
     );
 
@@ -23,8 +19,7 @@ class SupportModel extends Model {
     const CATEGORIES = array(
         'account'  => 'Account and sign in',
         'billing'  => 'Plans and billing',
-        'payments' => 'Credits, purchases and refunds',
-        'payouts'  => 'Payouts',
+        'payments' => 'AI credits and payments',
         'content'  => 'Posts and content',
         'social'   => 'Social publishing',
         'safety'   => 'Report a safety issue',

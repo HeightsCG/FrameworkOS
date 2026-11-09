@@ -1,14 +1,14 @@
 <?php
 /**
  * /alternatives: "AI influencer tools compared". The categories of tools, what each does and what to check, then where
- * the studio fits. Names no competitor: the per-platform pages (/compare/*, /<x>-alternatives) do that with sources.
+ * the studio fits. Names no competitor.
  * Locals: $faq.
  */
 $e = function ($s) { return Sections::e($s); };
 $site = Main::site_name();
 echo Sections::panel_hero(array('photo' => 'aichar-a', 'variant' => 'split', 
     'title' => 'AI influencer tools compared',
-    'lead'  => 'Running an AI influencer takes several kinds of tools: something to make the character, something to keep the face the same, something for video and voice, and somewhere to publish and get paid. Here is what each kind does and what to check before you pick one.',
+    'lead'  => 'Running an AI influencer takes several kinds of tools: something to make the character, something to keep the face the same, something for video and voice, and somewhere to publish and see what works. Here is what each kind does and what to check before you pick one.',
 ));
 
 $rows = array(
@@ -17,7 +17,7 @@ $rows = array(
     array('Video generators', 'Animate a still image or make a short clip from a prompt, including talking-head video.', 'Clip length, whether the face stays stable while moving, and whether lip sync matches the audio.'),
     array('Voice tools', 'Give the character a voice for videos and voice notes.', 'Whether the voice stays consistent and sounds natural reading your scripts.'),
     array('Schedulers and social tools', 'Publish posts to social networks on a schedule.', 'Which platforms it supports, whether it sets each platform\'s AI label, and whether it handles captions that are too long.'),
-    array('Creator monetization platforms', 'Give fans a page to follow, subscribe and buy.', 'What you can sell, how fans pay, how you get paid out, and whether AI content is allowed and labelled.'),
+    array('Link-in-bio and analytics tools', 'Give your audience one page with every link, and show what each post and link brings in.', 'Whether clicks are tracked per link, whether social engagement comes back in one place, and whether it runs on your own domain.'),
 );
 $trows = array();
 foreach ($rows as $r) { $trows[] = array('<b>' . $e($r[0]) . '</b>', $e($r[1]), $e($r[2])); }
@@ -25,14 +25,14 @@ echo Sections::open('white', 'The kinds of AI influencer tools', 'Most creators 
 echo Sections::table(array('Kind of tool', 'What it does', 'What to check'), $trows);
 echo Sections::close();
 
-echo Sections::open('alt', 'Where ' . $site . ' fits', $site . ' puts these pieces in one account, so the character, the posts and the page fans pay on stay together.');
+echo Sections::open('alt', 'Where ' . $site . ' fits', $site . ' puts these pieces in one account, so the character, the posts and your page stay together.');
 echo Sections::checks(array(
     'Create an AI influencer from a description, approve the face, then generate photos of them.',
     'Train the character on your reference photos so the face stays the same across images.',
     'Turn images into video, including talking video with a voice you design.',
-    'Publish each post to LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue.',
+    'Publish each post to LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube and Pinterest.',
     'Label AI posts: TikTok and YouTube get their own AI setting, other platforms a disclosure line.',
-    'Sell from one page: memberships, pay-per-view posts, bundles, services and events.',
+    'Run one link-in-bio page with tracked links, analytics and inbox automation.',
 ), 2);
 echo '<p class="sx-p"><a href="/features/ai-influencer">See the AI influencer tools</a></p>';
 echo Sections::close();
@@ -46,4 +46,4 @@ echo Sections::cards(array(
 echo Sections::close();
 
 echo Sections::faq($faq, 'alt');
-echo Sections::trial_cta('Run your AI influencer from one place.', 'Create the character, make photos and video, publish to ten platforms and sell from your page.');
+echo Sections::trial_cta('Run your AI influencer from one place.', 'Create the character, make photos and video, publish to nine platforms and see what works.');

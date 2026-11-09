@@ -11,36 +11,24 @@ class SeoDrafter {
     /**
      * Topic clusters. feature = the page an article in the cluster must link to; links = the only product pages it may
      * link to; related = the other clusters whose articles it may link to; intent = default length band (LENGTHS).
-     * Pricing and selling clusters never reach AI influencer pages; AI clusters stay among themselves.
+     * Selling, payout and platform-comparison clusters were removed 2026-11-09 (the product no longer sells). AI clusters stay among themselves.
      */
     const CLUSTERS = array(
-        'pricing-and-fees' => array('label' => 'Pricing, fees and plans', 'feature' => '/pricing', 'intent' => 'howto',
-            'links' => array('/pricing', '/features/payouts', '/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/patreon-alternatives', '/linktree-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan'),
-            'related' => array('platform-comparisons', 'creator-payouts')),
-        'platform-comparisons' => array('label' => 'Platform comparisons', 'feature' => '/best-creator-monetization-platforms', 'intent' => 'guide',
-            'links' => array('/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/patreon-alternatives', '/linktree-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/pricing', '/features', '/features/link-in-bio', '/features/payouts'),
-            'related' => array('pricing-and-fees', 'creator-payouts')),
-        'creator-payouts' => array('label' => 'Creator payouts', 'feature' => '/features/payouts', 'intent' => 'guide',
-            'links' => array('/features/payouts', '/pricing', '/features/memberships', '/features/pay-per-view', '/monetize-your-content'),
-            'related' => array('pricing-and-fees', 'memberships-and-ppv')),
-        'memberships-and-ppv' => array('label' => 'Memberships and pay-per-view', 'feature' => '/features/memberships', 'intent' => 'howto',
-            'links' => array('/features/memberships', '/features/pay-per-view', '/features/payouts', '/monetize-your-content', '/pricing', '/features'),
-            'related' => array('creator-monetization', 'creator-payouts', 'pricing-and-fees')),
-        'creator-monetization' => array('label' => 'Selling from a creator page', 'feature' => '/monetize-your-content', 'intent' => 'guide',
-            'links' => array('/monetize-your-content', '/features', '/features/memberships', '/features/pay-per-view', '/features/payouts', '/features/link-in-bio', '/features/services-and-events', '/features/custom-domains', '/pricing'),
-            'related' => array('memberships-and-ppv', 'creator-payouts', 'social-publishing')),
+        'pricing-and-fees' => array('label' => 'Pricing and plans', 'feature' => '/pricing', 'intent' => 'howto',
+            'links' => array('/pricing', '/features'),
+            'related' => array('social-publishing')),
         'social-publishing' => array('label' => 'Social publishing', 'feature' => '/features/publishing', 'intent' => 'howto',
-            'links' => array('/features/publishing', '/features', '/features/link-in-bio', '/monetize-your-content'),
-            'related' => array('creator-monetization')),
-        'ai-influencer-monetization' => array('label' => 'AI influencer monetization', 'feature' => '/features/ai-influencer', 'intent' => 'guide',
-            'links' => array('/features/ai-influencer', '/lora-character-training', '/consistent-ai-model-face', '/ai-ofm-tools', '/compare/eromify'),
+            'links' => array('/features/publishing', '/features', '/features/link-in-bio', '/pricing'),
+            'related' => array('pricing-and-fees')),
+        'ai-influencer-monetization' => array('label' => 'AI influencers', 'feature' => '/features/ai-influencer', 'intent' => 'guide',
+            'links' => array('/features/ai-influencer', '/lora-character-training', '/consistent-ai-model-face'),
             'related' => array('lora-character-training', 'ai-dm-chatter')),
         'lora-character-training' => array('label' => 'LoRA character training', 'feature' => '/lora-character-training', 'intent' => 'howto',
-            'links' => array('/lora-character-training', '/consistent-ai-model-face', '/features/ai-influencer', '/ai-ofm-tools', '/compare/eromify'),
+            'links' => array('/lora-character-training', '/consistent-ai-model-face', '/features/ai-influencer'),
             'related' => array('ai-influencer-monetization')),
         'ai-dm-chatter' => array('label' => 'AI DM chatter', 'feature' => '/features/dm-agent', 'intent' => 'howto',
-            'links' => array('/features/dm-agent', '/ai-ofm-tools', '/features/ai-influencer', '/features/pay-per-view'),
-            'related' => array('ai-influencer-monetization', 'memberships-and-ppv')),
+            'links' => array('/features/dm-agent', '/features/ai-influencer'),
+            'related' => array('ai-influencer-monetization')),
     );
 
     /**
@@ -79,10 +67,9 @@ class SeoDrafter {
     const CITATION_DOMAINS = array(
         'irs.gov', 'ftc.gov', 'sba.gov', 'bls.gov', 'census.gov', 'gov.uk', 'canada.ca', 'ato.gov.au', 'europa.eu', 'oecd.org',
         'pewresearch.org', 'help.instagram.com', 'creators.instagram.com', 'transparency.meta.com', 'support.google.com', 'blog.youtube',
-        'help.x.com', 'support.tiktok.com', 'help.pinterest.com', 'support.patreon.com', 'help.ko-fi.com', 'help.fanvue.com',
-        'help.beacons.ai', 'help.stan.store', 'creatorhub.fansly.com', 'huggingface.co',
-        // approved 2026-10-09: model publishers and papers, Bluesky docs, Linktree help, OnlyFans help/terms pages
-        'bfl.ai', 'arxiv.org', 'docs.bsky.app', 'help.linktr.ee', 'onlyfans.com',
+        'help.x.com', 'support.tiktok.com', 'help.pinterest.com', 'huggingface.co',
+        // approved 2026-10-09: model publishers and papers, Bluesky docs (creator-platform help centres removed 2026-11-09)
+        'bfl.ai', 'arxiv.org', 'docs.bsky.app',
     );
 
     /** Every article cites at least this many distinct sources from CITATION_DOMAINS, each a URL that resolves. */
@@ -104,15 +91,8 @@ class SeoDrafter {
         'https://www.sba.gov/business-guide' => 'US SBA: business guide',
         'https://www.gov.uk/working-for-yourself' => 'UK government: working for yourself',
         'https://support.google.com/youtube/answer/72857' => 'YouTube Help: YouTube Partner Program overview and eligibility',
-        'https://support.google.com/youtube/answer/1311392' => 'YouTube Help: channel monetization policies',
         'https://support.tiktok.com/en/business-and-creator' => 'TikTok Support: business and creator',
         'https://support.tiktok.com/en/using-tiktok/growing-your-audience/creator-rewards-program' => 'TikTok Support: Creator Rewards Program',
-        'https://help.fanvue.com/en/' => 'Fanvue Help Center',
-        'https://creatorhub.fansly.com/' => 'Fansly Creator Hub',
-        'https://help.beacons.ai/' => 'Beacons Help Center',
-        'https://help.stan.store/' => 'Stan Help Center',
-        'https://help.linktr.ee/en/' => 'Linktree Help Center',
-        'https://onlyfans.com/help' => 'OnlyFans Help Center',
         'https://docs.bsky.app/docs/get-started' => 'Bluesky developer docs: get started',
         'https://huggingface.co/docs/diffusers/training/lora' => 'Hugging Face Diffusers docs: LoRA training',
         'https://huggingface.co/docs/peft/conceptual_guides/lora' => 'Hugging Face PEFT docs: LoRA conceptual guide',
@@ -458,25 +438,23 @@ class SeoDrafter {
     }
 
     /**
-     * Product facts an article may carry that a generic piece cannot: plan names with their fee and price, the payout
-     * minimum, the credit rate, included AI credits, storage, influencer counts, the network count, feature names.
-     * Read from config, never typed. Each entry: label => regex (case-insensitive) that counts as the fact appearing.
+     * Product facts an article may carry that a generic piece cannot: plan names with their price, the credit rate,
+     * included AI credits, storage, influencer counts, the network count, feature names. Read from config, never typed.
+     * Each entry: label => regex (case-insensitive) that counts as the fact appearing. (No fee or payout facts since 2026-11-09.)
      */
     public static function product_facts(): array {
         $site = Main::site_name(); $facts = array();
-        foreach (PagesController::selling_tiers() as $t) {
-            $n = preg_quote($t['name'], '/'); $pct = (int) $t['limits']['fee_percent']; $price = number_format((int) $t['price']);
-            $facts[$t['name'] . ' fee'] = '/\b' . $pct . '\s?%[^.]{0,60}\b' . $n . '\b|\b' . $n . '\b[^.]{0,60}\b' . $pct . '\s?%/i';
+        foreach (PlanTiers::all() as $t) {
+            if ((int) ($t['price'] ?? 0) <= 0 || !empty($t['retired'])) { continue; }   // the paid, live plans
+            $n = preg_quote($t['name'], '/'); $price = number_format((int) $t['price']);
             $facts[$t['name'] . ' price'] = '/\b' . $n . '\b[^.]{0,40}\$' . preg_quote($price, '/') . '\b|\$' . preg_quote($price, '/') . '\b[^.]{0,40}\b' . $n . '\b/i';
             if ((int) ($t['limits']['ai_credits'] ?? 0) > 0) { $facts[$t['name'] . ' AI credits'] = '/\b' . preg_quote(number_format((int) $t['limits']['ai_credits']), '/') . ' (?:ai )?credits\b/i'; }
             if ((int) ($t['limits']['storage_gb'] ?? 0) > 0) { $facts[$t['name'] . ' storage'] = '/\b' . (int) $t['limits']['storage_gb'] . '\s?GB\b/i'; }
             if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $facts[$t['name'] . ' influencers'] = '/\b' . (int) $t['limits']['influencers'] . ' AI influencers?\b|\b(?:one|ten|' . (int) $t['limits']['influencers'] . ') AI influencer\b/i'; }
         }
-        $facts['payout minimum'] = '/' . preg_quote(Price::PAYOUT_MIN_LABEL, '/') . '\b[^.]{0,40}\b(?:minimum|payout|cash out|cash-out)|\b(?:minimum|payout|cash out|cash-out)\b[^.]{0,40}' . preg_quote(Price::PAYOUT_MIN_LABEL, '/') . '\b/i';
         $facts['credit rate'] = '/\$1 (?:=|buys|is|equals) ' . (int) Price::CREDITS_PER_DOLLAR . ' credits|\b' . (int) Price::CREDITS_PER_DOLLAR . ' credits (?:per|to the|for a|for every) dollar\b/i';
-        $facts['ten platforms'] = '/\bten (?:social )?(?:networks|platforms)\b/i';
-        $facts['credit wallet'] = '/\bcredit wallet\b/i';
-        foreach (array('pay-per-view', 'bundles?', 'membership tiers?', 'services and events', 'DM agent', 'AI captions?', 'tracked links?', 'custom domains?', 'welcome messages?', 'broadcasts?') as $f) { $facts['feature ' . $f] = '/\b' . $f . '\b/i'; }
+        $facts['nine platforms'] = '/\bnine (?:social )?(?:networks|platforms)\b/i';
+        foreach (array('DM agent', 'AI captions?', 'tracked links?', 'custom domains?', 'welcome messages?', 'broadcasts?', 'link in bio', 'team seats?', 'automations?') as $f) { $facts['feature ' . $f] = '/\b' . $f . '\b/i'; }
         return $facts;
     }
 
@@ -485,10 +463,10 @@ class SeoDrafter {
     public static function product_fact_errors(string $body): array {
         $hits = array();
         foreach (self::product_facts() as $label => $re) { if (preg_match($re, $body)) { $hits[] = $label; } }
-        // feature names alone are generic words; at least one hit must be a number from config (fee, price, credits, storage, influencers, payout, credit rate)
-        $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0 && $h !== 'credit wallet'; });   // 'ten platforms' counts: it is a number from the product, and without it every off-topic piece reached for a plan price or the storage figure (SEO audit 2026-10-12)
+        // feature names alone are generic words; at least one hit must be a number from config (price, credits, storage, influencers, credit rate, networks)
+        $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0; });   // 'nine platforms' counts: it is a number from the product, and without it every off-topic piece reached for a plan price or the storage figure (SEO audit 2026-10-12)
         if (count($hits) < self::PRODUCT_FACTS_MIN || count($numeric) < 1) {
-            return array('the article needs at least ' . self::PRODUCT_FACTS_MIN . ' exact product facts from the facts sheet, one of them a number (a plan\'s platform fee or price, included AI credits, storage, the payout minimum, the credit rate); got: ' . ($hits ? implode(', ', $hits) : 'none'));
+            return array('the article needs at least ' . self::PRODUCT_FACTS_MIN . ' exact product facts from the facts sheet, one of them a number (a plan\'s price, included AI credits, storage, the credit rate, the nine platforms); got: ' . ($hits ? implode(', ', $hits) : 'none'));
         }
         return array();
     }
@@ -529,7 +507,6 @@ class SeoDrafter {
         'how to keep an ai face consistent'         => 'consistent-ai-character-across-images',
         'how many images to train a lora'           => 'lora-training-dataset-tips',
         'ai dm replies for fan messages'            => 'automated-dm-replies-for-creators',
-        'how to compare creator platform pricing'   => 'how-to-pick-a-creator-monetization-platform',
     );
 
     public static function dedupe_queue(): array {
@@ -841,21 +818,6 @@ class SeoDrafter {
         return array($live, $retired);
     }
 
-    /** Every competitor we name anywhere (compare pages and the alternatives lists). */
-    private static function competitor_names(): array {
-        $names = array_column(PagesController::COMPETITORS, 'name');
-        $walk = function ($v) use (&$walk, &$names) { if (is_array($v)) { if (isset($v['name']) && is_string($v['name'])) { $names[] = $v['name']; } foreach ($v as $c) { if (is_array($c)) { $walk($c); } } } };
-        if (class_exists('AlternativesPages')) { $walk(AlternativesPages::PAGES); }
-        return array_values(array_unique(array_filter(array_map('strval', $names))));
-    }
-
-    /** Fee percent per live plan, from PlanTiers: array(name => percent). */
-    private static function plan_fees(): array {
-        $out = array();
-        foreach (PlanTiers::all() as $t) { if (empty($t['retired'])) { $out[(string) $t['name']] = (int) ($t['limits']['fee_percent'] ?? 0); } }   // every live plan, Free included
-        return $out;
-    }
-
     /**
      * A monthly "$N" written right next to a plan name ("Creator is $99 a month", "the Studio plan costs $99/mo",
      * "Creator ($99 a month)", "$99 a month for Creator"). Never $1 or $25 (credits, payout minimum) or a non-monthly amount. Calls $fn(plan, amount, match) and returns the text with each match replaced.
@@ -894,47 +856,6 @@ class SeoDrafter {
     }
 
     /**
-     * Does the text put a 20% fee on our brand? Our plans never charge 20% (Free cannot sell), but comparisons rightly give
-     * other platforms theirs ("... versus the 20% that OnlyFans takes"). A 20% in the same sentence as the brand (80
-     * characters before it or 60 after, no full stop between) counts only when no competitor is named nearer to it than
-     * the brand is. Competitors: PagesController::COMPETITORS names and the AlternativesPages records. (seo_fact_check.php)
-     */
-    public static function brand_twenty_percent($text, $site): bool {
-        $text = (string) $text; $site = (string) $site;
-        if ($site === '' || stripos($text, '20%') === false || stripos($text, $site) === false) { return false; }
-        static $names = null;
-        if ($names === null) {
-            $names = array();
-            foreach (PagesController::COMPETITORS as $c) { if ((string) ($c['name'] ?? '') !== '') { $names[] = (string) $c['name']; } }
-            if (class_exists('AlternativesPages') && defined('AlternativesPages::RECORDS')) { $names = array_merge($names, array_map('strval', array_keys(AlternativesPages::RECORDS))); }
-            $names = array_values(array_unique($names));
-        }
-        $comp = $names ? '/\b(?:' . implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, $names)) . ')\b/i' : '';
-        foreach (preg_split('/[.\n]+/', $text) as $seg) {
-            if (stripos($seg, '20%') === false || stripos($seg, $site) === false) { continue; }
-            preg_match_all('/\b' . preg_quote($site, '/') . '/i', $seg, $bm, PREG_OFFSET_CAPTURE);
-            $cm = array(array());
-            if ($comp !== '') { preg_match_all($comp, $seg, $cm, PREG_OFFSET_CAPTURE); }
-            preg_match_all('/\b20%/', $seg, $pm, PREG_OFFSET_CAPTURE);
-            foreach ($pm[0] as $p) {
-                $at = (int) $p[1]; $brand = null; $near = null;
-                foreach ($bm[0] as $b) {
-                    $end = (int) $b[1] + strlen($b[0]);
-                    $d = $b[1] < $at ? $at - $end : (int) $b[1] - ($at + 3);
-                    if (($b[1] < $at && $d <= 80) || ($b[1] > $at && $d <= 60)) { $brand = $brand === null ? $d : min($brand, $d); }
-                }
-                if ($brand === null) { continue; }
-                foreach ($cm[0] as $c) {
-                    $d = $c[1] < $at ? $at - ((int) $c[1] + strlen($c[0])) : (int) $c[1] - ($at + 3);
-                    $near = $near === null ? $d : min($near, $d);
-                }
-                if ($near === null || $brand <= $near) { return true; }
-            }
-        }
-        return false;
-    }
-
-    /**
      * Repairs fee wording around plan names, whole tokens only: rejoins a plan name an older --fix-fee run split
      * ("10% on Creato r" -> "Creator"), and separates a word glued onto a plan name ("3% on Studiodepending" ->
      * "3% on Studio, depending"). "Creators" and an intact "10% on Creator," are never touched.
@@ -959,20 +880,11 @@ class SeoDrafter {
      */
     public static function boilerplate_sentences(): array {
         return array_values(array_filter(array(
-            PagesController::fee_sentence(),
             PagesController::plan_price_sentence(),
             PagesController::FINAL_NOTE,
             'Free accounts are for fans and cannot sell',
             'Free accounts cannot publish or sell',
         )));
-    }
-
-    /** Does a paragraph state our platform fee: a percentage, a fee word, and our brand or one of our plan names? */
-    public static function states_our_fee(string $p): bool {
-        list($live) = self::plan_prices();
-        $names = array_merge(array(Main::site_name()), array_keys($live));
-        $re = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, $names));
-        return (bool) (preg_match('/\d+(?:\.\d+)?\s*%/', $p) && preg_match('/\b(?:fee|fees|take rate|cut|commission|keeps?)\b/i', $p) && $re !== '' && preg_match('/\b(?:' . $re . ')\b/', $p));
     }
 
     /** Does a paragraph state one of our plan prices ("Creator is $49 a month")? */
@@ -1125,7 +1037,7 @@ class SeoDrafter {
             break;
         }
         // people's names (brand, competitor and SAFE_WORDS removed first; headings skipped)
-        $names_text = str_ireplace(array_merge(array(Main::site_name()), array_column(PagesController::COMPETITORS, 'name')), ' ', preg_replace('/^\s*#.*$/m', ' ', $plain));
+        $names_text = str_ireplace(array(Main::site_name()), ' ', preg_replace('/^\s*#.*$/m', ' ', $plain));
         $person = function ($w) { return !in_array($w, self::SAFE_WORDS, true); };
         $name_hit = '';
         if (preg_match('/\b(?:Mr|Mrs|Ms|Mx|Dr|Prof)\.?\s+[A-Z][a-z]+/', $names_text, $m)) { $name_hit = $m[0]; }
@@ -1141,28 +1053,15 @@ class SeoDrafter {
             if ((float) str_replace(',', '', $amt) !== (float) ($live[$plan] ?? -1)) { $err[] = "$plan plan price \$$amt is not the configured price"; }
             return $amt;
         });
-        $fees = self::plan_fees();
+        // no platform fee on our brand or plans since 2026-11-09: the plans are pitched on their tools, never a share of sales
         $plain_ns = str_replace(Main::site_name(), "\x01", $plain);
         $plan_re = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, array_keys($live)));
-        $comp_re = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, self::competitor_names()));
         foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain_ns) as $sentence) {
             if (!preg_match('/\d+(?:\.\d+)?\s*%/', $sentence) || !preg_match('/\b(?:fee|fees|take|takes|take rate|cut|commission|keeps?)\b/i', $sentence)) { continue; }
             if (strpos($sentence, "\x01") === false && ($plan_re === '' || !preg_match('/\b(?:' . $plan_re . ')\b/', $sentence))) { continue; }   // not about us
             if (preg_match('/\bcard processing\b|\bprocessing fees?\b/i', $sentence) && !preg_match('/\b(?:' . $plan_re . ')\b/', $sentence)) { continue; }
-            // a figure belongs to its own clause; clauses about a competitor are not ours to check
-            foreach (preg_split('/\s*(?:[,;]|\b(?:while|whereas|versus|vs\.?|and|but)\b)\s*/i', $sentence) as $clause) {
-                if (!preg_match_all('/(\d+(?:\.\d+)?)\s*%/', $clause, $pm, PREG_OFFSET_CAPTURE)) { continue; }
-                if ($comp_re !== '' && preg_match('/\b(?:' . $comp_re . ')(?![\w])/i', $clause)) { continue; }
-                foreach ($pm[1] as $p) {
-                    $pct = (float) $p[0]; $pos = (int) $p[1];
-                    $plan = ''; $best = PHP_INT_MAX;
-                    if ($plan_re !== '' && preg_match_all('/\b(' . $plan_re . ')\b/', $clause, $x, PREG_OFFSET_CAPTURE)) {
-                        foreach ($x[1] as $hit) { $d = abs($hit[1] - $pos); if ($d < $best) { $best = $d; $plan = $hit[0]; } }   // nearest plan in the clause
-                    }
-                    if ($plan !== '' && isset($fees[$plan])) { if ($pct !== (float) $fees[$plan]) { $err[] = "fee $p[0]% next to the $plan plan is not the configured " . $fees[$plan] . '%'; } }
-                    elseif (strpos($clause, "\x01") !== false && !in_array($pct, array_map('floatval', array_values($fees)), true)) { $err[] = "platform fee $p[0]% is not a configured fee"; }
-                }
-            }
+            $err[] = 'states a platform fee for ' . Main::site_name() . ' ("' . mb_substr(trim(str_replace("\x01", Main::site_name(), $sentence)), 0, 60) . '"): leave fees out, the plans are described by their tools and AI credits';
+            break;
         }
         // The text of a link to another article is that article's subject, not a claim about plans ("when training pays off" pointing at
         // /blog/custom-ai-influencer-training-when-to-invest failed a prod rewrite 2026-10-21), so the plan checks skip it.
@@ -1172,14 +1071,12 @@ class SeoDrafter {
         foreach (self::boilerplate_sentences() as $s) {
             if (stripos($plain, $s) !== false) { $err[] = 'copied from the facts sheet word for word, say it in the article\'s own words or leave it out: "' . mb_substr($s, 0, 60) . '"'; break; }
         }
-        // the fee and the plan prices: once each, where the topic needs them
-        $fee_paras = 0; $price_paras = 0;
+        // the plan prices: once, where the topic needs them
+        $price_paras = 0;
         foreach (preg_split('/\n\s*\n/', $body) as $p) {
             if (preg_match('/^\s*(#|\|)/', $p)) { continue; }
-            if (self::states_our_fee($p)) { $fee_paras++; }
             if (self::states_plan_prices($p)) { $price_paras++; }
         }
-        if ($fee_paras > 1) { $err[] = 'the platform fee is stated in ' . $fee_paras . ' paragraphs; state it once, where the topic needs it, or leave it out'; }
         if ($price_paras > 1) { $err[] = 'plan prices are stated in ' . $price_paras . ' paragraphs; state them once, where the topic needs them, or leave them out'; }
         return array_values(array_unique($err));
     }
@@ -1259,11 +1156,8 @@ class SeoDrafter {
     /** Facts Claude may use; nothing else is allowed to appear as a number or a claim. */
     private static function context(): string {
         $site = Main::site_name(); $base = SeoMeta::base();
-        $lines = array("Product: $site ($base). A creator platform: one public page at $base/@handle with posts, membership tiers, pay-per-view posts, content bundles, services, events and tracked links; a studio that publishes to ten platforms with AI captions; an inbox with AI replies; payouts to the creator's bank; fans pay memberships by card and everything else with a credit wallet (\$1 = 10 credits).");
-        foreach (PagesController::our_facts() as $k => $v) { $lines[] = ucfirst($k) . ': ' . $v; }
-        // the fee as data, not as a sentence the model can lift: a sentence copied word for word is rejected by content_errors()
-        $fee_bits = array(); foreach (PagesController::selling_tiers() as $t) { $fee_bits[] = (int) $t['limits']['fee_percent'] . '% of each sale on ' . $t['name'] . ' ($' . number_format((int) $t['price']) . ' a month)'; }
-        $lines[] = 'Platform fee (state it in your own words, at most once): ' . implode('; ', $fee_bits) . '. Free is the account everyone starts with: a creator can build and preview their page on it, publishing and selling need a paid plan, and it pays no fee (say this in your own words, never "the fan account"). Card processing is charged separately. Never describe the fee as a range, never attach a fee to the Free plan, and never write "20%" about ' . $site . '.';
+        $lines = array("Product: $site ($base). An AI content studio for creators and brands: AI influencers (consistent characters trained on reference photos), AI images and video, a studio that schedules and cross-posts each post to nine social platforms with AI captions, a link-in-bio page at $base/@handle with tracked links, an inbox with AI replies, welcome messages and broadcasts, automations, analytics, custom domains and team seats. Plans include monthly AI credits; extra AI credits can be bought (\$1 = 10 credits).");
+        $lines[] = 'Out of scope, never write about: selling content, fan subscriptions or memberships, pay-per-view, paywalls, tips, payouts, platform fees or a share of sales, adult content, or comparisons with other creator platforms.';
         foreach (PagesController::pricing_rows() as $r) {
             $t = (array) ($r['tier'] ?? array()); $lim = (array) ($t['limits'] ?? array());
             if (empty($t['name'])) { continue; }
@@ -1280,7 +1174,6 @@ class SeoDrafter {
             $recent = (new SeoArticlesModel())->published(8, 0);
             if (!empty($recent)) { $lines[] = 'Published articles you may link to (and must not repeat):'; foreach ($recent as $a) { $lines[] = '- /blog/' . $a['slug'] . ': ' . $a['title'] . '. ' . (string) $a['excerpt']; } }
         } catch (\Throwable $e) {}
-        $lines[] = 'Competitors you may name only as "other subscription platforms", with no fees and no claims: ' . implode(', ', array_column(PagesController::COMPETITORS, 'name')) . '.';
         $lines[] = 'Source pages known to exist (cite one of these where it backs a claim, or another page on the same sites that you are certain exists; every cited URL is fetched and a missing page rejects the article):';
         foreach (self::KNOWN_SOURCES as $u => $what) { $lines[] = '- ' . $u . ' : ' . $what; }
         return implode("\n", $lines);
@@ -1288,15 +1181,14 @@ class SeoDrafter {
 
     private static function system_prompt(): string {
         $site = Main::site_name();
-        return "You write practical, plain-English guides for the $site blog, read by independent creators who sell content, memberships and services online. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices, fees or competitor facts; use only the facts in the context. A worked pricing example with round, clearly hypothetical numbers is fine, with figures chosen for this piece (never the same member count, price and total another article used); never present invented numbers as real data or averages. "
+        return "You write practical, plain-English guides for the $site blog, read by creators and brands who make and publish content with AI and schedule it to social platforms. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices or competitor facts; use only the facts in the context. A worked example with round, clearly hypothetical numbers is fine, with figures chosen for this piece (never the same figures another article used); never present invented numbers as real data or averages. "
             . "No income promises: never write \"guaranteed\", \"you will make\", \"you can make\", \"you'll earn\" or \"six figures\", and never put an amount per month or year next to make, earn, income or revenue, even in an example, unless it is an honest range such as \"some creators earn between X and Y, and it varies\". "
             . "Name no people at all, real or invented: no founders, no experts, no example creators with names; say \"a fitness creator\" or \"one creator\". "
-            . "Plan prices, the platform fee and the refund rule: most pieces need none of them. Where the topic genuinely needs one, state it once, in your own words, with exactly the figures and plan names in the context, in one paragraph that also says why it matters to the reader. Never copy a sentence from the context word for word, and never attach a fee to the Free plan. "
-            . "The platform fee is a percentage of sales and the plan price is a separate monthly line: never add a fee amount to a plan price in one sum, never weigh the gap between plan prices against the fee, and never name a sales level where one plan overtakes another (no break-even, crossover or \"pays for itself\"). "
-            . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
+            . "Plan prices and the refund rule: most pieces need neither. Where the topic genuinely needs one, state it once, in your own words, with exactly the figures and plan names in the context, in one paragraph that also says why it matters to the reader. Never copy a sentence from the context word for word. Never write about selling content, fan subscriptions, pay-per-view, paywalls, payouts, platform fees, adult content, or other creator platforms, and never say a plan pays for itself. "
+            . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"). Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
-            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's platform fee or price, the included AI credits or storage, the payout minimum, the credit rate, the ten platforms, a named feature as it works here), in the article's own words. Pick the facts that belong to the article's own topic: plan prices and storage figures only when the piece is about plans or pricing. A piece that could be published by any platform is rejected. "
+            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's price, the included AI credits or storage, the credit rate, the nine platforms, a named feature as it works here), in the article's own words. Pick the facts that belong to the article's own topic: plan prices and storage figures only when the piece is about plans or pricing. A piece that could be published by any platform is rejected. "
             . "Write sentences of 10 to 25 words and paragraphs of at most four sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
@@ -1311,17 +1203,9 @@ class SeoDrafter {
     private static function cover_motif(string $topic): string {
         $m = array(
             'Pricing' => 'stacked translucent glass tiers rising like steps, a small price tag shape',
-            'Memberships' => 'three nested translucent rings of increasing size, like tiers of a club',
-            'Pay-per-view' => 'a frosted glass panel partly lifted to reveal a glowing card behind it',
             'Link in bio' => 'a single glowing link chain shape connecting floating rounded tiles',
-            'Payouts' => 'smooth coins flowing along a curved glass channel toward a small vault door',
-            'Bundles' => 'several rounded tiles neatly grouped inside one translucent box',
-            'Services' => 'a calendar tile and a speech bubble tile floating side by side',
-            'Events' => 'a ticket shape and a spotlight beam on a soft stage floor',
             'Social' => 'many small rounded tiles radiating outward from one central tile',
             'AI' => 'a softly glowing sphere made of fine mesh lines',
-            'Platforms' => 'two translucent platforms at different heights with a bridge between them',
-            'Getting paid' => 'a glowing coin resting on a stack of rounded glass tiles',
         );
         return $m[$topic] ?? 'rounded translucent glass tiles floating in soft light';
     }
@@ -1418,16 +1302,16 @@ class SeoDrafter {
     /** The signup block shown under every article (rendered by blog-article.php). Written here, not by Claude, so it never drifts. */
     /** The four signup lines: one per article (by id), and never a heading, so the same sentence does not repeat across the whole blog. */
     const CTA_LINES = array(
-        'Your page, your prices, paid to your bank.',
-        'Sell memberships, posts and services from one page.',
-        'One page for everything you sell.',
-        'Put your work behind a price you set.',
+        'Make the post, schedule it everywhere.',
+        'Your AI influencer, posting on schedule.',
+        'One studio for every post you publish.',
+        'Images, video and captions in one place.',
     );
 
     const CTA_TEXTS = array(
-        '{site} gives you one public page with memberships, pay-per-view posts, bundles, services and events, and pays out to your bank.',
-        'On {site} one page at your handle holds your tiers, paid posts, bundles, bookings and tickets, and every sale lands in one balance.',
-        '{site} publishes each post to ten platforms and sells the paid version from your own page.',
+        '{site} generates AI images and video, writes the captions, and schedules each post to nine social platforms.',
+        'On {site} you train a consistent AI influencer, plan its posts, and publish them to every network from one calendar.',
+        '{site} publishes each post to nine platforms, answers DMs with AI, and links everything from one page at your handle.',
     );
 
     public static function cta_html(int $article_id = 0): string {
@@ -1625,7 +1509,7 @@ class SeoDrafter {
         for ($i = 0; isset($avoid['sections']) && $sections === (int) $avoid['sections'] && $i < 8; $i++) { $sections = random_int($section_bands[$intent][0], $section_bands[$intent][1]); }
         if (isset($avoid['sections']) && $sections === (int) $avoid['sections']) { $sections = $sections > $section_bands[$intent][0] ? $sections - 1 : $sections + 1; }
         $heading_styles = array('short noun phrases ("The first paid post")', 'the exact questions a reader would type, ending in a question mark', 'imperative steps ("Pick the entry price first")',
-                                'a mix: one or two questions, the rest plain statements', 'numbered stages ("1. Choose the tier")', 'contrasts ("Memberships or pay-per-view")', 'the reader\'s situation ("When your audience is under a hundred people")');
+                                'a mix: one or two questions, the rest plain statements', 'numbered stages ("1. Choose the format")', 'contrasts ("Images or video")', 'the reader\'s situation ("When your audience is under a hundred people")');
         $rhythms = array('the first section short and the rest longer', 'one long section and the rest short', 'roughly even sections', 'the longest section in the middle', 'sections that get shorter towards the end', 'two long sections and the rest one paragraph each', 'alternating one-paragraph and four-paragraph sections');
         if (!empty($avoid['rhythm'])) { $rhythms = array((string) $avoid['rhythm']); }
         $faq_hint = (empty($avoid['faq']) && random_int(1, 10) <= 3) ? 'End with a FAQ of ' . random_int(2, 5) . ' real follow-up questions.' : 'No FAQ.';

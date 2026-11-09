@@ -473,9 +473,6 @@ class ApiMediaController extends BaseApiController {
         $model      = new MediaAssetsModel();
         $a          = $model->get_one($creator_id, $id);
         if (!$a) { $this->jsonError('That file was not found.'); }
-        if ($model->sold_asset_ids([$id], $creator_id)) {   // buyers keep what they paid for
-            $this->jsonError('This file has been bought (in a post, message, or bundle), so it cannot be removed. Buyers keep it.');
-        }
         $r = $model->remove_from_library($creator_id, $id);   // a post that uses the file keeps it
         (new CollectionsModel())->remove_asset_everywhere($id);
         $this->jsonSuccess(['affected_posts' => 0, 'unpublished' => 0, 'kept_for_posts' => $r['posts'], 'message' => 'File removed from your library.' . $this->kept_note($r['posts'])]);
@@ -508,16 +505,12 @@ class ApiMediaController extends BaseApiController {
         if ($action === 'delete') {
             $col  = new CollectionsModel();
             $tot  = array('affected' => 0, 'unpublished' => 0);
-            $sold = $model->sold_asset_ids($owned, $creator_id);   // buyers keep what they paid for: skipped
             $n    = 0;
             foreach ($owned as $id) {
-                if (in_array($id, $sold, true)) { continue; }
                 $r = $model->remove_from_library($creator_id, $id); $col->remove_asset_everywhere($id); $n++;
                 if ($r['hidden']) { $tot['affected']++; }   // still on its posts
             }
-            if ($n === 0) { $this->jsonError(count($sold) . ' file(s) have been bought, so they cannot be removed. Buyers keep them.'); }
             $msg = $n . ' file(s) removed from your library.' . ($tot['affected'] > 0 ? ' ' . $tot['affected'] . ' stay on the posts that use them.' : '');
-            if ($sold) { $msg .= ' ' . count($sold) . ' bought file(s) kept for buyers.'; }
             $this->jsonSuccess(['message' => $msg, 'unpublished' => $tot['unpublished']]);
         }
         $this->jsonError('Unknown action.');

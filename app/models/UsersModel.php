@@ -134,19 +134,14 @@ class UsersModel extends Model {
      * domain, which carries its own sitemap). last_modified also follows their newest published post.
      */
     /**
-     * Does this creator's page have anything on it worth indexing: a published post, an active membership tier, a published
-     * service or a published event? The same test list_public_creators() applies for the sitemap, so a page of empty states is
+     * Does this creator's page have anything on it worth indexing: a published post?
+     * The same test list_public_creators() applies for the sitemap, so a page of empty states is
      * neither listed nor indexed (SEO audit 2026-10-12).
      */
     public function has_public_content($user_id){
         $r = parent::select(
-            "SELECT (
-                   EXISTS (SELECT 1 FROM posts ps WHERE ps.creator_id = :u1 AND ps.state = 'published' AND ps.on_cls = 1)
-                OR EXISTS (SELECT 1 FROM creator_plans cp WHERE cp.user_id = :u2 AND cp.is_active = 1)
-                OR EXISTS (SELECT 1 FROM services sv WHERE sv.creator_id = :u3 AND sv.status = 'published')
-                OR EXISTS (SELECT 1 FROM events ev WHERE ev.creator_id = :u4 AND ev.status = 'published')
-            ) AS has_content",
-            array('u1' => (int) $user_id, 'u2' => (int) $user_id, 'u3' => (int) $user_id, 'u4' => (int) $user_id)
+            "SELECT EXISTS (SELECT 1 FROM posts ps WHERE ps.creator_id = :u1 AND ps.state = 'published' AND ps.on_cls = 1) AS has_content",
+            array('u1' => (int) $user_id)
         );
         return !empty($r[0]['has_content']);
     }
@@ -173,12 +168,6 @@ class UsersModel extends Model {
             ORDER BY
                 u.u_name"
         );
-    }
-
-    /** Every account with a connected Stripe account (for the one-off profile sync). */
-    public function with_connect_accounts(): array {
-        $r = parent::select("SELECT user_id, u_name, stripe_connect_account_id FROM user_accounts WHERE stripe_connect_account_id IS NOT NULL AND stripe_connect_account_id <> ''");
-        return is_array($r) ? $r : array();
     }
 
     public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $business_name, $website_url, $updated_by=0){
@@ -250,7 +239,7 @@ class UsersModel extends Model {
     /**
      * Permanently hard-delete everything a creator owns. NO soft delete — rows are
      * removed outright. This is the single place to wire in each creator content
-     * table as it is built (content items, services, events, subscription tiers,
+     * table as it is built (content items,
      * external links, etc.). Returns the number of rows deleted.
      *
      * NOTE: none of those content tables exist yet, so this currently deletes
@@ -279,19 +268,6 @@ class UsersModel extends Model {
                 'creator_agreement_ip'          => null,
                 'updated_at'                    => date('Y-m-d H:i:s'),
                 'updated_by'                    => $updated_by,
-            ),
-            'user_id = :user_id',
-            array('user_id' => (int) $user_id)
-        );
-    }
-
-    public function set_adult_content_enabled($user_id, $enabled, $updated_by=0){
-        return parent::update(
-            'user_accounts',
-            array(
-                'adult_content_enabled' => $enabled ? 1 : 0,
-                'updated_at'            => date('Y-m-d H:i:s'),
-                'updated_by'            => $updated_by,
             ),
             'user_id = :user_id',
             array('user_id' => (int) $user_id)

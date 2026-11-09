@@ -1,7 +1,7 @@
 <?php
 /**
  * The Inbox (/inbox): every signed-in account's direct messages on one full page —
- * conversation list, thread with media and paid unlocks, compose, broadcasts and
+ * conversation list, thread with media, compose, broadcasts and
  * the people picker. Deep links: /inbox/thread/<conversation id>, /inbox/with/<user id>
  * (open or start a thread with someone), /inbox/new (people picker open).
  */
@@ -45,7 +45,6 @@ class InboxController extends Controller {
             'is_creator'     => $is_creator,
             'segment_labels' => BroadcastsModel::segment_labels(),
             'segments'       => BroadcastsModel::segments(),
-            'wallet_url'     => '/account/settings?section=wallet',
         ), $init));
         $this->view->is_creator = $is_creator;
         // Admins: replies to Creator Link Studio are answered in the team inbox, so this page points there when any are unread

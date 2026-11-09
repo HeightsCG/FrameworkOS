@@ -39,15 +39,7 @@
           login: function (o) { return o.mfa_required ? null : ['login', { method: 'email' }]; },
           mfa_verify: function () { return ['login', { method: 'email' }]; },
           become_creator: function () { return ['become_creator', {}]; },
-          confirm_credit_purchase: function (o) { return ['purchase', { currency: 'USD', value: (o.value_cents || 0) / 100, items: [{ item_name: 'Credits' }] }]; },
-          billing_change_plan: function (o, d) { return o.status === 'succeeded' || o.status === 'scheduled' ? ['creator_plan_change', { plan: d.plan || '' }] : null; },
-          subscribe_plan: function (o) { return o.url ? ['begin_checkout', { item_category: 'membership' }] : null; },
-          join_free_plan: function () { return ['join_membership', { tier: 'free' }]; },
-          ppv_unlock: function () { return ['unlock_content', { content_type: 'post' }]; },
-          bundle_unlock: function () { return ['unlock_content', { content_type: 'bundle' }]; },
-          message_unlock: function () { return ['unlock_content', { content_type: 'message' }]; },
-          service_purchase: function () { return ['purchase_service', {}]; },
-          event_register: function () { return ['register_event', {}]; }
+          billing_change_plan: function (o, d) { return o.status === 'succeeded' || o.status === 'scheduled' ? ['creator_plan_change', { plan: d.plan || '' }] : null; }
         };
         jQuery(document).ajaxSuccess(function (e, xhr, s) {
           var m = /\/api\/([a-z_]+)(?:[?#]|$)/.exec(s.url || ''); if (!m || !map[m[1]]) { return; }

@@ -24,29 +24,27 @@ class SeoMeta {
     }
 
     /**
-     * The short brand line (home meta description): the hero promise and the fee, from config. Kept within
-     * 160 characters; the last sentence goes first if the fee text ever makes it longer.
+     * The short brand line (home meta description): the hero promise. Kept within 160 characters.
      */
     public static function brand_tagline(): string {
-        // Leads with the brand and "creator monetization platform" so the description carries the title's keywords (Seobility keyword consistency, 2026-10-15)
-        $s = self::site() . ' is a creator monetization platform: sell memberships, posts and services from one page.';
-        $full = $s . ' Platform fee: ' . PagesController::fee_short() . '.';
-        return mb_strlen($full) <= 160 ? $full : $s;
+        // Leads with the brand and "AI content studio" so the description carries the title's keywords (Seobility keyword consistency)
+        $s = self::site() . ' is an AI content studio for creators: AI influencers, AI images and video, scheduling and cross-posting from one place.';
+        return mb_strlen($s) <= 160 ? $s : self::site() . ' is an AI content studio for creators: AI influencers, AI content and scheduling.';
     }
 
     /**
      * The canonical brand description (Organization, SoftwareApplication, llms.txt, footer): what the platform is,
-     * then the plans with price and fee from PlanTiers, so no number is ever typed here.
+     * then the plans with price from PlanTiers, so no number is ever typed here.
      */
     public static function brand_description(bool $with_plans = true): string {
         $host = preg_replace('#^https?://(www\.)?#', '', self::base());
         $plans = array();
-        $lead = self::site() . ' is a creator monetization platform: one public page at ' . $host . '/@handle for memberships, pay-per-view posts, bundles, services and live events, a studio that publishes to ten platforms with AI captions, AI influencers and an AI-assisted inbox, and payouts to your bank.';
+        $lead = self::site() . ' is an AI content studio for creators and brands: AI influencers, AI images and video, a studio that schedules and publishes to nine platforms with AI captions, a link-in-bio page at ' . $host . '/@handle, an AI-assisted inbox and analytics.';
         if (!$with_plans) { return $lead; }   // creator profiles show no plan prices
         foreach (PlanTiers::offered() as $t) {   // PlanTiers directly, not PagesController: org() also runs where controllers are not loaded
             $price = (int) ($t['price'] ?? 0);
             $plans[] = $price > 0
-                ? $t['name'] . ' $' . number_format($price) . '/month (' . (int) $t['limits']['fee_percent'] . '% platform fee)'
+                ? $t['name'] . ' $' . number_format($price) . '/month (' . number_format((int) ($t['limits']['ai_credits'] ?? 0)) . ' AI credits a month)'
                 : $t['name'] . ' $' . number_format($price);
         }
         return $lead . ' Plans: ' . implode(', ', $plans) . '.';
@@ -159,21 +157,17 @@ class SeoMeta {
             'ai dm'                                => '/features/dm-agent',
             'ai chat'                              => '/features/dm-agent',
             'automated messages'                   => '/features/dm-agent',
-            'creator payouts'                      => '/features/payouts',
-            'get paid'                             => '/features/payouts',
             'creator platform'                     => '/features',
             'online creator platform'              => '/features',
-            'creator monetization platform'        => '/features',
+            'ai content studio'                    => '/features',
             'pricing'                              => '/pricing',
-            'platform fee'                         => '/pricing',
-            'fanvue alternative'                   => '/compare/fanvue',
-            'onlyfans alternative'                 => '/compare/onlyfans',
-            'best creator monetization platforms'  => '/best-creator-monetization-platforms',
-            'link in bio'                          => '/features#page',
-            'monetize content'                     => '/monetize-your-content',
-            'monetize your content'                => '/monetize-your-content',
-            'pay-per-view'                         => '/monetize-your-content#pay-per-view',
-            'membership tiers'                     => '/monetize-your-content#memberships',
+            'ai credits'                           => '/pricing',
+            'link in bio'                          => '/features/link-in-bio',
+            'social media scheduling'              => '/features/publishing',
+            'cross-posting'                        => '/features/publishing',
+            'content automation'                   => '/features/automations',
+            'creator analytics'                    => '/features/analytics',
+            'custom domain'                        => '/features/custom-domains',
             'sign up'                              => '/',
         );
     }

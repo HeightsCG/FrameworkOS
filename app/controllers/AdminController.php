@@ -3,12 +3,12 @@
  * Platform admin (/admin), PRD §38. Gated on the is_admin staff flag (independent of role, so the platform
  * owner can also be a Creator). One page per job, all sharing the admin rail (app/views/admin/_shell.php):
  *
- *   /admin             Today: key numbers, what needs a person, one activity table (signups, sales, payouts, staff actions)
- *   /admin/moderation  moderation, reports, verification + age checks, past-due billing (?show=<section>)
+ *   /admin             Today: key numbers, what needs a person, one activity table (signups, staff actions)
+ *   /admin/moderation  moderation, reports, verification, past-due billing (?show=<section>)
  *   /admin/support     support requests (its own tab since 2026-10-21; ?show=support on moderation redirects here)
  *   /admin/feedback    notes sent from the Feedback link in the top bar (New / Reviewed)
  *   /admin/users       accounts                      /admin/user/<id>  one account (single scroll)
- *   /admin/financials  ledgers and the revenue chart  /admin/sales  sales + chargebacks   /admin/billing  plan billing
+ *   /admin/financials  plan and AI credit revenue     /admin/billing  plan billing, checkouts + chargebacks
  *   /admin/growth      funnel; /leads /founding /affiliates sit under the same sidebar item
  *   /admin/content     articles; /scenes /niches under the same item; /admin/article/<id> the editor
  *   /admin/system      audit log; /jobs under the same item
@@ -24,7 +24,7 @@ class AdminController extends Controller {
 
     /** Old tab name → new URL. */
     const TAB_ROUTES = array(
-        'financials' => '/admin/financials', 'sales' => '/admin/sales', 'billing' => '/admin/billing',
+        'financials' => '/admin/financials', 'billing' => '/admin/billing',
         'moderation' => '/admin/moderation?show=moderation', 'reports' => '/admin/moderation?show=reports',
         'verification' => '/admin/moderation?show=verification', 'support' => '/admin/support',
         'users' => '/admin/users', 'growth' => '/admin/growth', 'leads' => '/admin/leads', 'founding' => '/admin/founding',
@@ -37,7 +37,7 @@ class AdminController extends Controller {
     /** Sidebar item → the pages it covers (the page key the shell highlights). */
     const SECTIONS = array(
         'today' => array('today'), 'moderation' => array('moderation'), 'support' => array('support'), 'feedback' => array('feedback'), 'users' => array('users', 'messages', 'announcements'), 'financials' => array('financials'),
-        'sales' => array('sales'), 'billing' => array('billing'),
+        'billing' => array('billing'),
         'growth' => array('growth', 'leads', 'founding', 'affiliates'), 'content' => array('content', 'scenes', 'niches'), 'system' => array('system', 'jobs', 'generations'),
         'analytics' => array('analytics', 'analytics_pages', 'analytics_sources', 'analytics_conversions', 'analytics_product', 'analytics_creators'),
     );
@@ -64,19 +64,18 @@ class AdminController extends Controller {
 
     /** What is waiting on staff, per group, for the rail badges and the queue chips. Every source is optional (a missing table never breaks /admin). */
     public static function rail_counts(): array {
-        $n = array('moderation' => 0, 'reports' => 0, 'verification' => 0, 'age' => 0, 'support' => 0, 'feedback' => 0, 'billing' => 0, 'articles' => 0, 'affiliates' => 0, 'messages' => 0);
+        $n = array('moderation' => 0, 'reports' => 0, 'verification' => 0, 'support' => 0, 'feedback' => 0, 'billing' => 0, 'articles' => 0, 'affiliates' => 0, 'messages' => 0);
         $try = function ($key, $fn) use (&$n) { try { $n[$key] = (int) $fn(); } catch (\Throwable $e) { error_log('[admin] count ' . $key . ': ' . $e->getMessage()); } };
         $try('moderation',   function () { return (new AdminModel())->moderation_count(); });
         $try('reports',      function () { return (new ReportsModel())->open_count(); });
         // creator ID checks are decided by Didit (IdentityVerification): nothing waits on staff, so no count
-        // age checks are decided by Didit too: a pending one waits on the user, not staff, so no count
         $try('support',      function () { return (new SupportModel())->count_open(); });
         $try('feedback',     function () { return (new FeedbackModel())->count_new(); });
         $try('billing',      function () { return (new BillingAccountsModel())->past_due_count(); });
         $try('articles',     function () { return count((new SeoArticlesModel())->by_status(array('review', 'draft'))); });
         $try('affiliates',   function () { return (new AffiliatesModel())->pending_count() + (new AffiliatePayoutsModel())->requested_count(); });
         $try('messages',     function () { return (new MessagesModel())->total_unread(PlatformAccount::ID); });   // unread replies to Creator Link Studio
-        $n['queue'] = $n['moderation'] + $n['reports'] + $n['verification'] + $n['age'] + $n['billing'];   // the Moderation tab's pill (support has its own tab)
+        $n['queue'] = $n['moderation'] + $n['reports'] + $n['verification'] + $n['billing'];   // the Moderation tab's pill (support has its own tab)
         return $n;
     }
 
@@ -106,7 +105,7 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
-    /** Signups, sales, payouts and staff actions in one newest-first list (the Today page's Activity table). */
+    /** Signups and staff actions in one newest-first list (the Today page's Activity table). */
     public static function platform_activity(AdminModel $model, int $limit = 60): array {
         $out = array();
         foreach ($model->users('', '', 30) as $u) {
@@ -114,20 +113,6 @@ class AdminController extends Controller {
             $out[] = array('at' => $u['created_at'], 'type' => 'signup', 'label' => 'Signup', 'who' => $name, 'who_id' => (int) $u['user_id'], 'handle' => (string) $u['u_name'], 'avatar' => (string) ($u['avatar_url'] ?? ''),
                            'what' => ($u['role_name'] ?: 'User') . ' account', 'amount' => '', 'href' => '/admin/user/' . (int) $u['user_id']);
         }
-        foreach ($model->recent_sales(30) as $sl) {
-            $kind = AdminModel::SALE_KINDS[$sl['kind']] ?? ucfirst($sl['kind']);
-            $out[] = array('at' => $sl['created_at'], 'type' => 'sale', 'label' => 'Sale', 'who' => $sl['fan_name'] !== '' ? $sl['fan_name'] : '@' . $sl['fan_handle'], 'who_id' => (int) $sl['fan_id'], 'handle' => (string) $sl['fan_handle'], 'avatar' => (string) $sl['fan_avatar'],
-                           'what' => $kind . ($sl['item'] !== '' ? ' · ' . mb_substr($sl['item'], 0, 60) : '') . ($sl['creator_handle'] !== '' ? ' · from @' . $sl['creator_handle'] : ''),
-                           'amount' => '$' . number_format(((int) $sl['credits']) / 10, 2), 'href' => '/admin/user/' . (int) $sl['fan_id']);
-        }
-        try {
-            foreach ((new PayoutsModel())->recent_for_admin(30) as $po) {
-                $st = (string) $po['status'];
-                $out[] = array('at' => $po['created_at'], 'type' => 'payout', 'label' => 'Payout', 'who' => '@' . $po['u_name'], 'who_id' => (int) $po['creator_id'], 'handle' => (string) $po['u_name'], 'avatar' => '',
-                               'what' => ucfirst($st) . ((string) $po['failure_message'] !== '' ? ' · ' . $po['failure_message'] : ''),
-                               'amount' => '$' . number_format(((int) $po['amount_cents']) / 100, 2), 'href' => '/admin/user/' . (int) $po['creator_id']);
-            }
-        } catch (\Throwable $e) { error_log('[admin] activity payouts: ' . $e->getMessage()); }
         try {
             foreach ((new AuditModel())->recent(30) as $ar) {
                 $admin = $ar['admin_name'] !== '' ? $ar['admin_name'] : '@' . $ar['admin_handle'];
@@ -158,7 +143,7 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
-    /** /admin/moderation — moderation, reports, verification + age checks and past-due billing. ?show=<section> opens one. */
+    /** /admin/moderation — moderation, reports, verification and past-due billing. ?show=<section> opens one. */
     public function moderationAction(){
         if ((string) ($_GET['show'] ?? '') === 'support') { header('Location: /admin/support', true, 302); exit; }   // support moved to its own tab
         $this->shell('moderation');
@@ -182,9 +167,6 @@ class AdminController extends Controller {
         $this->view->show          = preg_replace('/[^a-z]/', '', (string) ($_GET['show'] ?? ''));
         $this->view->reports_queue = (new ReportsModel())->open_for_admin(40);
         $this->view->verifications = (new VerificationsModel())->recent_for_admin(50);   // the record of ID checks (read-only)
-        $this->view->age_rows = array(); $this->view->age_counts = array('pending' => 0, 'verified' => 0, 'failed' => 0);
-        try { $am = new AgeVerificationsModel(); $this->view->age_rows = $am->recent(200); $this->view->age_counts = $am->counts(); }
-        catch (\Throwable $e) { error_log('[admin] age checks: ' . $e->getMessage()); }
         $this->view->billing = array();
         try { foreach ((new BillingAccountsModel())->admin_list(300) as $b) { if ((string) $b['status'] === 'past_due') { $this->view->billing[] = $b; } } }
         catch (\Throwable $e) { error_log('[admin] billing: ' . $e->getMessage()); }
@@ -201,7 +183,7 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
-    /** /admin/financials — the ledgers: period numbers, revenue by month, sales by type, monthly breakdown. */
+    /** /admin/financials — plan payments and AI credit packs: period numbers, revenue by month, monthly breakdown. */
     public function financialsAction(){
         $this->shell('financials');
         $fin = self::financials(new AdminModel());
@@ -210,16 +192,6 @@ class AdminController extends Controller {
         $this->view->plan_all = $fin['plan_all'];
         $this->view->daily    = array();
         try { $this->view->daily = (new AdminModel())->daily_series(30, $fin['plan_days']); } catch (\Throwable $e) { error_log('[admin] daily series: ' . $e->getMessage()); }
-        $this->view->render();
-    }
-
-    /** /admin/sales — recent sales (refundable) and chargebacks. */
-    public function salesAction(){
-        $this->shell('sales');
-        $model = new AdminModel(); $refunds = new RefundsModel();
-        $this->view->sales       = $model->recent_sales(200);
-        $this->view->refunds     = $refunds->totals();
-        $this->view->chargebacks = $refunds->recent_chargebacks(50);
         $this->view->render();
     }
 
@@ -236,6 +208,8 @@ class AdminController extends Controller {
             CheckoutAttempts::expire();
             $this->view->attempts = (new CheckoutAttemptsModel())->admin_list(array('signup_day' => $this->view->signup_day), 500);
         } catch (\Throwable $e) { error_log('[admin] checkout attempts: ' . $e->getMessage()); }
+        $this->view->chargebacks = array();
+        try { $this->view->chargebacks = (new RefundsModel())->recent_chargebacks(50); } catch (\Throwable $e) { error_log('[admin] chargebacks: ' . $e->getMessage()); }
         $this->view->render();
     }
 
@@ -440,11 +414,6 @@ class AdminController extends Controller {
         if (!$u) { Errors::page_not_found(); return; }
         $uid = (int) $u['user_id'];
         $this->view->u            = $u;
-        $this->view->age_verification = AgeVerification::record($uid);   // status, provider, dates only (never documents)
-        $this->view->purchases    = $model->purchases_for($uid);
-        $this->view->refunds      = $model->refunds_for($uid);
-        $this->view->memberships  = (array) (new CreatorSubscriptionsModel())->get_for_subscriber($uid);
-        $this->view->credit_tx    = (array) (new CreditsModel())->get_transactions($uid, 50);
         $this->view->ai_tx        = (array) (new AiCreditsModel())->get_transactions($uid, 50);
         $this->view->sign_ins     = $model->sign_in_history((string) $u['u_name'], (string) $u['user_email']);
         $this->view->tickets      = array();
@@ -452,7 +421,7 @@ class AdminController extends Controller {
         $this->view->is_me        = $uid === (int) Session::get('user_id');
         $this->view->audit        = array();
         try { $this->view->audit = (new AuditModel())->recent(200, $uid); } catch (\Throwable $e) { error_log('[admin] user audit: ' . $e->getMessage()); }
-        $this->view->activity     = self::activity_feed($this->view->credit_tx, $this->view->purchases, $this->view->sign_ins, $this->view->tickets, $this->view->refunds);
+        $this->view->activity     = self::activity_feed($this->view->ai_tx, $this->view->sign_ins, $this->view->tickets);
         $this->view->render();
     }
 
@@ -471,19 +440,17 @@ class AdminController extends Controller {
             $fin['plans']      = $live['plans'];
         }
         $plan_inv = self::plan_invoice_buckets($model);
-        return array('fin' => $fin, 'series' => $model->money_series($plan_inv['month'], self::membership_fee_buckets()), 'plan_all' => $plan_inv['all'], 'plan_days' => (array) ($plan_inv['day'] ?? array()));
+        return array('fin' => $fin, 'series' => $model->money_series($plan_inv['month']), 'plan_all' => $plan_inv['all'], 'plan_days' => (array) ($plan_inv['day'] ?? array()));
     }
 
-    /** Newest-first mix of a user's credit movements, purchases, refunds, sign-ins and support requests (for the Overview timeline). */
-    public static function activity_feed(array $tx, array $purchases, array $sign_ins, array $tickets, array $refunds = array(), int $limit = 14): array {
+    /** Newest-first mix of a user's AI credit movements, sign-ins and support requests (for the Overview timeline). */
+    public static function activity_feed(array $tx, array $sign_ins, array $tickets, int $limit = 14): array {
         $out = array();
-        $labels = array('purchase' => 'Bought credits', 'payout' => 'Cashed out', 'admin_adjust' => 'Balance adjusted by support', 'refund' => 'Refund received', 'refund_reversal' => 'Refund reversed',
-                        'ppv_unlock' => 'Unlocked a post', 'bundle_unlock' => 'Bought a bundle', 'message_unlock' => 'Unlocked a message', 'service_purchase' => 'Bought a service', 'event_ticket' => 'Bought an event ticket', 'live_tip' => 'Sent a tip', 'replay_unlock' => 'Bought a replay',
-                        'ppv_earning' => 'Earned from a post', 'bundle_earning' => 'Earned from a bundle', 'message_earning' => 'Earned from a message', 'service_earning' => 'Earned from a service', 'event_earning' => 'Earned from an event', 'tip_earning' => 'Tip received', 'replay_earning' => 'Sold a replay');
+        $labels = array('purchase' => 'Bought AI credits', 'admin_adjust' => 'AI credits adjusted by support', 'refund' => 'AI credits returned');
         foreach ($tx as $t) {
             $c = (int) $t['credits'];
             $out[] = array('at' => $t['created_at'], 'icon' => $c >= 0 ? 'fa-arrow-down' : 'fa-arrow-up', 'tone' => $c >= 0 ? 'pos' : 'neg',
-                'title' => $labels[$t['type']] ?? ucwords(str_replace('_', ' ', (string) $t['type'])), 'detail' => ($c > 0 ? '+' : '') . number_format($c) . ' credits', 'sub' => (string) $t['description']);
+                'title' => $labels[$t['type']] ?? ucwords(str_replace('_', ' ', (string) $t['type'])), 'detail' => ($c > 0 ? '+' : '') . number_format($c) . ' AI credits', 'sub' => (string) $t['description']);
         }
         foreach ($sign_ins as $si) {
             $map = array('login' => 'Sign-in attempt', 'forgot' => 'Requested a password reset', 'mfa' => 'Entered a two-step code');
@@ -491,9 +458,6 @@ class AdminController extends Controller {
         }
         foreach ($tickets as $tk) {
             $out[] = array('at' => $tk['created_at'], 'icon' => 'fa-life-ring', 'tone' => 'violet', 'title' => 'Opened a support request', 'detail' => '', 'sub' => (string) $tk['subject'], 'link' => '/support/ticket/' . (int) $tk['id']);
-        }
-        foreach ($refunds as $rf) {
-            $out[] = array('at' => $rf['created_at'], 'icon' => 'fa-rotate-left', 'tone' => 'warn', 'title' => 'Refund issued by support', 'detail' => number_format((int) $rf['amount_credits']) . ' credits', 'sub' => (string) $rf['reason']);
         }
         usort($out, function ($a, $b) { return strcmp((string) $b['at'], (string) $a['at']); });
         return array_slice($out, 0, $limit);
@@ -526,18 +490,6 @@ class AdminController extends Controller {
         }
         @file_put_contents($cache, json_encode($out), LOCK_EX);
         return $out;
-    }
-
-    /** Our fee on fan memberships by month (Stripe application fees), cached for 10 minutes like the plan invoices. */
-    private static function membership_fee_buckets(): array {
-        $cache = sys_get_temp_dir() . '/cls_admin_membership_fees.json';
-        if (is_file($cache) && filemtime($cache) > time() - 600) {
-            $c = json_decode((string) file_get_contents($cache), true);
-            if (is_array($c)) { return (array) ($c['month'] ?? array()); }
-        }
-        $out = StripeService::application_fee_buckets(strtotime('first day of -23 months 00:00 UTC'));
-        @file_put_contents($cache, json_encode($out), LOCK_EX);
-        return $out['month'];
     }
 
     /**

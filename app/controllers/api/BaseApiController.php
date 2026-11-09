@@ -56,24 +56,17 @@ class BaseApiController extends Controller {
      * (Editor: content; Manager: content+manage; Viewer: none; owner-only for 'owner').
      * Returns the OWNER's user array, or exits with a JSON error.
      */
-    /**
-     * True when nothing of this seller's may be bought: the account is suspended or gone, or it has no paid plan
-     * (selling needs Creator or Studio; a lapsed plan pauses sales until they pick one again).
-     */
-    /** The creator's share of a sale in credits: the price less their plan's platform fee. */
-    protected function creator_net($creator_id, $credits): int {
-        $row = $this->userModel->get_user_by_id((int) $creator_id);
-        $row = (is_array($row) && count($row) === 1) ? $row[0] : null;
-        return (int) round((int) $credits * (100 - Plan::fee_percent($row)) / 100);
-    }
-
-    /** Payouts (bank setup, cash out, affiliate payouts) need a confirmed email; nothing else does. need_verify lets a page offer Resend Email. */
+    /** Affiliate payouts need a confirmed email; nothing else does. need_verify lets a page offer Resend Email. */
     protected function require_verified_email(int $user_id): void{
         $rows = $this->userModel->get_user_by_id($user_id);
         if (is_array($rows) && count($rows) === 1 && (int) ($rows[0]['email_verified'] ?? 0) === 1) { return; }
         $this->jsonError('Confirm your email before setting up payouts. Use Resend Email on your dashboard if the link did not arrive.', ['need_verify' => true]);
     }
 
+    /**
+     * True when this creator has no public presence: the account is suspended or gone, or it has no paid plan
+     * (Creator or Studio; a lapsed plan hides it until they pick one again).
+     */
     protected function seller_suspended(int $creator_id): bool{
         $rows = $this->userModel->get_user_by_id($creator_id);
         if (!is_array($rows) || count($rows) !== 1 || (string) ($rows[0]['user_status'] ?? '') === 'Disabled') { return true; }
@@ -114,10 +107,10 @@ class BaseApiController extends Controller {
         if (!$user || (int) $user['role_id'] !== $creator_role_id) {
             $this->jsonError('Only creators can do that');
         }
-        // $need_plan: true = a paid plan (selling), 'ai' = a paid plan for AI, false = building, which Free can do
+        // $need_plan: true = a paid plan (creator tools), 'ai' = a paid plan for AI, false = building, which Free can do
         // (Plan::can_build). Billing passes false too: a Free creator has to be able to buy the plan.
         if ($need_plan === 'ai' && !Plan::can_use_ai($user)) { $this->need_plan($action !== '' ? $action : 'use AI tools'); }
-        if ($need_plan === true && !Plan::can_sell($user)) { $this->need_plan($action !== '' ? $action : 'use this'); }
+        if ($need_plan === true && !Plan::can_use_creator_features($user)) { $this->need_plan($action !== '' ? $action : 'use this'); }
         // Refresh the ACTING user's presence (throttled ~once/45s).
         $last = $acting['last_active_at'] ?? null;
         if (($last === null || strtotime((string) $last . ' UTC') < time() - 45) && !UserSession::impersonating()) {   // an admin viewing as them doesn't count
@@ -132,20 +125,6 @@ class BaseApiController extends Controller {
      * push() self-gates the in-platform pref; email is gated here (fail-closed on an
      * unknown category). Email send is best-effort and never blocks the response path.
      */
-    /** Discount codes can't be guessed: 10 wrong codes per 10 minutes, per IP and per account. Call before checking a code. */
-    protected function promo_guard(): void{
-        $ip = $this->get_ip_address(); $uid = (int) Session::get('user_id');
-        if ($this->loginAttemptsModel->count_recent($ip, 'promo', 10) >= 10
-            || ($uid > 0 && $this->loginAttemptsModel->count_recent_for('uid:' . $uid, 'promo', 10) >= 10)) {
-            $this->jsonError('Too many codes tried. Wait a few minutes and try again.');
-        }
-    }
-
-    /** Count a wrong discount code toward promo_guard. */
-    protected function promo_miss(): void{
-        $this->loginAttemptsModel->record($this->get_ip_address(), 'uid:' . (int) Session::get('user_id'), 'promo');
-    }
-
     protected function notify(int $user_id, string $category, string $title, string $body = '', string $link = '', string $icon = '', bool $email_if_offline = false, bool $force_email = false): void{
         Notify::send($user_id, $category, $title, $body, $link, $icon, $email_if_offline, $force_email);
     }
@@ -182,9 +161,9 @@ class BaseApiController extends Controller {
         return $this->require_creator('manage', 'ai', 'use inbox automation');
     }
 
-    /** On Free a creator can switch things off but not back on: turning on is selling, which needs a paid plan. */
+    /** On Free a creator can switch things off but not back on: turning on needs a paid plan. */
     protected function plan_to_turn_on(array $user, bool $on): void{
-        if ($on && !Plan::can_sell($user)) { $this->need_plan('turn this on'); }
+        if ($on && !Plan::can_use_creator_features($user)) { $this->need_plan('turn this on'); }
     }
 
     /** Refuse with the upgrade prompt (site.js cls_need_plan): the Creator plan, and the page to come back to after checkout. */
@@ -207,19 +186,6 @@ class BaseApiController extends Controller {
         $path = (string) ($p['path'] ?? '');
         if ($path === '' || $path[0] !== '/' || strpos($path, '//') === 0 || strpos($path, '\\') !== false) { return ''; }
         return $path . ((string) ($p['query'] ?? '') !== '' ? '?' . $p['query'] : '');
-    }
-
-    /** A price the creator typed in credits (10 to 5,000); a bad price answers with the reason. Everything inside is credits. */
-    protected function price_credits($raw, $allow_free = false): int{
-        $p = Price::from_credits($raw, $allow_free);
-        if (!$p['ok']) { $this->jsonError($p['message']); }
-        return (int) $p['credits'];
-    }
-
-    /** Is a price field filled in at all? (Empty or 0 means the item is free; anything else must be a valid price.) */
-    protected function price_given($raw): bool{
-        $s = trim(str_replace(array('$', ','), '', (string) $raw));
-        return $s !== '' && (!is_numeric($s) || (float) $s != 0.0);
     }
 
     /** Answer a Plan::check_count() refusal: message + need_plan/need_upgrade so the UI can link to billing. */

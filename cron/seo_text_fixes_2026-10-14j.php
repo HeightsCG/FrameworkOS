@@ -5,6 +5,7 @@
  * "ten platforms", capitals kept. Pure text, no AI calls. Ends by listing any "nine ... networks" left.
  * Usage: APPLICATION_ENV=production php cron/seo_text_fixes_2026-10-14j.php [--dry-run|--apply]
  */
+fwrite(STDERR, "retired 2026-11-09: Fanvue was removed, the studio publishes to nine platforms again; this pass must not run\n"); exit(1);
 $path = dirname(__DIR__);
 putenv('APPLICATION_ENV=' . (getenv('APPLICATION_ENV') ?: 'production'));
 if (is_file($path . '/vendor/autoload.php')) { require_once $path . '/vendor/autoload.php'; }

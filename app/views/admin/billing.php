@@ -60,5 +60,24 @@ foreach ($co_rows as $ca) { if (isset($co_cnt[(string) $ca['status']])) { $co_cn
     <p class="adm-quiet" id="admCheckoutNone" hidden>No matching checkouts.</p>
     <?php endif; ?>
 </section>
+<section class="adm-box" id="chargebacks">
+    <header class="adm-box__h"><h2 class="adm-box__t">Chargebacks<?php if (!empty($this->chargebacks)): ?> <b class="adm-count"><?php echo count($this->chargebacks); ?></b><?php endif; ?></h2><span class="adm-box__note">Disputed card charges · the account is suspended automatically</span></header>
+    <?php if (empty($this->chargebacks)): ?><?php echo adm_empty('No chargebacks', 'fa-credit-card'); ?><?php else: ?>
+    <table class="adm-t" data-sortable>
+        <thead><tr><th data-sort="text">Account</th><th data-sort="text">Reason</th><th class="adm-r" data-sort="num">Amount</th><th>Status</th><th data-sort="text" data-sorted="desc">Date</th></tr></thead>
+        <tbody>
+        <?php foreach ($this->chargebacks as $cb): ?>
+            <tr>
+                <td class="adm-t__main"><?php echo $cb['handle'] ? '@' . $e($cb['handle']) : '<span class="adm-t__muted">Unmatched</span>'; ?></td>
+                <td class="adm-t__muted adm-t__trunc"><?php echo $e($cb['reason'] ?: '—'); ?></td>
+                <td class="adm-r adm-t__num" data-value="<?php echo ((int) $cb['amount_cents']) / 100; ?>">$<?php echo number_format(((int) $cb['amount_cents']) / 100, 2); ?></td>
+                <td><?php echo adm_pill('Suspended'); ?></td>
+                <td class="adm-t__muted adm-t__nowrap" data-value="<?php echo $e($cb['created_at']); ?>"><?php echo $e($fmt($cb['created_at'], true)); ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+</section>
 <?php include __DIR__ . '/_shell_end.php'; ?>
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>

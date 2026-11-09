@@ -23,18 +23,6 @@ class BillingModel extends Model {
             'stripe_customer_id = :c', array('c' => (string) $customer_id));
     }
 
-    public function set_connect_account_id($user_id, $account_id){
-        return parent::update(
-            'user_accounts',
-            array(
-                'stripe_connect_account_id' => $account_id,
-                'updated_at'                => date('Y-m-d H:i:s'),
-            ),
-            'user_id = :user_id',
-            array('user_id' => (int) $user_id)
-        );
-    }
-
     /**
      * Mirror of the app-managed plan (BillingService::mirror) so Plan:: checks stay column reads.
      * $tier/$status null = Free. The Stripe subscription columns are only history now.

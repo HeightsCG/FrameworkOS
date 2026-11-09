@@ -15,10 +15,22 @@ class SeoKeywordsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
-    /** Lowest priority number wins (P1 = 1, P2 = 2, the rest 3); ties by age. */
+    /**
+     * Keyword wording that is out of scope since 2026-11-09 (the product no longer sells or compares itself with creator
+     * platforms): a queued row that matches it, or whose cluster is no longer in SeoDrafter::CLUSTERS, is never drafted.
+     */
+    const OUT_OF_SCOPE = '/\b(?:onlyfans|fansly|fanvue|patreon|ko-?fi|passes|linktree|beacons|stan store|pay[- ]per[- ]view|ppv|paywall|paid (?:dms?|messages?|live|event)|payouts?|get(?:ting)? paid|fees?|make money|making money|monetiz\w*|income|revenue|sell\w*|subscriptions?|subscribers?|memberships?|members|tiers?|bundles?|tickets?|charge|fans? (?:to )?pay|adult|nsfw|chargebacks?|refunds?|taxes)\b/i';
+
+    /** Is a keyword still draftable: a live cluster and no out-of-scope wording. */
+    public static function in_scope(array $k): bool {
+        return SeoDrafter::cluster((string) ($k['cluster'] ?? '')) !== '' && !preg_match(self::OUT_OF_SCOPE, (string) ($k['keyword'] ?? ''));
+    }
+
+    /** Lowest priority number wins (P1 = 1, P2 = 2, the rest 3); ties by age. Out-of-scope rows are passed over. */
     public function next_queued(){
-        $rows = parent::select("SELECT * FROM seo_keywords WHERE status = 'queued' ORDER BY priority ASC, id ASC LIMIT 1");
-        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        $rows = parent::select("SELECT * FROM seo_keywords WHERE status = 'queued' ORDER BY priority ASC, id ASC");
+        foreach ((array) $rows as $r) { if (self::in_scope($r)) { return $r; } }
+        return null;
     }
 
     public function add($keyword, $volume, $difficulty, $priority = 100, $cluster = ''){
@@ -56,46 +68,16 @@ class SeoKeywordsModel extends Model {
     }
 
     /**
-     * Cluster for each keyword (and each article's target keyword) after the 2026-10-09 re-cluster: pricing and
-     * selling topics leave the AI influencer cluster so their articles stop linking to AI pages. Applied by recluster().
+     * Cluster for each keyword (and each article's target keyword) after the 2026-10-09 re-cluster. The selling,
+     * payout and platform-comparison clusters were removed 2026-11-09, so only the kept clusters are listed here.
      */
     const RECLUSTER = array(
-        'how to price a subscription tier' => 'memberships-and-ppv',
-        'how to sell pay-per-view content' => 'memberships-and-ppv',
-        'creator membership tiers' => 'memberships-and-ppv',
-        'how to monetize content as a creator' => 'creator-monetization',
-        'monetize digital content' => 'creator-monetization',
-        'monetize online content' => 'creator-monetization',
-        'link in bio for creators' => 'creator-monetization',
         'cross-post to social media from one place' => 'social-publishing',
-        'taxes for online creators' => 'creator-payouts',
-        'chargebacks for digital content' => 'creator-payouts',
         // dev-only demo articles (target keywords without a queue row)
-        'pay-per-view pricing' => 'memberships-and-ppv',
-        'membership tiers' => 'memberships-and-ppv',
-        'subscription price' => 'memberships-and-ppv',
-        'membership trial' => 'memberships-and-ppv',
-        'paid messages pricing' => 'memberships-and-ppv',
-        'membership tiers count' => 'memberships-and-ppv',
-        'bundle pricing' => 'memberships-and-ppv',
-        'welcome message membership' => 'memberships-and-ppv',
-        'content bundles' => 'creator-monetization',
-        'service pricing' => 'creator-monetization',
-        'live event tickets' => 'creator-monetization',
-        'link in bio' => 'creator-monetization',
-        'monetize podcast' => 'creator-monetization',
-        'service coaching' => 'creator-monetization',
-        'monetize small audience' => 'creator-monetization',
-        'link tracking' => 'creator-monetization',
-        'creator payouts' => 'creator-payouts',
-        'payout timing' => 'creator-payouts',
         'social cross-post' => 'social-publishing',
         'ai captions' => 'social-publishing',
         'social scheduling' => 'social-publishing',
         'social automation' => 'social-publishing',
-        'onlyfans alternative' => 'platform-comparisons',
-        'creator monetization platform' => 'platform-comparisons',
-        'fanvue fees' => 'pricing-and-fees',
     );
 
     /** Keyword counts per cluster, all statuses. */

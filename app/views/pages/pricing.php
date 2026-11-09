@@ -3,14 +3,14 @@ $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
     <h1 class="sx-hero__title sx-hero__title--plain">Pricing</h1>
-    <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> is one page for your memberships, pay-per-view posts, bundles, services and events, with a studio that publishes everywhere and payouts to your bank. Everyone joins free, and creators can build their page before they pay. When you’re ready to sell, pick Creator or Studio, billed monthly, cancel any time.</p>
+    <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> is an AI content studio for creators and brands: AI influencers, AI images and video, scheduling and cross-posting, a link-in-bio page, inbox automation and analytics. Everyone joins free and can build their page before they pay. When you’re ready to publish and use the AI tools, pick Creator or Studio, billed monthly, cancel any time. Your plan and any extra AI credits are the only things you pay for.</p>
 <?php
     // Founding offer (first TRIAL_DAYS free on Creator; no fee lock since 2026-10-12): one line on the Creator card while spots remain.
     $founding_left = isset($founding_left) ? (int) $founding_left : 0;
-    $f_plan = PlanTiers::get(Founding::PLAN); $f_from = PlanTiers::get(Founding::FEE_FROM);
+    $f_plan = PlanTiers::get(Founding::PLAN);
     // Card order: Free, Creator, Studio on desktop; phones put the paid plans first (CSS order by plan key).
 ?>
-<?php if ($founding_left > 0 && $f_plan && $f_from): ?>
+<?php if ($founding_left > 0 && $f_plan): ?>
 <p class="sx-plans__offer">Founding creators: <?php echo $e(Founding::free_label()); ?> on <?php echo $e(Founding::plan_names()); ?>. <?php $f_claim = Founding::claim_link(); ?><a href="<?php echo $e($f_claim[0]); ?>"<?php echo $f_claim[1] !== '' ? ' data-auth="' . $e($f_claim[1]) . '"' : ''; ?>>Claim a spot</a></p><?php /* across the top of the cards, no spot counts (Daniel 2026-10-12) */ ?>
 <?php endif; ?>
 <div class="sx-plans" id="sx_plans">
@@ -50,17 +50,17 @@ $e = function ($s) { return Sections::e($s); };
     $vids = array(); foreach (Plan::ai_price_list() as $pr) { if (strpos($pr['label'], 'Video') === 0) { $vids[] = (int) $pr['credits']; } }
 ?>
 <?php if (Proof::product_hunt_url() !== ''): ?><p class="sx-proof"><a class="sx-proof__a" href="<?php echo $e(Proof::product_hunt_url()); ?>" rel="noopener" target="_blank">See <?php echo $e(Main::site_name()); ?> on Product Hunt</a><?php if (Proof::launch_label() !== ''): ?> <span class="sx-proof__badge"><?php echo $e(Proof::launch_label()); ?></span><?php endif; ?></p><?php endif; ?>
-<p class="sx-note">On Creator and Studio, more AI credits can be bought any time: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included. Card-processing fees are separate from the platform take rate.</p>
+<p class="sx-note">On Creator and Studio, more AI credits can be bought any time: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included.</p>
 <?php
 echo Sections::close();
 
-/* What a paid plan unlocks, beside a schematic of the page's offers (Sections::ui, invented values, never a screenshot). */
+/* What a paid plan opens, beside a schematic of the page (Sections::ui, invented values, never a screenshot). */
 echo Sections::open('alt', 'What do you set up once you upgrade?');
 echo Sections::rows(array(
-    array('title' => 'Tiers, codes and bundles in one place',
-          'text' => 'Memberships, discount codes and content bundles live on one Settings screen. Set a tier\'s price and billing interval, switch it on when it is ready, and add a code for a launch. Every sale lands in your balance net of your plan\'s platform fee, and you cash out to your bank from ' . Price::PAYOUT_MIN_LABEL . '.',
-          'points' => array('As many tiers as you want, each with its own price, interval and trial', 'Promo codes with a cap or an expiry', 'Bundles built from media already in your library'),
-          'link' => array('See memberships', '/features/memberships'),
+    array('title' => 'Your page, your AI influencer and your schedule',
+          'text' => 'A paid plan publishes your link-in-bio page at your handle, opens the AI tools with a monthly allowance of AI credits, and connects your social accounts so every post goes out on time. Set an automation once and it creates, captions and posts on the days you pick.',
+          'points' => array('AI credits every month, with more available any time', 'AI influencers with the same face in every image and video', 'Scheduling and automations to every platform you connect'),
+          'link' => array('See every feature', '/features'),
           'media_html' => Sections::ui('offers')),
 ));
 echo Sections::close();
@@ -76,7 +76,7 @@ foreach ($rows as $r) { $price_row[] = $r['amount'] !== null ? '$' . $e(number_f
 $trows[] = $price_row;
 foreach (PlanTiers::ROWS as $row) {
     $tr = array($e($row['label']));
-    foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $e(PlanTiers::fmt_tier_limit($r['tier'], $row['key'])); }   // Free sells nothing
+    foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $e(PlanTiers::fmt_tier_limit($r['tier'], $row['key'])); }   // Free has no plan limits to show
     $trows[] = $tr;
 }
 foreach (PlanTiers::FEATURES as $fk => $fl) {   // per-plan switches (inbox AI replies)
@@ -89,26 +89,25 @@ foreach (PlanTiers::addons() as $ad) {
     foreach ($rows as $r) { $tr[] = in_array($r['tier']['key'], (array) $ad['plans'], true) ? '$' . (int) $ad['price'] . ' / month each' : '&mdash;'; }
     $trows[] = $tr;
 }
-$every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-per-view posts', 'Bundles', 'Services and events', 'Paid messages', 'Promo codes and free trials',
-    'Ten platforms, unlimited connections', 'Fanvue cross-posting', 'AI captions', 'AI images (paid with AI credits)', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
-    'Audience list with tags and notes', 'Analytics and exports', 'Claude connector', 'Payouts to your bank');
+$every = array('Link-in-bio page at your handle', 'Scheduling and cross-posting', count(IntegrationPages::PAGES) . ' platforms, unlimited connections', 'AI captions', 'AI images and video (paid with AI credits)', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience tags',
+    'Audience list with tags and notes', 'Analytics and exports', 'Claude connector');
 foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $check; } $trows[] = $tr; }
 // Teams and agencies: what Studio adds for people who run accounts with help (SEO audit 2026-10-12: no entry point for that reader).
 $st = PlanTiers::get('studio');
 if ($st) {
     echo Sections::prose('white', 'Which plan fits a team or an agency?', array(
         'The ' . $st['name'] . ' plan is the one built for a team. It includes ' . PlanTiers::fmt_tier_limit($st, 'seats') . ' team seats, so collaborators work on your account with their own sign-in and never share your password. It also covers ' . PlanTiers::fmt_tier_limit($st, 'influencers') . ' AI influencers and custom domains.',
-        'Every sale made by anyone on the team lands in the account owner\'s balance. The tools a team uses day to day are set out in [AI tools for running creator accounts](/ai-ofm-tools).',
+        'Everyone on the team works inside the account owner\'s studio: the same AI influencers, library, schedule and inbox. The plan limits and AI credits are the owner\'s, and the owner manages Billing.',
     ));
 }
 
-echo Sections::open('alt', 'Compare plans', PagesController::FREE_LINE . ' Creator and Studio differ in fee, limits and AI tools, and include everything below the limits.');
+echo Sections::open('alt', 'Compare plans', PagesController::FREE_LINE . ' Creator and Studio differ in limits and AI credits, and include everything below the limits.');
 echo '<div class="pt">' . Sections::table($head, $trows, $hi) . '</div>';
 echo Sections::close();
 
 echo Sections::related_guides('/pricing', 'white');
 echo Sections::faq($faq, 'alt');
 $cta_title = 'Start with Free.';
-$cta_text = 'Create your free account. When you want to sell, pick Creator or Studio in Billing.';
+$cta_text = 'Create your free account. When you want to publish and use the AI tools, pick Creator or Studio in Billing.';
 $cta_no_pricing = true;
 $cta_photo = 'pricing';   // the closing band's photo (SitePhotos)

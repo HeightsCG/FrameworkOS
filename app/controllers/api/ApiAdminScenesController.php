@@ -19,7 +19,7 @@ class ApiAdminScenesController extends BaseApiController {
     public function admin_scene_saveAction(){
         $this->guard();
         $f = array('title' => $this->text('title', 120), 'category' => $this->text('category', 60), 'base_prompt' => $this->text('base_prompt', 4000),
-            'is_adult' => (string) ($this->post['is_adult'] ?? '0') === '1', 'default_aspect' => (string) ($this->post['default_aspect'] ?? ''),
+            'default_aspect' => (string) ($this->post['default_aspect'] ?? ''),
             'is_active' => (string) ($this->post['is_active'] ?? '1') === '1', 'sort_order' => (int) ($this->post['sort_order'] ?? 0));
         $errors = array();
         if ($f['title'] === '') { $errors[] = array('input' => 'title', 'msg' => 'Give the scene a title.'); }

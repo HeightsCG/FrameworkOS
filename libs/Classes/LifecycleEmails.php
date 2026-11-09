@@ -219,7 +219,7 @@ class LifecycleEmails {
                 'subject' => 'Your trial ends ' . $when,
                 'paras'   => array(
                     'Your free trial of the ' . $plan . ' plan ends on ' . $when . '. Add a card before then to keep ' . $plan . ' for ' . $amt . ' a month' . ($held > 0 ? ', and get the other ' . number_format($held) . ' AI credits of your trial right away' : '') . '.',
-                    'With ' . $plan . ' you keep selling to your fans, plus ' . $list . '. Without a card, your account moves to Free on ' . $when . '. Everything you made is kept, and it all comes back when you pick a plan.',
+                    'With ' . $plan . ' you keep publishing and scheduling to every connected account, plus ' . $list . '. Without a card, your account moves to Free on ' . $when . '. Everything you made is kept, and it all comes back when you pick a plan.',
                 ),
                 'facts'   => array(array('Plan', $plan), array('Trial ends', $when), array('After the trial', $amt . ' / month'), array('Card', 'None yet')),
                 'footer'  => 'You\'re receiving this because your free trial on ' . Main::site_name() . ' is ending. Nothing is charged without a card.',
@@ -230,7 +230,7 @@ class LifecycleEmails {
             'subject' => 'Your trial ends ' . $when,
             'paras'   => array(
                 'Your free trial of the ' . $plan . ' plan ends on ' . $when . '. After that, ' . $plan . ' continues for ' . $amt . ' a month and everything you\'ve set up stays as it is.',
-                'With ' . $plan . ' you keep selling to your fans, plus ' . $list . '. Nothing to do if you want to keep it. To stop, cancel in Billing before ' . $when . ' and you won\'t be charged.',
+                'With ' . $plan . ' you keep publishing and scheduling to every connected account, plus ' . $list . '. Nothing to do if you want to keep it. To stop, cancel in Billing before ' . $when . ' and you won\'t be charged.',
             ),
             'facts'   => array(array('Plan', $plan), array('First charge', $when), array('Amount', $amt . ' / month'), array('Card', $card)),
             'footer'  => 'You\'re receiving this because your free trial on ' . Main::site_name() . ' is ending. You can change or cancel your plan anytime from Billing.',
@@ -340,7 +340,7 @@ class LifecycleEmails {
         if ($founding) {
             $paras = $step === 2
                 ? array('Your ' . $days . '-day free trial of ' . $name . ' is ready whenever you are. Starting it takes one click and needs no card.',
-                        'During the trial your page goes public, you can sell memberships and pay-per-view, and you get ' . Founding::NO_CARD_CREDITS . ' AI credits. Everything you\'ve set up is saved.')
+                        'During the trial your page goes public, you can publish and schedule to your social accounts, and you get ' . Founding::NO_CARD_CREDITS . ' AI credits. Everything you\'ve set up is saved.')
                 : array('This is the last reminder about your ' . $days . '-day free trial of ' . $name . '. No card is needed to start it, and with no card your account moves back to Free when the trial ends.',
                         'If something stopped you, open Support in your account and tell us.');
             $subject = $step === 2 ? 'Your free trial is still waiting' : 'Last reminder about your free trial';

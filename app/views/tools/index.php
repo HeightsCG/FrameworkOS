@@ -49,6 +49,6 @@ echo '</div>';
 echo Sections::close();
 
 echo Sections::faq($faq, 'alt');
-echo Sections::trial_cta('Turn your ideas into a creator business.', 'Create the character, publish to ten platforms and sell from one page.', 'tools');
+echo Sections::trial_cta('Turn your ideas into a content engine.', 'Create the character, make photos and video, and publish to nine platforms from one studio.', 'tools');
 ?>
 <script>if (window.CLSTrack) { window.CLSTrack('tools_hub_view', { page: location.pathname }); }</script>

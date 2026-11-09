@@ -2,8 +2,7 @@
 /**
  * Scene templates: base prompts creators run with one of their influencers (Influencers, Generate Images, Scenes).
  * Platform scenes (creator_id NULL) are admin-managed and read-only for creators; a creator's own
- * scenes (creator_id = the owner account) are theirs to add, edit, turn off and delete. Adult
- * platform templates are only listed for viewers who opted in to adult content. Votes record a
+ * scenes (creator_id = the owner account) are theirs to add, edit, turn off and delete. Votes record a
  * creator's thumbs up / down on a variant a template produced.
  *
  * Write methods take $cid: NULL scopes to platform rows (admin), an id to that creator's own rows.
@@ -12,7 +11,7 @@ class SceneTemplatesModel extends Model {
 
     public function __construct(){ parent::__construct(); }
 
-    /** $f: title, category, base_prompt, is_adult, default_aspect, is_active, sort_order. Returns the new id. */
+    /** $f: title, category, base_prompt, default_aspect, is_active, sort_order. Returns the new id. */
     public function add(array $f, $created_by = 0, $creator_id = null){
         $now = date('Y-m-d H:i:s');
         return (int) parent::insert('scene_templates', array_merge(self::clean($f), array(
@@ -31,7 +30,6 @@ class SceneTemplatesModel extends Model {
             'title'          => mb_substr(trim((string) ($f['title'] ?? '')), 0, 120),
             'category'       => mb_substr(trim((string) ($f['category'] ?? '')), 0, 60),
             'base_prompt'    => mb_substr(trim((string) ($f['base_prompt'] ?? '')), 0, 4000),
-            'is_adult'       => !empty($f['is_adult']) ? 1 : 0,
             'default_aspect' => Aspect::normalize($f['default_aspect'] ?? '', Aspect::DEFAULT_IMAGE),
             'is_active'      => !empty($f['is_active']) ? 1 : 0,
             'sort_order'     => (int) ($f['sort_order'] ?? 0),
@@ -111,11 +109,10 @@ class SceneTemplatesModel extends Model {
              WHERE t.deleted_at IS NULL AND t.creator_id IS NULL GROUP BY t.id ORDER BY t.category ASC, t.sort_order ASC, t.id ASC");
     }
 
-    /** Active platform templates; adult ones only when $show_adult. */
-    public function list_active($show_adult){
-        $adult = $show_adult ? '' : ' AND is_adult = 0';
+    /** Active platform templates (the starter scenes). */
+    public function list_active(){
         return (array) parent::select(
-            "SELECT * FROM scene_templates WHERE deleted_at IS NULL AND creator_id IS NULL AND is_active = 1 $adult ORDER BY category ASC, sort_order ASC, id ASC");
+            "SELECT * FROM scene_templates WHERE deleted_at IS NULL AND creator_id IS NULL AND is_active = 1 ORDER BY category ASC, sort_order ASC, id ASC");
     }
 
     /* ---- votes ---- */

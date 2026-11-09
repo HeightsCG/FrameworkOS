@@ -5,18 +5,16 @@
  *
  *   creator_registration -> CompleteRegistration (creators only, once, same event id as the pixel: TikTokRegistration)
  *   fan_signup           -> FanSignup, a custom event (a non-creator signup, once, server only: TikTokRegistration)
- *   credits_bought   -> Purchase   (value = dollars paid)
  *   plan_paid        -> StartTrial (a $0 plan start, the founding trial: value = the plan's monthly price from PlanTiers)
  *                       Purchase   (a paid plan start or upgrade; and once, the first paid renewal after a trial of an
  *                                   ad-attributed account, sent from cron. Later renewals are not ad conversions: skipped)
- *   membership_paid  -> Purchase   (a fan's paid membership)
  *   follow           -> AddToWishlist (following a creator; FollowsModel::follow calls from_event directly)
  *
  * ViewContent (a creator's page) is sent by the browser pixel from profile/view.php: signed-out profile reads are
  * cached pages with no server work to hook.
  *
  * Hooked into Analytics::event(), the one funnel every business event already goes through, so admin/staff activity
- * is left out the same way. Only web requests are sent (a cron renewal or auto top-up was not caused by an ad), except
+ * is left out the same way. Only web requests are sent (a cron renewal was not caused by an ad), except
  * the first paid charge after a trial, which is the trial's real revenue. The account's stored ad click id
  * (user_accounts.ad_ttclid, from /start) is added to every event when the request has none (another browser).
  * The request's IP, user agent, TikTok cookies (_ttp, and the ttclid the pixel block keeps in cls_ttclid) and page are
@@ -69,7 +67,6 @@ class TikTokEventJob {
                     $dedupe = 'tiktok_reg:' . $user_id; break;
                 case 'fan_signup':
                     $ev = 'FanSignup'; $props = array('content_name' => 'fan_signup'); $dedupe = 'tiktok_fan:' . $user_id; break;
-                case 'credits_bought':  $ev = 'Purchase';  $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Credits'); break;
                 case 'plan_paid':
                     $kind = (string) strtok($meta, ' '); $plan = trim((string) strtok(' '));
                     $cid  = (int) ($opts['charge_id'] ?? 0);
@@ -85,7 +82,6 @@ class TikTokEventJob {
                         $opts['event_id'] = 'cls_plan_' . $cid; $dedupe = 'tiktok_plan:' . $cid;
                     } else { return; }   // later renewals, $0 upgrades, slots, packs
                     break;
-                case 'membership_paid': $ev = 'Purchase'; $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Membership'); break;
                 case 'follow':          $ev = 'AddToWishlist'; $props = array('content_type' => 'product', 'content_id' => (string) (int) ($opts['creator_id'] ?? 0), 'content_name' => 'Creator'); break;
                 default: return;
             }
@@ -148,28 +144,20 @@ class TikTokEventJob {
         (new DatabaseJobQueue())->dispatch('tiktok_event', $payload, $dedupe !== '' ? $dedupe : null);
     }
 
-    /** Fan purchases that answer need_credits when the wallet is short: the person wanted it (AddToCart). */
-    const PAYWALL_ACTIONS = array('ppv_unlock' => 'Post', 'bundle_unlock' => 'Bundle', 'message_unlock' => 'Message', 'service_purchase' => 'Service',
-                                  'event_register' => 'Event ticket', 'event_replay_buy' => 'Event replay', 'live_tip' => 'Tip');
-
     /**
      * Called from BaseApiController::jsonSuccess/jsonError with the /api/<action> name and the response:
-     *   buy_credits, buy_ai_credits, a paid subscribe_plan, billing_quote for a plan -> InitiateCheckout (once per account,
+     *   buy_ai_credits, billing_quote for a plan                       -> InitiateCheckout (once per account,
      *                                                                                   product and UTC day; a plan's value = its monthly price)
      *   billing_card_save                                                           -> AddPaymentInfo
-     *   a fan purchase short of credits (PAYWALL_ACTIONS + need_credits)            -> AddToCart
      */
     public static function from_api(string $action, bool $ok, array $data, array $post): void {
         try {
             if (!self::configured() || $action === '') { return; }
-            $credits_usd = function ($credits) { return round(((int) $credits) / Price::CREDITS_PER_DOLLAR, 2); };
             $ev = ''; $props = array();
             if ($ok) {
-                if ($action === 'buy_credits' || $action === 'buy_ai_credits') {
+                if ($action === 'buy_ai_credits') {
                     $ev = 'InitiateCheckout';
-                    $props = array('currency' => 'USD', 'value' => round(((int) ($data['total_cents'] ?? 0)) / 100, 2), 'content_type' => 'product', 'content_name' => $action === 'buy_credits' ? 'Credits' : 'AI credits');
-                } elseif ($action === 'subscribe_plan' && (string) ($data['url'] ?? '') !== '') {
-                    $ev = 'InitiateCheckout'; $props = array('content_type' => 'product', 'content_name' => 'Membership');
+                    $props = array('currency' => 'USD', 'value' => round(((int) ($data['total_cents'] ?? 0)) / 100, 2), 'content_type' => 'product', 'content_name' => 'AI credits');
                 } elseif ($action === 'billing_quote' && isset($post['plan']) && (string) ($post['promo_code'] ?? '') === '' && in_array((string) ($data['mode'] ?? ''), array('subscribe', 'upgrade'), true)) {
                     $ev = 'InitiateCheckout';
                     // the plan being considered, not what is due today ($0 on the founding trial)
@@ -177,10 +165,6 @@ class TikTokEventJob {
                 } elseif ($action === 'billing_card_save') {
                     $ev = 'AddPaymentInfo';
                 }
-            } elseif (!empty($data['need_credits']) && isset(self::PAYWALL_ACTIONS[$action])) {
-                $ev = 'AddToCart';
-                $props = array('content_type' => 'product', 'content_name' => self::PAYWALL_ACTIONS[$action]);
-                if (isset($data['price'])) { $props += array('currency' => 'USD', 'value' => $credits_usd($data['price'])); }
             }
             if ($ev === '') { return; }
             $uid = (int) Session::get('user_id');

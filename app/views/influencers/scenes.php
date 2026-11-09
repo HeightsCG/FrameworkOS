@@ -41,7 +41,6 @@
                                 <input type="file" id="infSceneEditThumb" accept="image/jpeg,image/png,image/webp" hidden>
                             </div>
                         </div>
-                        <label class="form-check form-switch inf-sedit__switch" for="infSceneEditAdult"><input class="form-check-input" type="checkbox" id="infSceneEditAdult"> <span>Adult</span></label>
                     </div>
                 </form>
                 <p class="ai-error" id="infSceneErr" role="alert" hidden></p>

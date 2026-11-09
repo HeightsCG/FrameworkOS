@@ -16,22 +16,20 @@ class CustomDomains {
 
     const TXT_PREFIX = '_cls-verify.';
 
-    /** Profile sub-pages a custom domain serves (/events/<id>, /services/<id>); everything else is the platform's. */
-    const PROFILE_PATHS = array('events', 'services');
+    /** Profile sub-pages a custom domain serves besides the profile itself (none since events/services went, 2026-11-09). */
+    const PROFILE_PATHS = array();
 
     /** Routes that work on a custom domain as-is (AJAX, link clicks, email images, crawlers, the handoff). */
-    const PASSTHROUGH = array('api', 'go', 'mail-image', 'robots.txt', 'sitemap.xml', '_handoff', 'live');   // live: CLS Video calls (LiveController keeps them to this creator's own)
+    const PASSTHROUGH = array('api', 'go', 'mail-image', 'robots.txt', 'sitemap.xml', '_handoff');
 
     /**
      * The only API actions a session on a creator's domain may call: what a fan does on that creator's page.
      * The domain is the creator's (they control its DNS), so a session there never reaches billing, account,
-     * studio or admin actions, and CreditsModel::pay() only pays this creator. Everything else is the platform's.
+     * studio or admin actions. Everything else is the platform's.
      */
     const FAN_ACTIONS = array(
         'feed', 'feed_new', 'profile_posts', 'post_detail', 'post_like', 'post_comments', 'post_comment_add', 'post_comment_delete', 'post_view',
-        'ppv_unlock', 'bundle_unlock', 'promo_preview', 'join_free_plan', 'subscribe_plan', 'cancel_creator_subscription', 'reactivate_creator_subscription',
-        'follow_creator', 'unfollow_creator', 'event_register', 'event_cancel', 'event_replay_buy', 'event_replay_watch', 'service_purchase',
-        'live_join', 'live_hand', 'live_tip', 'live_status', 'live_offers', 'live_waiting',
+        'follow_creator', 'unfollow_creator',
         'block_user', 'unblock_user', 'report_submit', 'notifications_list', 'notifications_unread_count', 'notifications_mark_read',
         'logout', 'heartbeat', 'set_timezone',
     );
@@ -265,20 +263,11 @@ class CustomDomains {
     }
 
     /**
-     * A creator's public link for sharing ('events/2' -> https://lexivaughn.com/events/2): their own primary domain
-     * when they have an active one on their plan, else https://www.creatorlinkstudio.com/@handle/events/2.
+     * A creator's public link for sharing ('' -> https://lexivaughn.com/): their own primary domain
+     * when they have an active one on their plan, else https://www.creatorlinkstudio.com/@handle.
      */
     public static function share_url(array $user, $path = ''): string {
         return rtrim(self::canonical_profile_url($user), '/') . ($path !== '' ? '/' . ltrim((string) $path, '/') : '');
-    }
-
-    /**
-     * A page that isn't part of the profile (e.g. 'live/event/5'): on the creator's own domain when they have one,
-     * else at the platform root (not under /@handle).
-     */
-    public static function site_url(array $user, $path): string {
-        $d = self::allowed($user) ? (new CreatorDomainsModel())->primary_for_user((int) $user['user_id']) : null;
-        return ($d ? 'https://' . $d['hostname'] : rtrim(Main::get_base_domain(), '/')) . '/' . ltrim((string) $path, '/');
     }
 
     /** Sign-in link on a custom domain: the platform signs them in, then hands the session back to $path here. */
@@ -294,7 +283,7 @@ class CustomDomains {
         return rtrim($base, '/') . '/_handoff?t=' . $t;
     }
 
-    /** A same-site path only ('/events/5?x=1'), never '//evil.com' or 'https://…'. */
+    /** A same-site path only ('/about?x=1'), never '//evil.com' or 'https://…'. */
     public static function safe_path($p): string {
         $p = (string) $p;
         if (preg_match('/[\x00-\x20\x7f\\\\]/', $p)) { return '/'; }   // browsers drop tabs/newlines and read \ as /, so "/\t/evil.com" would leave the site

@@ -1,7 +1,6 @@
 <?php
 $base  = getenv('SEO_TEST_BASE') ?: 'http://framework.contentos.cvk';
-$paths = array('/features', '/features/ai-influencer', '/features/dm-agent', '/features/payouts', '/pricing', '/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/best-creator-monetization-platforms', '/monetize-your-content', '/about', '/contact');
-$paths = array_merge($paths, array('/onlyfans-alternatives', '/fanvue-alternatives'));
+$paths = array('/features', '/features/ai-influencer', '/features/dm-agent', '/pricing', '/integrations', '/alternatives', '/about', '/press', '/contact');
 $paths = array_merge($paths, array('/affiliates'));
 $paths = array_merge($paths, array('/tools/fan-questions', '/tools/ai-influencer-persona'));
 $paths = array_merge($paths, array('/author/dr-glauber'));
@@ -44,15 +43,8 @@ $ch = curl_init($base . '/creators?sort=bogus'); curl_setopt_array($ch, array(CU
 $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
 $ok = $code === 200 && strpos($body, 'rel="canonical" href="' . $base . '/creators"') !== false;
 echo ($ok ? 'ok   ' : 'FAIL ') . "/creators?sort=bogus 200, canonical /creators ($code)\n"; if (!$ok) { $fail++; }
-// Alternatives list pages: FAQPage and ItemList markup parse, and nothing else under them answers.
-foreach (array('/onlyfans-alternatives', '/fanvue-alternatives') as $p) {
-    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
-    preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $body, $m); $types = array();
-    foreach ($m[1] as $j) { $o = json_decode($j, true); if (is_array($o)) { $types[] = (string) ($o['@type'] ?? ''); } }
-    $ok = in_array('FAQPage', $types, true) && in_array('ItemList', $types, true) && count($types) === count($m[1]);
-    echo ($ok ? 'ok   ' : 'FAIL ') . "$p FAQPage + ItemList parse\n"; if (!$ok) { $fail++; }
-}
-foreach (array('/fanvue-alternatives/extra', '/onlyfans-alternatives/x') as $p) {
+// Pages removed 2026-11-09 (selling and competitor comparisons): every one answers 404.
+foreach (array('/compare/fanvue', '/compare/onlyfans', '/best-creator-monetization-platforms', '/monetize-your-content', '/onlyfans-alternatives', '/fanvue-alternatives', '/patreon-alternatives', '/linktree-alternatives', '/ai-ofm-tools', '/features/payouts', '/features/pay-per-view', '/features/memberships', '/features/services-and-events', '/integrations/fanvue') as $p) {
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
@@ -104,12 +96,12 @@ foreach (array('/css/sx.css', '/css/public.css', '/css/landing.css', '/js/landin
     $ok = $body !== '' && stripos($body, 'daniel') === false && stripos($body, 'glauber') === false;
     echo ($ok ? 'ok   ' : 'FAIL ') . "$asset carries no name\n"; if (!$ok) { $fail++; }
 }
-foreach (array('/', '/pricing', '/compare/fanvue', '/blog') as $p) {
+foreach (array('/', '/pricing', '/features/ai-influencer', '/blog') as $p) {
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_NOBODY => true)); $h = (string) curl_exec($ch); curl_close($ch);
     $ok = stripos($h, 'Set-Cookie:') === false && stripos($h, 'no-store') === false;
     echo ($ok ? 'ok   ' : 'FAIL ') . "$p sets no cookie for a signed-out reader and is cacheable\n"; if (!$ok) { $fail++; }
 }
-foreach (array('/', '/features', '/pricing', '/compare/fanvue', '/blog') as $p) {
+foreach (array('/', '/features', '/pricing', '/features/ai-influencer', '/blog') as $p) {
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
     $ok = strpos($body, 'Glauber') === false && stripos($body, 'daniel') === false && strpos($body, '/author/') === false && ($p === '/blog' || strpos($body, '<article') === false);
     echo ($ok ? 'ok   ' : 'FAIL ') . "$p carries no author name, no author link, no <article>\n"; if (!$ok) { $fail++; }
@@ -117,11 +109,11 @@ foreach (array('/', '/features', '/pricing', '/compare/fanvue', '/blog') as $p) 
 $ch = curl_init($base . '/about'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
 $ok = substr_count(strip_tags(preg_replace('#<(script|style)\b.*?</\1>#si', ' ', $body)), 'Dr. Glauber') === 1 && stripos($body, 'daniel') === false;   // scripts out first: a '<' inside the TikTok pixel confuses strip_tags
 echo ($ok ? 'ok   ' : 'FAIL ') . "/about names Dr. Glauber exactly once\n"; if (!$ok) { $fail++; }
-// Home redesign (2026-10-15): one H1, the trial CTA opens sign-up, all ten integration pages linked, every photo sized, no platform outside the ten.
+// Home redesign (2026-10-15): one H1, the trial CTA opens sign-up, all nine integration pages linked, every photo sized, no platform outside the nine.
 $ch = curl_init($base . '/'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
 $vis = strip_tags(preg_replace('#<(script|style)\b.*?</\1>#si', ' ', $body));
-$nets = 0; foreach (array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'fanvue') as $i) { if (strpos($body, 'href="/integrations/' . $i . '"') !== false) { $nets++; } }
-$ok = substr_count($body, '<h1') === 1 && preg_match('/class="sx-btn sx-btn--primary sx-btn--lg"[^>]*data-auth="register"/', $body) && $nets === 10
+$nets = 0; foreach (array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest') as $i) { if (strpos($body, 'href="/integrations/' . $i . '"') !== false) { $nets++; } }
+$ok = substr_count($body, '<h1') === 1 && preg_match('/class="sx-btn sx-btn--primary sx-btn--lg"[^>]*data-auth="register"/', $body) && $nets === 9
     && !preg_match('#<img(?![^>]*\bwidth=)[^>]*>#', $body) && !preg_match('/Snapchat|Reddit|Discord|30-day|thirty days/i', $vis);
 echo ($ok ? 'ok   ' : 'FAIL ') . "/ home: one H1, trial CTA, ten integrations, sized images, no stray platforms ($nets)\n"; if (!$ok) { $fail++; }
 // Site-wide redesign (2026-10-15): every public page has one H1, sized images that all load, and no "first month free" trial copy.
@@ -136,11 +128,11 @@ foreach ($locs[1] as $loc) {
 }
 $ok = empty($bad);
 echo ($ok ? 'ok   ' : 'FAIL ') . 'public pages: one H1, sized images, photos on disk, no first-month trial copy' . ($ok ? '' : ' (' . implode(', ', array_slice($bad, 0, 8)) . ')') . "\n"; if (!$ok) { $fail++; }
-// Link-earning pages (2026-10-15): /integrations + ten platforms, three browser-only tools, /press, /alternatives.
+// Link-earning pages (2026-10-15): /integrations + nine platforms, three browser-only tools, /press, /alternatives.
 // Each answers 200 with one title, description, canonical, og and twitter set, JSON-LD that parses, no founder name, no
-// platform outside the ten; every public_pages() row is in the sitemap with a title and description no other page has.
+// platform outside the nine; every public_pages() row is in the sitemap with a title and description no other page has.
 $new = array('/integrations', '/press', '/alternatives', '/tools/ai-influencer-name-generator', '/tools/ai-influencer-bio-generator', '/tools/ai-disclosure-caption-checker');
-foreach (array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'fanvue') as $i) { $new[] = '/integrations/' . $i; }
+foreach (array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest') as $i) { $new[] = '/integrations/' . $i; }
 $ch = curl_init($base . '/sitemap.xml'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $sitemap = (string) curl_exec($ch); curl_close($ch);
 $seen_t = array(); $seen_d = array();
 foreach ($new as $p) {

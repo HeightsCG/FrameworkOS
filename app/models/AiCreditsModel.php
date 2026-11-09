@@ -1,8 +1,7 @@
 <?php
 /**
  * AI credits: the balance the platform plan grants every billing date and users top up
- * by purchase ($1 = 10 credits, PlanTiers::AI_CREDITS_PER_DOLLAR). Spent by influencer image/enhance/video jobs. Separate
- * from the fan-facing wallet (CreditsModel). Every change is a ledger row in
+ * by purchase ($1 = 10 credits, PlanTiers::AI_CREDITS_PER_DOLLAR). Spent by influencer image/enhance/video jobs. Every change is a ledger row in
  * ai_credit_transactions with the resulting balance.
  *
  * ai_credit_balance is the total. Two buckets inside it: ai_credits_plan (the plan's included

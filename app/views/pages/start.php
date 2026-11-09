@@ -21,7 +21,7 @@ $cta_attr = function ($where) use ($e, $signed_in) { return ' data-st-cta="' . $
 $faq = array(
     array('Is she really AI?', 'Yes. The woman on this page does not exist: every photo of her is AI-generated. Your character is made the same way, and when you post to TikTok or YouTube, ' . $site . ' turns on their AI-content label for you.'),
     array('Do I need design skills?', 'No. You describe her in plain words, like her age, hair and style, pick the face you like, and that face is locked in for every photo and video you make after.'),
-    array('Which platforms?', 'LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue. Connect your accounts once, then post to any of them from one place, right away or on a schedule.'),
+    array('Which platforms?', 'LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube and Pinterest. Connect your accounts once, then post to any of them from one place, right away or on a schedule.'),
     $trial
         ? array('What happens after ' . $days . ' days?', 'The trial is the Creator plan, free for the first ' . $days . ' days, and you start it with no card. Add a card to keep it and the plan renews monthly from then on. With no card when the trial ends, your account moves to Free and keeps everything you made.')
         : array('How do I start?', 'Create your account, then pick the Creator plan in Billing. AI characters, photos and videos come with it.'),
@@ -92,13 +92,13 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
                     <p class="st-step__p">Pick the face you like. Every photo and video after uses it.</p>
                 </li>
                 <li class="st-step">
-                    <div class="st-step__out st-logos" aria-label="The ten platforms">
+                    <div class="st-step__out st-logos" aria-label="The nine platforms">
 <?php foreach (StartPage::PLATFORMS as $i => $slug): $logo = IntegrationPages::logo($slug, 22); $name = (string) (IntegrationPages::PAGES[$slug]['name'] ?? ucfirst($slug)); ?>
                         <span class="st-logos__i" style="--i:<?php echo $i; ?>" title="<?php echo $e($name); ?>"><?php echo $logo !== '' ? $logo . '<span class="st-sr">' . $e($name) . '</span>' : '<b>' . $e($name) . '</b>'; ?></span>
 <?php endforeach; ?>
                     </div>
                     <h3 class="st-step__h">3. Post her everywhere</h3>
-                    <p class="st-step__p">Schedule and post to 10 platforms from one place.</p>
+                    <p class="st-step__p">Schedule and post to 9 platforms from one place.</p>
                 </li>
             </ol>
         </div>

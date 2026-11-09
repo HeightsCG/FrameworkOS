@@ -6,15 +6,9 @@ class ApiSearchController extends BaseApiController {
     public function searchAction(){
         $q = trim(html_entity_decode((string) ($this->post['q'] ?? ''), ENT_QUOTES, 'UTF-8'));   // POST input arrives html-encoded; stored text is plain
         if (mb_strlen($q) < 2) { $this->jsonSuccess(['creators' => [], 'posts' => []]); }
-        $viewer     = (int) Session::get('user_id');
-        $show_adult = false;
-        if ($viewer > 0) {
-            $rows = $this->userModel->get_user_by_id($viewer);
-            $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            $show_adult = AgeVerification::adult_allowed($u);   // toggle on AND age verified
-        }
-        $model = new SearchModel();
-        $this->jsonSuccess(['creators' => $model->creators($q, 6, $viewer), 'posts' => $model->posts($q, $show_adult, 6, $viewer)]);
+        $viewer = (int) Session::get('user_id');
+        $model  = new SearchModel();
+        $this->jsonSuccess(['creators' => $model->creators($q, 6, $viewer), 'posts' => $model->posts($q, 6, $viewer)]);
     }
 
     /* ---------- Audience / CRM (PRD §26) ---------- */

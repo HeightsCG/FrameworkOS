@@ -20,7 +20,7 @@ class TrackingLinks {
         return 'clssim' . (int) $creator_id;
     }
 
-    /** A deeper public path on the creator's page ('/events/3'), or '' when it isn't one. */
+    /** A deeper public path on the creator's page ('/links'), or '' when it isn't one. */
     public static function clean_path($p): string {
         $p = trim((string) $p);
         if ($p === '' || $p === '/') { return ''; }
@@ -36,7 +36,7 @@ class TrackingLinks {
 
     /**
      * The profile page on any host (platform or the creator's own domain) with ?tl=<code> from /go: when the code is
-     * one of this creator's links, set cls_tl here too, so purchases on their domain can read it. Never throws.
+     * one of this creator's links, set cls_tl here too, so follows and signups on their domain can read it. Never throws.
      */
     public static function from_query($creator_id): void {
         try {
@@ -50,7 +50,7 @@ class TrackingLinks {
     }
 
     /**
-     * Log a conversion for the link in the visitor's cls_tl cookie. $creator_id is whose follow/sale this is; it must
+     * Log a conversion for the link in the visitor's cls_tl cookie. $creator_id is whose follow this is; it must
      * match the cookie's creator (0 = any, for a signup). Never throws: a tracking problem never blocks the action.
      */
     public static function attribute($creator_id, $kind, $user_id, $amount = 0, $ref_table = '', $ref_id = 0): void {
@@ -59,34 +59,6 @@ class TrackingLinks {
             if ($link) { self::log($link, $kind, $user_id, $amount, $ref_table, $ref_id); }
         } catch (\Throwable $e) {
             error_log('[tracking_links] ' . $kind . ': ' . $e->getMessage());
-        }
-    }
-
-    /** The id of the link in the visitor's cls_tl cookie when it is $creator_id's (checkout metadata), or 0. Never throws. */
-    public static function current_link_id($creator_id, $user_id = 0): int {
-        try {
-            if ((int) $creator_id <= 0) { return 0; }
-            $link = self::cookie_link($creator_id, $user_id);
-            return $link ? (int) $link['id'] : 0;
-        } catch (\Throwable $e) {
-            error_log('[tracking_links] current: ' . $e->getMessage());
-            return 0;
-        }
-    }
-
-    /**
-     * Log a conversion for a link known by id (carried through checkout metadata, for the payment webhook where there
-     * is no cookie). Same ownership checks and dedupe as attribute(); $replace sets the amount on an event already
-     * logged (the invoice says what the fan really paid). Never throws.
-     */
-    public static function attribute_link($link_id, $creator_id, $kind, $user_id, $amount = 0, $ref_table = '', $ref_id = 0, $replace = false): void {
-        try {
-            if ((int) $link_id <= 0 || (int) $creator_id <= 0 || (int) $user_id === (int) $creator_id) { return; }
-            $link = (new TrackingLinksModel())->get_by_id((int) $link_id);
-            if (!$link || (int) $link['creator_id'] !== (int) $creator_id) { return; }
-            self::log($link, $kind, $user_id, $amount, $ref_table, $ref_id, $replace);
-        } catch (\Throwable $e) {
-            error_log('[tracking_links] ' . $kind . ' (link): ' . $e->getMessage());
         }
     }
 
@@ -101,13 +73,10 @@ class TrackingLinks {
         return ($link && (int) $link['creator_id'] === $owner) ? $link : null;
     }
 
-    /** Record once per link + kind + user + ref (a reloaded success page and the webhook never both count). */
-    private static function log(array $link, $kind, $user_id, $amount, $ref_table, $ref_id, $replace = false): void {
+    /** Record once per link + kind + user + ref (a reloaded page never counts twice). */
+    private static function log(array $link, $kind, $user_id, $amount, $ref_table, $ref_id): void {
         $m = new TrackingLinksModel();
-        if ($m->has_event((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id)) {
-            if ($replace) { $m->update_amount((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id, (int) $amount); }
-            return;
-        }
+        if ($m->has_event((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id)) { return; }
         $m->record_event((int) $link['id'], (int) $link['creator_id'], (string) $kind, (int) $user_id, (int) $amount, (string) $ref_table, (int) $ref_id);
     }
 }

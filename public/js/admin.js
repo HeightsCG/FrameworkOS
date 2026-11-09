@@ -62,53 +62,10 @@
         });
     }
 
-    /* ---- Age checks: status switch + reset ---- */
-    var ageTabs = document.getElementById('admAgeTabs');
-    if (ageTabs) {
-        ageTabs.addEventListener('click', function (e) {
-            var b = e.target.closest('[data-age]'); if (!b) { return; }
-            var f = b.getAttribute('data-age'), shown = 0;
-            ageTabs.querySelectorAll('[data-age]').forEach(function (x) { var on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
-            document.querySelectorAll('#admAge .adm-agerow').forEach(function (r) {
-                var st = r.getAttribute('data-status');
-                var on = f === 'all' || st === f || (f === 'open' && st !== 'verified');
-                r.hidden = !on; if (on) { shown++; }
-            });
-            var none = document.getElementById('admAgeNone'), none_p = none ? none.querySelector('p') : null;
-            if (none) { none.hidden = shown > 0; if (none_p) { none_p.textContent = f === 'open' ? 'No age checks need a look.' : 'Nothing here.'; } }
-            var age_table = document.getElementById('admAgeTable'); if (age_table) { age_table.hidden = shown === 0; }
-        });
-    }
-    var ageBody = document.getElementById('admAge');
-    if (ageBody) {
-        ageBody.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-age-reset]'); if (!btn) { return; }
-            var row = btn.closest('.adm-agerow'), uid = parseInt(row.getAttribute('data-age-row'), 10);
-            var who = row.querySelector('.adm-t__main a'); who = who ? who.textContent.trim() : 'this account';
-            confirmAction({ title: 'Reset age verification for ' + who + '?', text: 'The verification is removed and adult content is hidden for this account again. The next time they turn it on, or publish an adult post, they verify again.', icon: 'warning', confirmButtonText: 'Reset', confirmButtonColor: '#CD4C00' })
-                .then(function (ok) {
-                    if (!ok) { return; }
-                    ApiDataSvc.apiCall('post', 'admin_reset_age_verification', { user_id: uid }, function (r) {
-                        var o = parse(r);
-                        if (!o || !o.success) { toastr.error((o && o.message) || 'Could not reset'); return; }
-                        var was = row.getAttribute('data-status');
-                        row.parentNode.removeChild(row);
-                        toastr.success('Age verification reset');
-                        if (was === 'pending') { bump('verification', -1); }
-                        ageTabs.querySelectorAll('[data-age]').forEach(function (x) {
-                            var k = x.getAttribute('data-age'), b = x.querySelector('b');
-                            if (b && (k === 'all' || k === was || (k === 'open' && was !== 'verified'))) { b.textContent = Math.max(0, parseInt(b.textContent, 10) - 1); }
-                        });
-                        if (!ageBody.querySelectorAll('.adm-agerow:not([hidden])').length) { var none = document.getElementById('admAgeNone'); if (none) { none.hidden = false; } var age_table = document.getElementById('admAgeTable'); if (age_table) { age_table.hidden = true; } }
-                    });
-                });
-        });
-    }
-
     /* ---- Tables: search box, filter buttons, sortable headers, row click opens the detail page ---- */
     function table_rows(t) { return Array.prototype.slice.call(t.tBodies.length ? t.tBodies[0].rows : []); }
     function table_state(t) { if (!t.__adm) { t.__adm = { q: '', f: 'all', attr: '', page: 1, size: parseInt(t.getAttribute('data-page-size') || '25', 10) }; } return t.__adm; }
-    var PAGER_LABELS = { admActivity: 'events', admUsers: 'users', admSales: 'sales', admBilling: 'accounts', admAudit: 'actions', admLeads: 'leads', admFounding: 'claims', admPublished: 'articles', admKeywordsT: 'keywords' };
+    var PAGER_LABELS = { admActivity: 'events', admUsers: 'users', admBilling: 'accounts', admAudit: 'actions', admLeads: 'leads', admFounding: 'claims', admPublished: 'articles', admKeywordsT: 'keywords' };
     function table_pager(t, total, from, to) {
         if (!t.hasAttribute('data-pager')) { return; }
         var bar = t.nextElementSibling && t.nextElementSibling.classList && t.nextElementSibling.classList.contains('adm-pager') ? t.nextElementSibling : null;
@@ -320,48 +277,6 @@
         });
     }
 
-    /* ---- Refunds (SweetAlert confirm) ---- */
-    var sales = document.getElementById('admSales');
-    if (sales) {
-        sales.addEventListener('click', function (e) {
-            var btn = e.target.closest('[data-refund]');
-            if (!btn) { return; }
-            var row = btn.closest('.adm-srow');
-            var amtEl = row.querySelector('.adm-scell--amt');
-            var amt = amtEl ? amtEl.textContent.trim() : 'this purchase';
-            confirmAction({
-                title: 'Refund ' + amt + '?',
-                text: "The buyer is credited back and loses access. This can't be undone.",
-                icon: 'warning',
-                confirmButtonText: 'Refund'
-            }).then(function (ok) {
-                if (!ok) { return; }
-                btn.disabled = true; btn.textContent = 'Refunding…';
-                ApiDataSvc.apiCall('post', 'admin_refund', {
-                    kind: row.getAttribute('data-kind'),
-                    ref_id: parseInt(row.getAttribute('data-ref'), 10),
-                    fan_id: parseInt(row.getAttribute('data-fan'), 10)
-                }, function (r) {
-                    var o = parse(r);
-                    if (!o || !o.success) {
-                        btn.disabled = false; btn.textContent = 'Refund';
-                        if (window.toastr) { toastr.error((o && o.message) || 'Refund failed'); }
-                        return;
-                    }
-                    row.parentNode.removeChild(row);
-                    if (window.toastr) {
-                        var msg = 'Refunded $' + (o.amount / 10).toFixed(2);
-                        if (o.clawback_ok === false) { toastr.warning(msg + " — buyer refunded, but the creator's earning couldn't be clawed back (already spent)."); }
-                        else { toastr.success(msg + ' to the buyer'); }
-                    }
-                    if (!sales.querySelectorAll('.adm-srow').length) {
-                        var n = document.getElementById('admSalesNone'); if (n) { n.hidden = false; }
-                    }
-                });
-            });
-        });
-    }
-
     var usersBody = document.getElementById('admUsers');
     /* ---- Remove a verified badge (Didit verified them; staff can take it back) ---- */
     if (usersBody) {
@@ -419,14 +334,13 @@
     }
 })();
 
-/* ---- Financials: period switch drives the cards and the sales-by-type table; one small chart per money flow, each on its own scale ---- */
+/* ---- Financials: period switch drives the cards; revenue by month chart ---- */
 (function () {
     var cards = document.getElementById('fzCards');
     if (!cards) { return; }
     var months = [];
     try { months = JSON.parse(cards.getAttribute('data-series') || '[]'); } catch (e) { return; }
     if (!months.length) { return; }
-    var TYPES = [['ppv', 'Pay-per-view'], ['bundle', 'Bundles'], ['message', 'Paid messages'], ['service', 'Services'], ['event', 'Events'], ['tip', 'Tips'], ['replay', 'Replays']];
     var MN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     function money(c) { return (c < 0 ? '−$' : '$') + (Math.abs(c) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     function mname(k) { return MN[parseInt(k.slice(5, 7), 10) - 1] + ' ' + k.slice(0, 4); }
@@ -450,18 +364,8 @@
         cards.querySelectorAll('[data-m]').forEach(function (c) {
             var m = c.getAttribute('data-m'), now = sum(cur, m), before = sum(prev, m), d = delta(now, before);
             c.querySelector('[data-v]').textContent = money(now);
-            var dEl = c.querySelector('[data-d]'); if (dEl) { dEl.className = 'fz-delta fz-delta--' + (m === 'payouts' || m === 'refunds' ? 'flat' : d[0]); dEl.textContent = d[1]; }
+            var dEl = c.querySelector('[data-d]'); if (dEl) { dEl.className = 'fz-delta fz-delta--' + d[0]; dEl.textContent = d[1]; }
         });
-        /* sales by type */
-        var body = document.getElementById('fzTypes'), html = '', tot = { sales: 0, gross: 0, refunded: 0, creator: 0, platform: 0 };
-        TYPES.forEach(function (t) {
-            var r = { sales: 0, gross: 0, refunded: 0, creator: 0, platform: 0 };
-            cur.forEach(function (m) { var x = (m.types || {})[t[0]] || {}; for (var k in r) { r[k] += x[k] || 0; } });
-            for (var k in tot) { tot[k] += r[k]; }
-            html += '<tr><td>' + t[1] + '</td><td class="adm-r adm-t__num">' + r.sales + '</td><td class="adm-r adm-t__num">' + money(r.gross) + '</td><td class="adm-r adm-t__num adm-t__muted">' + money(r.refunded) + '</td><td class="adm-r adm-t__num">' + money(r.creator) + '</td><td class="adm-r adm-t__num adm-t__strong">' + money(r.platform) + '</td></tr>';
-        });
-        html += '<tr class="adm-t__total"><td>Total</td><td class="adm-r adm-t__num">' + tot.sales + '</td><td class="adm-r adm-t__num">' + money(tot.gross) + '</td><td class="adm-r adm-t__num">' + money(tot.refunded) + '</td><td class="adm-r adm-t__num">' + money(tot.creator) + '</td><td class="adm-r adm-t__num">' + money(tot.platform) + '</td></tr>';
-        body.innerHTML = html;
     }
     /* Revenue by month: one series (platform revenue), bars with the total on top and month-over-month change under each month */
     var last12 = months.slice(-12), ns = 'http://www.w3.org/2000/svg';
@@ -491,7 +395,7 @@
             if (chg && slot >= 40) { svg.appendChild(el('text', { 'class': cls, x: cx, y: H - 8, 'text-anchor': 'middle' }, chg)); }
             var hit = el('rect', { 'class': 'hit', x: L + slot * i, y: T - 20, width: slot, height: ph + 20 });
             hit.addEventListener('mouseenter', function () {
-                tip.innerHTML = '<b>' + mname(m.k) + '</b><span>Plan payments <em>' + money(m.plans || 0) + '</em></span><span>Our fee on sales <em>' + money(m.fee || 0) + '</em></span><span>Our fee on memberships <em>' + money(m.members || 0) + '</em></span><span class="fz-tip__tot">Revenue <em>' + money(v) + '</em></span>' + (chg ? '<span>vs previous month <em>' + chg + '</em></span>' : '');
+                tip.innerHTML = '<b>' + mname(m.k) + '</b><span>Plan payments <em>' + money(m.plans || 0) + '</em></span><span>AI credits <em>' + money(m.ai || 0) + '</em></span><span class="fz-tip__tot">Revenue <em>' + money(v) + '</em></span>' + (chg ? '<span>vs previous month <em>' + chg + '</em></span>' : '');
                 tip.style.left = Math.min(88, Math.max(12, cx / W * 100)) + '%'; tip.hidden = false;
             });
             hit.addEventListener('mouseleave', function () { tip.hidden = true; });

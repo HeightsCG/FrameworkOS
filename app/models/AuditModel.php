@@ -18,7 +18,6 @@ class AuditModel extends Model {
         'admin_set_mfa_email'        => 'Changed email sign-in codes',
         'admin_verify_email'         => 'Marked an email verified',
         'admin_resend_verification'  => 'Resent the verification email',
-        'admin_cancel_membership'    => 'Canceled a membership',
         'admin_set_plan_cancel'      => 'Changed a creator plan',
         'admin_billing_retry'        => 'Retried a plan payment',
         'admin_niche_save'           => 'Added or renamed a directory niche',
@@ -55,7 +54,7 @@ class AuditModel extends Model {
 
     /** Post fields that identify what was acted on: field => target type. */
     const TARGET_KEYS = array(
-        'user_id' => 'user', 'fan_id' => 'user', 'membership_id' => 'membership', 'asset_id' => 'asset', 'report_id' => 'report',
+        'user_id' => 'user', 'fan_id' => 'user', 'asset_id' => 'asset', 'report_id' => 'report',
         'verification_id' => 'verification', 'ticket_id' => 'ticket', 'keyword_id' => 'keyword', 'id' => 'article',
     );
 
@@ -87,7 +86,6 @@ class AuditModel extends Model {
         if (!$type || !$id) { return null; }
         $q = array(
             'user'         => null,
-            'membership'   => "SELECT subscriber_id AS u FROM creator_subscriptions WHERE id = :id",
             'asset'        => "SELECT creator_id AS u FROM media_assets WHERE id = :id",
             'report'       => "SELECT creator_id AS u FROM reports WHERE id = :id",
             'verification' => "SELECT user_id AS u FROM verifications WHERE id = :id",

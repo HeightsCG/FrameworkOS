@@ -131,8 +131,6 @@ $u = ($staff && $this->requester) ? $this->requester : null;
                     <button type="button" class="sup-fix__btn" data-act="mfa_reset"><i class="fa-solid fa-shield-halved"></i><span>Reset Two-Step Sign-In</span></button>
                     <?php if (empty($u['email_verified'])): ?><button type="button" class="sup-fix__btn" data-act="verify"><i class="fa-solid fa-envelope-circle-check"></i><span>Mark Email Verified</span></button><?php endif; ?>
                     <button type="button" class="sup-fix__btn" data-act="resend"><i class="fa-solid fa-envelope"></i><span>Resend Verification Email</span></button>
-                    <a class="sup-fix__btn" href="/admin/user/<?php echo (int) $u['user_id']; ?>?tab=purchases"><i class="fa-solid fa-rotate-left"></i><span>Refund a Purchase</span><b><?php echo count($this->purchases); ?></b></a>
-                    <a class="sup-fix__btn" href="/admin/user/<?php echo (int) $u['user_id']; ?>?tab=memberships"><i class="fa-solid fa-heart"></i><span>Manage Memberships</span><b><?php echo count($this->memberships); ?></b></a>
                     <a class="sup-fix__btn" href="/admin/user/<?php echo (int) $u['user_id']; ?>"><i class="fa-solid fa-user"></i><span>Open Full Profile</span></a>
                 </div>
             </div>
@@ -142,10 +140,7 @@ $u = ($staff && $this->requester) ? $this->requester : null;
                     <div><dt>Username</dt><dd>@<?php echo $e($u['u_name']); ?></dd></div>
                     <div><dt>Email</dt><dd class="sw-props__long"><?php echo $e($u['user_email']); ?></dd></div>
                     <div><dt>Role</dt><dd><?php echo $e($u['role_name'] ?: 'User'); ?><?php echo $tier !== '' ? ', ' . $e($tier) . ' plan' : ''; ?></dd></div>
-                    <div><dt>Credits</dt><dd><?php echo number_format((int) $u['credit_balance']); ?></dd></div>
                     <?php if (strtolower((string) $u['role_name']) === 'creator'): ?><div><dt>AI credits</dt><dd><?php echo number_format((int) $u['ai_credit_balance']); ?></dd></div><?php endif; ?>
-                    <div><dt>Purchases</dt><dd><?php echo count($this->purchases); ?></dd></div>
-                    <div><dt>Memberships</dt><dd><?php echo count($this->memberships); ?></dd></div>
                     <div><dt>Last active</dt><dd><?php echo $e($fmt($u['last_active_at'])); ?></dd></div>
                     <div><dt>Joined</dt><dd><?php echo $e($fmt($u['created_at'])); ?></dd></div>
                     <div><dt>Time zone</dt><dd><?php echo $e($u['content_timezone'] ?: 'UTC'); ?></dd></div>

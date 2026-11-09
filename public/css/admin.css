@@ -332,8 +332,10 @@ a.adm-seg__b{ text-decoration:none; }
 #admSceneModal .form-control.is-invalid, #admSceneModal .form-select.is-invalid, #admNicheModal .form-control.is-invalid{ border-color:var(--danger); }
 #admNicheForm .ai-field + .ai-field{ margin-top:16px; }
 .adm-field{ display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+.adm-grid2{ display:grid; grid-template-columns:1fr 1fr; gap:0 12px; }
+@media (max-width:575px){ .adm-grid2{ grid-template-columns:1fr; } }
 .adm-field label, .adm-field__label{ font-size:13px; font-weight:600; color:var(--t2); }
-#admAdjustModal .form-control{ border-radius:8px; border:1px solid #D9D9DC; font-size:14px; }
+#admAdjustModal .form-control, #admEditUserModal .form-control{ border-radius:8px; border:1px solid #D9D9DC; font-size:14px; }
 .adm-bal{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .adm-bal__opt{ position:relative; display:flex; gap:10px; align-items:flex-start; padding:12px; border:1px solid #D9D9DC; border-radius:8px; cursor:pointer; background:var(--surface); font-weight:400; font-size:inherit; color:inherit; }
 .adm-bal__opt:has(input:checked){ border-color:var(--acc-btn); box-shadow:0 0 0 1px var(--acc-btn); }

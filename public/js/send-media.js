@@ -1,6 +1,6 @@
 /* Send a photo or video to one person without leaving the page: pick who gets it, click Send.
  * Opened by CLSMessenger.compose({ assets: [...] }) (site_footer.php). Only people you message as their
- * creator can receive media, so the list is your followers and subscribers (message_people media=1). */
+ * creator can receive media, so the list is your followers (message_people media=1). */
 (function ($) {
     if (!$ || typeof window.ApiDataSvc === 'undefined') { return; }
     var state = { assets: [], to: 0, name: '', busy: false }, timer = null, modal = null;
@@ -49,7 +49,7 @@
             $p.empty();
             if (!o || !o.success) { $p.html('<p class="cls-send__note">' + esc(o && o.message ? o.message : 'Could not load people.') + '</p>'); return; }
             var list = o.people || [];
-            if (!list.length) { $p.html('<p class="cls-send__note">' + (o.is_search ? 'No one matches that search.' : 'Media can be sent to your followers and subscribers. You have none yet.') + '</p>'); return; }
+            if (!list.length) { $p.html('<p class="cls-send__note">' + (o.is_search ? 'No one matches that search.' : 'Media can be sent to your followers. You have none yet.') + '</p>'); return; }
             list.forEach(function (c) {
                 var av = c.avatar ? '<span class="cls-send__av" style="background-image:url(\'' + esc(c.avatar) + '\')"></span>'
                                   : '<span class="cls-send__av">' + esc((c.name || c.handle || '?').replace(/^@/, '').charAt(0).toUpperCase()) + '</span>';

@@ -22,9 +22,9 @@ $panel = '<div class="ft-host" data-ft="' . $e($slug) . '"><noscript><p class="s
 $trial = Sections::trial_link();
 $next_html = '';
 $next = array(
-    'ai-influencer-name-generator'  => array('Your name is ready. Bring your character to life.', 'Create the character on ' . $site . ', generate photos and video of the same person, and publish them to ten platforms.', array('Write the Bio Next', '/tools/ai-influencer-bio-generator')),
-    'ai-influencer-bio-generator'   => array('Your bio is ready. Build the page it links to.', 'Your ' . $site . ' page is where the link in your bio goes: fans follow, subscribe and buy there.', array('See Link in Bio', '/features/link-in-bio')),
-    'ai-disclosure-caption-checker' => array('Your caption is ready. Publish it everywhere.', $site . ' posts it to ten platforms at once and sets TikTok\'s and YouTube\'s own AI label for you.', array('See Publishing', '/features/publishing')),
+    'ai-influencer-name-generator'  => array('Your name is ready. Bring your character to life.', 'Create the character on ' . $site . ', generate photos and video of the same person, and publish them to nine platforms.', array('Write the Bio Next', '/tools/ai-influencer-bio-generator')),
+    'ai-influencer-bio-generator'   => array('Your bio is ready. Build the page it links to.', 'Your ' . $site . ' page is where the link in your bio goes: people follow you and find your posts and links there.', array('See Link in Bio', '/features/link-in-bio')),
+    'ai-disclosure-caption-checker' => array('Your caption is ready. Publish it everywhere.', $site . ' posts it to nine platforms at once and sets TikTok\'s and YouTube\'s own AI label for you.', array('See Publishing', '/features/publishing')),
 );
 if (isset($next[$slug])) {
     $nx = $next[$slug];
@@ -70,7 +70,7 @@ echo Sections::open('white', 'Embed this tool', 'Add the ' . $tool['nav_title'] 
 <?php
 echo Sections::close();
 
-echo Sections::trial_cta('Build the character, then publish it.', 'Create an AI influencer on ' . $site . ', make photos and video, and publish to ten platforms from one page.');
+echo Sections::trial_cta('Build the character, then publish it.', 'Create an AI influencer on ' . $site . ', make photos and video, and publish to nine platforms from one studio.');
 ?>
 <script defer src="/js/free-tools.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/free-tools.js'); ?>"></script>
 <script>

@@ -18,9 +18,8 @@ class BlogController extends Controller {
     /** Short topic label for covers and the article header, from the target keyword and title. */
     public static function topic(array $a): string {
         $k = strtolower((string) ($a['target_keyword'] ?? '') . ' ' . (string) ($a['title'] ?? ''));
-        $map = array('pay-per-view' => 'Pay-per-view', 'ppv' => 'Pay-per-view', 'link in bio' => 'Link in bio', 'payout' => 'Payouts', 'bundle' => 'Bundles',
-                     'service' => 'Services', 'event' => 'Events', 'price' => 'Pricing', 'pricing' => 'Pricing', 'tier' => 'Memberships', 'membership' => 'Memberships',
-                     'subscription' => 'Memberships', 'cross-post' => 'Social', 'social' => 'Social', 'ai ' => 'AI', 'onlyfans' => 'Platforms', 'fanvue' => 'Platforms', 'monetiz' => 'Getting paid');
+        $map = array('link in bio' => 'Link in bio', 'price' => 'Pricing', 'pricing' => 'Pricing', 'cross-post' => 'Social', 'social' => 'Social', 'schedul' => 'Social',
+                     'ai ' => 'AI', 'lora' => 'AI');
         foreach ($map as $needle => $label) { if (strpos($k, $needle) !== false) { return $label; } }
         return 'Guide';
     }
@@ -35,15 +34,7 @@ class BlogController extends Controller {
             'AI'           => array('ai-influencer-persona', '/features/ai-influencer', 'AI influencer'),
             'Social'       => array('ai-disclosure-caption-checker', '/features/publishing', 'publishing'),
             'Link in bio'  => array('ai-influencer-bio-generator', '/features/link-in-bio', 'link in bio'),
-            'Pay-per-view' => array('fan-questions', '/features/pay-per-view', 'pay-per-view'),
-            'Memberships'  => array('fan-questions', '/features/memberships', 'memberships'),
             'Pricing'      => array('fan-questions', '/pricing', 'pricing'),
-            'Bundles'      => array('fan-questions', '/monetize-your-content', 'ways to get paid'),
-            'Services'     => array('fan-questions', '/features/services-and-events', 'services and events'),
-            'Events'       => array('fan-questions', '/features/services-and-events', 'services and events'),
-            'Payouts'      => array('fan-questions', '/features/payouts', 'payouts'),
-            'Platforms'    => array('fan-questions', '/best-creator-monetization-platforms', 'the platform comparison'),
-            'Getting paid' => array('fan-questions', '/monetize-your-content', 'ways to get paid'),
         );
         return $map[$t] ?? array('fan-questions', '/features', 'every feature');
     }
@@ -97,8 +88,8 @@ class BlogController extends Controller {
         if ($q === '' && $page > 1 && $page > $pages) { Errors::page_not_found(); return; }
         // Search results are for people, not search engines: noindex, canonical stays /blog.
         $path  = ($q !== '') ? '/blog' : ('/blog' . ($page > 1 ? '?page=' . $page : ''));
-        $title = ($q !== '') ? ('Search: ' . $q . ' · ' . self::NAME) : (self::NAME . ': Creator Monetization Guides' . ($page > 1 ? ', page ' . $page : ''));   // 30-60 chars with the brand suffix
-        $desc  = 'Practical guides on monetizing content: memberships, pay-per-view, bundles, services, events, link in bio and payouts.';
+        $title = ($q !== '') ? ('Search: ' . $q . ' · ' . self::NAME) : (self::NAME . ': AI Content and Publishing Guides' . ($page > 1 ? ', page ' . $page : ''));   // 30-60 chars with the brand suffix
+        $desc  = 'Practical guides on AI influencers, AI images and video, scheduling and cross-posting to social platforms, inbox automation and link in bio.';
         $items = array(); $pos = 1;
         foreach ($rows as $a) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'url' => SeoMeta::base() . '/blog/' . $a['slug'], 'name' => $a['title']); }
         $jsonld = array(
@@ -108,7 +99,7 @@ class BlogController extends Controller {
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => self::NAME, 'url' => '/blog'))),
         );
         $guides = array();
-        foreach (SeoController::public_pages() as $p) { if (in_array($p['path'], array('/monetize-your-content', '/best-creator-monetization-platforms'), true) || strpos($p['path'], '/compare/') === 0) { $guides[] = $p; } }
+        foreach (SeoController::public_pages() as $p) { if ($p['path'] === '/features') { $guides[] = $p; } }
         // The featured guide's cover is the index's largest image on page one (2026-10-15): preload it like an article cover.
         $pre = array();
         if ($q === '' && $page === 1 && !empty($rows)) {

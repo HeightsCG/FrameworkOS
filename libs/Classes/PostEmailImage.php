@@ -4,8 +4,8 @@
  * /mail-image/<post_id>, and that URL decides again on every open what may be shown, so a post that is later
  * deleted, re-gated or re-moderated never leaks through an old email.
  *
- * What is shown is what a logged-out visitor may see: a free, non-adult post shows the real image; a
- * subscriber, pay-per-view or adult post shows its blurred preview; unscanned or blocked media shows nothing.
+ * What is shown is what a logged-out visitor may see: a cleared post shows the real image; unscanned, flagged or
+ * blocked media shows nothing.
  */
 class PostEmailImage {
 
@@ -20,7 +20,7 @@ class PostEmailImage {
         $pid   = (int) $post['id'];
         $posts = new PostsModel();
         $mod   = $posts->moderation_map(array($pid))[$pid] ?? '';
-        if ($mod === 'blocked' || $mod === 'pending') { return null; }
+        if ($mod === 'blocked' || $mod === 'flagged' || $mod === 'pending') { return null; }
         $cover = null;
         foreach ((array) $posts->get_assets($pid) as $a) {
             if (!empty($a['deleted_at']) || (string) $a['status'] !== 'ready' || !in_array((string) $a['type'], array('image', 'video'), true)) { continue; }
@@ -28,8 +28,7 @@ class PostEmailImage {
             if (!empty($a['is_cover'])) { break; }
         }
         if (!$cover) { return null; }
-        $gated   = (string) ($post['audience'] ?? 'free') !== 'free' || $mod === 'adult';
-        $variant = $gated ? 'blurred' : ((string) $cover['type'] === 'video' ? 'poster' : 'display');
+        $variant = (string) $cover['type'] === 'video' ? 'poster' : 'display';
         return MediaService::signed_variant($cover, $variant, 60) !== '' ? array($cover, $variant) : null;
     }
 }

@@ -35,7 +35,7 @@ class FeedModel extends Model {
                      WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.status = 'ready'
                      ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1)";
         $rows = parent::select(
-            "SELECT p.id, p.creator_id, p.caption, p.audience, p.ppv_price_credits, p.tier_id,
+            "SELECT p.id, p.creator_id, p.caption,
                     p.published_at, p.views, p.likes, p.comments, p.comments_enabled,
                     ua.u_name,
                     cp.display_name, cp.avatar_url,
@@ -45,7 +45,6 @@ class FeedModel extends Model {
                     " . sprintf($cover, 'poster_key')  . " AS cover_poster_key,
                     " . sprintf($cover, 'blurred_key') . " AS cover_blurred_key,
                     " . sprintf($cover, 'moderation_status') . " AS cover_moderation_status,
-                    " . sprintf($cover, 'is_adult') . " AS cover_is_adult,
                     " . sprintf($cover, 'public_display_key') . " AS cover_public_display_key
              FROM posts p
              JOIN user_accounts ua ON ua.user_id = p.creator_id
@@ -75,16 +74,8 @@ class FeedModel extends Model {
         } else {
             $sql .= ' AND ua.is_demo = 0';
         }
-        // Subscriber posts appear only for a viewer with an active subscription to that creator (2026-10-13): nobody else gets
-        // even a locked tile. Free and pay-per-view posts are for everyone. Done here, not in PHP, so paging stays exact.
-        return $sql . self::subscriber_sql($viewer_id, $params);
-    }
-
-    /** The audience clause for the feed: free and pay-per-view for everyone, subscriber posts only with an active subscription to the creator. */
-    private static function subscriber_sql(int $viewer_id, array &$params): string {
-        if ($viewer_id <= 0) { return " AND p.audience IN ('free', 'ppv')"; }
-        $params['sub_viewer'] = $viewer_id;
-        return " AND (p.audience IN ('free', 'ppv') OR EXISTS (SELECT 1 FROM creator_subscriptions cs WHERE cs.subscriber_id = :sub_viewer AND cs.creator_id = p.creator_id AND cs.status = 'active'))";
+        // Only free posts are shown. Legacy subscriber/pay-per-view rows are archived by cron/retire_selling_once.php and never made public.
+        return $sql . " AND p.audience = 'free'";
     }
 
     /**
@@ -93,21 +84,20 @@ class FeedModel extends Model {
      * cheap monotonic proxy for "published since you last loaded the top". Capped
      * so the count query stays bounded (the UI only needs "9+").
      * Same rules as recent() plus the moderation gate the feed applies after it (PostsModel::moderation_map):
-     * a post with blocked or unscanned media is never counted, an adult one only when $show_adult.
+     * a post with blocked, flagged or unscanned media is never counted.
      */
-    public function count_since($since_id, $cap = 50, $viewer_id = 0, $show_adult = false){
+    public function count_since($since_id, $cap = 50, $viewer_id = 0){
         $since_id = (int) $since_id;
         if ($since_id <= 0) { return 0; }
         $cap = max(1, min(200, (int) $cap));
         $params = array('since' => $since_id);
         $where  = self::visible_where((int) $viewer_id, $params);
-        $adult  = $show_adult ? '' : " OR ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)";
         $sql = "SELECT COUNT(*) AS c FROM (
                     SELECT p.id FROM posts p JOIN user_accounts ua ON ua.user_id = p.creator_id
                     WHERE $where AND p.id > :since
                       AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
                                       WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
-                                        AND (ma.moderation_status NOT IN ('approved', 'flagged', 'n_a')$adult))
+                                        AND ma.moderation_status NOT IN ('approved', 'n_a'))
                     LIMIT $cap
                 ) t";
         $rows = parent::select($sql, $params);
@@ -117,7 +107,7 @@ class FeedModel extends Model {
     /**
      * Latest posts for the public marketing pages (logged-out visitors). Strictly safe:
      * free audience, published to the site, creator active, and EVERY asset is an image
-     * the moderator approved as not adult (videos are not scanned, so posts with video are
+     * the moderator approved (videos are not scanned, so posts with video are
      * left out). Returns the cover thumbnail key; the caller signs it.
      */
     /** public_latest() with at most one post per creator (the newest), so a single handle never repeats on the home page (D3.1, 2026-10-12). */
@@ -132,7 +122,7 @@ class FeedModel extends Model {
 
     public function public_latest($limit = 6){
         $limit = max(1, min(12, (int) $limit));
-        // the cover's public webp copies (PublicThumbService) ride along; every asset here is approved and not adult.
+        // the cover's public webp copies (PublicThumbService) ride along; every asset here is approved.
         $cover = "(SELECT ma.%s FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
                     WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.status = 'ready'
                     ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1)";
@@ -151,7 +141,7 @@ class FeedModel extends Model {
                   AND EXISTS (SELECT 1 FROM post_assets pa WHERE pa.post_id = p.id)
                   AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
                                    WHERE pa.post_id = p.id AND ma.deleted_at IS NULL
-                                     AND (ma.type <> 'image' OR ma.status <> 'ready' OR ma.moderation_status <> 'approved' OR ma.is_adult = 1))
+                                     AND (ma.type <> 'image' OR ma.status <> 'ready' OR ma.moderation_status <> 'approved'))
                 ORDER BY p.published_at DESC, p.id DESC
                 LIMIT $limit";
         $rows = parent::select($sql);

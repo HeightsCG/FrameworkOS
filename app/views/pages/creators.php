@@ -9,8 +9,8 @@ $site = Main::site_name();
 echo Sections::hero(array(
     'title' => $cat === '' ? 'Creator Directory' : Sections::tc($label . ' creators'),
     'lead'  => $cat === ''
-        ? 'The creator directory is the list of creators on ' . $site . ' who chose to be listed. Follow them, join a membership, or book a service from their page.'
-        : 'The ' . strtolower($label) . ' directory is the list of ' . strtolower($label) . ' creators on ' . $site . ' who chose to be listed. Follow them, join a membership, or book a service from their page.',
+        ? 'The creator directory is the list of creators on ' . $site . ' who chose to be listed. Follow them and message them from their page.'
+        : 'The ' . strtolower($label) . ' directory is the list of ' . strtolower($label) . ' creators on ' . $site . ' who chose to be listed. Follow them and message them from their page.',
 ));
 
 echo Sections::open('white');
@@ -61,8 +61,7 @@ $grid = function (array $rows) use ($e, $cats) {
         echo '<span class="dir-card__body"><span class="dir-card__name">' . $e($name) . (!empty($c['verified']) ? ' <span class="dir-card__ver" title="Verified">' . Sections::icon('check', 12) . '<span class="visually-hidden">Verified</span></span>' : '') . '</span>';
         echo '<span class="dir-card__handle">@' . $e($c['u_name']) . '</span>';
         if ($bio !== '') { foreach (Sections::cap($bio) as $piece) { echo '<p class="dir-card__bio">' . $e($piece) . '</p>'; } }   // a bio with many short sentences becomes short paragraphs (c_paragraph_length)
-        $unit = (string) ($c['min_price_interval'] ?? '') === 'year' ? 'year' : ((string) ($c['min_price_interval'] ?? '') === 'week' ? 'week' : 'month');
-        echo '<span class="dir-card__price">' . ((int) ($c['min_price_cents'] ?? 0) > 0 ? 'From $' . number_format(((int) $c['min_price_cents']) / 100, 2) . '/' . $unit : 'Free to follow') . '</span>';
+        echo '<span class="dir-card__price">Free to follow</span>';
         $niche = (string) ($cats[$c['directory_category']] ?? '');   // empty when the niche was turned off
         echo '<span class="dir-card__meta">' . ($niche !== '' ? $e($niche) . ' · ' : '') . number_format($fol) . ' follower' . ($fol === 1 ? '' : 's') . '</span></span>';
         echo '</a></li>';

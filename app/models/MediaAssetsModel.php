@@ -39,13 +39,8 @@ class MediaAssetsModel extends Model {
             array('b' => (string) $before));
     }
 
-    /** Call recordings (source 'recording') belong to their event: never in the Library, pickers or attachments. */
+    /** Old CLS Video call recordings (source 'recording', from the removed Events feature): never in the Library, pickers or attachments. */
     const NOT_RECORDING = "COALESCE(source, '') <> 'recording'";
-
-    /** Mark a Library row as a call recording. */
-    public function mark_recording($creator_id, $id){
-        return parent::update('media_assets', array('source' => 'recording'), 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
-    }
 
     /** Ready, owned assets by id (order preserved) — for attaching to messages. */
     public function get_owned_ready($creator_id, array $ids){
@@ -96,7 +91,6 @@ class MediaAssetsModel extends Model {
             $data['moderation_score']  = ($fields['moderation_score'] ?? null) === null ? null : (float) $fields['moderation_score'];
             $data['moderation_labels'] = $fields['moderation_labels'] ?? null;
             if ($fields['moderation_status'] !== 'pending') { $data['moderated_at'] = date('Y-m-d H:i:s'); }
-            if ($fields['moderation_status'] === 'flagged') { $data['is_adult'] = 1; }   // flagged = adult, same as the cron path
         }
         return parent::update('media_assets', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
@@ -107,6 +101,12 @@ class MediaAssetsModel extends Model {
             array('status' => 'failed', 'failure_reason' => (string) $reason, 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
+    /** How many of a creator's media items the content check flagged (waiting for staff in the Moderation queue). */
+    public function count_flagged($creator_id): int {
+        $r = parent::select("SELECT COUNT(*) AS n FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL AND moderation_status = 'flagged'", array('c' => (int) $creator_id));
+        return (is_array($r) && count($r) === 1) ? (int) $r[0]['n'] : 0;
     }
 
     /** Ready images awaiting moderation — the worker's feed (across all creators). */
@@ -125,7 +125,7 @@ class MediaAssetsModel extends Model {
     }
 
     /** Record a moderation verdict (system worker — keyed by asset id). */
-    public function set_moderation($id, $status, $score = null, array $labels = array(), $is_adult = null){
+    public function set_moderation($id, $status, $score = null, array $labels = array()){
         $data = array(
             'moderation_status' => (string) $status,
             'moderation_score'  => ($score === null) ? null : (float) $score,
@@ -133,9 +133,8 @@ class MediaAssetsModel extends Model {
             'moderated_at'      => date('Y-m-d H:i:s'),
             'updated_at'        => date('Y-m-d H:i:s'),
         );
-        if ($is_adult !== null) { $data['is_adult'] = $is_adult ? 1 : 0; }   // adult classification, kept across approve/block
         $res = parent::update('media_assets', $data, 'id = :id', array('id' => (int) $id));
-        if ((string) $status !== 'approved' || !empty($is_adult)) { PublicThumbService::queue_purge(array('assets' => array((int) $id))); }   // no longer safe for a public copy
+        if ((string) $status !== 'approved') { PublicThumbService::queue_purge(array('assets' => array((int) $id))); }   // no longer safe for a public copy
         return $res;
     }
 
@@ -161,7 +160,6 @@ class MediaAssetsModel extends Model {
             'tags' => mb_substr((string) $tags, 0, 512), 'updated_at' => $now), 'id = :id AND creator_id = :c', array('id' => $id, 'c' => (int) $creator_id));
         $this->set_ready($creator_id, $id, $f + array('moderation_status' => (string) ($source['moderation_status'] ?? 'pending'),
             'moderation_score' => $source['moderation_score'] ?? null, 'moderation_labels' => $source['moderation_labels'] ?? null));
-        if (!empty($source['is_adult'])) { parent::update('media_assets', array('is_adult' => 1), 'id = :id', array('id' => $id)); }
         return $this->get_variant($creator_id, $id);
     }
 
@@ -240,7 +238,6 @@ class MediaAssetsModel extends Model {
         if ($n === 0) { $this->soft_delete($creator_id, $id); return array('posts' => 0, 'hidden' => false); }
         parent::update('media_assets', array('library_hidden_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id AND creator_id = :c AND deleted_at IS NULL AND library_hidden_at IS NULL', array('id' => (int) $id, 'c' => (int) $creator_id));
-        $this->drop_unsold_bundle_items($creator_id, $id);   // removed from the library: it leaves bundles nobody has bought yet
         return array('posts' => $n, 'hidden' => true);
     }
 
@@ -276,32 +273,7 @@ class MediaAssetsModel extends Model {
             'id = :id AND creator_id = :c AND deleted_at IS NULL',
             array('id' => (int) $id, 'c' => (int) $creator_id));
         PublicThumbService::queue_purge(array('assets' => array((int) $id)));   // deleted media loses its public copy
-        $this->drop_unsold_bundle_items($creator_id, $id);
         return $res;
-    }
-
-    /** Take a removed file out of the creator's bundles that have no sales. A sold bundle keeps it: buyers keep what they bought. */
-    private function drop_unsold_bundle_items($creator_id, $id){
-        return parent::sql("DELETE bi FROM bundle_items bi JOIN content_bundles b ON b.id = bi.bundle_id AND b.creator_id = :c
-             WHERE bi.asset_id = :a AND NOT EXISTS (SELECT 1 FROM bundle_unlocks bu WHERE bu.bundle_id = bi.bundle_id)",
-            array('c' => (int) $creator_id, 'a' => (int) $id));
-    }
-
-    /** The subset of these asset ids someone has paid for (PPV post, priced message, or bundle) — buyers keep them, so they can't be removed. */
-    public function sold_asset_ids(array $ids, $creator_id){
-        $ids = array_values(array_filter(array_map('intval', $ids)));
-        if (!$ids) { return array(); }
-        $in = implode(',', $ids);
-        $r  = parent::select(
-            "SELECT DISTINCT ma.id FROM media_assets ma
-             WHERE ma.creator_id = :c AND ma.id IN ($in)
-               AND (EXISTS (SELECT 1 FROM post_assets pa JOIN ppv_unlocks pu ON pu.post_id = pa.post_id WHERE pa.asset_id = ma.id)
-                 OR EXISTS (SELECT 1 FROM message_assets msa JOIN message_unlocks mu ON mu.message_id = msa.message_id WHERE msa.asset_id = ma.id)
-                 OR EXISTS (SELECT 1 FROM bundle_items bi JOIN bundle_unlocks bu ON bu.bundle_id = bi.bundle_id WHERE bi.asset_id = ma.id))",
-            array('c' => (int) $creator_id));
-        $out = array();
-        foreach ((array) $r as $row) { $out[] = (int) $row['id']; }
-        return $out;
     }
 
     /**
@@ -399,12 +371,12 @@ class MediaAssetsModel extends Model {
     /* ---- public renditions (PublicThumbService) ---- */
 
     /**
-     * Safe for a public, cacheable copy: ready, moderator-approved, not adult, in a published free post on the site,
+     * Safe for a public, cacheable copy: ready, approved by the content check, in a published free post on the site,
      * by a creator with a public page (can sell, not demo, not deleted, not suspended).
      */
     public static function public_ok_sql(): string {
         return "ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.type IN ('image', 'video')
-        AND ma.moderation_status = 'approved' AND ma.is_adult = 0
+        AND ma.moderation_status = 'approved'
         AND EXISTS (SELECT 1 FROM post_assets pa JOIN posts p ON p.id = pa.post_id
                      WHERE pa.asset_id = ma.id AND p.state = 'published' AND p.on_cls = 1 AND p.audience = 'free')
         AND EXISTS (SELECT 1 FROM user_accounts ua WHERE ua.user_id = ma.creator_id AND ua.deleted = 0 AND ua.is_demo = 0

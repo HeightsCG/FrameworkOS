@@ -1,7 +1,8 @@
 <?php
 /**
- * Moderation worker — scans recently-uploaded, not-yet-moderated images, runs each
- * through the adult-content classifier, and writes the verdict to media_assets.
+ * Moderation worker — scans recently-uploaded, not-yet-moderated images and videos, runs each
+ * through the content classifier, and writes the verdict to media_assets. A flagged item is a
+ * block: posts using it go back to drafts until staff clear it (ModerationHold).
  * Invoke from a scheduler (launchd/cron), e.g. every couple of minutes:
  *
  *   * / 2 * * * *  /opt/homebrew/opt/php@8.2/bin/php /private/var/www/contentos.cvk/framework/cron/moderate.php >> /tmp/cls-moderate.log 2>&1
@@ -24,11 +25,11 @@ spl_autoload_register(function ($class) use ($root) {
     }
 });
 
-/** Media just marked adult: hold the posts using it whose creator is not age verified (published during the scan). */
+/** Media just flagged: hold the published or scheduled posts using it (published during the scan). */
 function cls_rehold(int $asset_id): void {
     try {
-        foreach (AgeVerification::rehold_posts_for_asset($asset_id) as $pid) {
-            fwrite(STDOUT, date('c') . " post {$pid} held: adult media, creator not age verified, moved to drafts\n");
+        foreach (ModerationHold::hold_posts_for_asset($asset_id) as $pid) {
+            fwrite(STDOUT, date('c') . " post {$pid} held: flagged media, moved to drafts\n");
         }
     } catch (\Throwable $e) {
         error_log('[moderate] re-hold for asset ' . $asset_id . ' failed: ' . $e->getMessage());
@@ -58,9 +59,9 @@ foreach ($due as $a) {
         if ($res['status'] === 'blocked') {
             error_log('[MODERATION][BLOCKED] video ' . $id . ' creator ' . $a['creator_id'] . ' — suspected sexual/minors, quarantined.');
         }
-        $media->set_moderation($id, $res['status'], $res['score'], $res['labels'], !empty($res['adult']));
+        $media->set_moderation($id, $res['status'], $res['score'], $res['labels']);
         fwrite(STDOUT, date('c') . " video {$id}: {$res['status']} ({$res['frames']} frames, sexual " . $res['score'] . ")\n");
-        if ($res['status'] === 'flagged' || !empty($res['adult'])) { cls_rehold($id); }
+        if ($res['status'] === 'flagged' || $res['status'] === 'blocked') { cls_rehold($id); }
         continue;
     }
     $key = $a['display_key'] ?: ($a['original_key'] ?: $a['thumb_key']);
@@ -91,10 +92,10 @@ foreach ($due as $a) {
     } else {
         $status = !empty($res['adult']) ? 'flagged' : 'approved';
     }
-    $media->set_moderation($id, $status, $res['score'], $res['labels'], !empty($res['adult']));
+    $media->set_moderation($id, $status, $res['score'], $res['labels']);
     fwrite(STDOUT, date('c') . " asset {$id}: {$status} (sexual " . $res['score'] . ')'
         . (!empty($res['minors']) ? ' [SEXUAL/MINORS — BLOCKED]' : '') . "\n");
-    if ($status === 'flagged' || !empty($res['adult'])) { cls_rehold($id); }
+    if ($status === 'flagged' || $status === 'blocked') { cls_rehold($id); }
 }
 
 CronRuns::finish('moderate', true, count($due) . ' item(s)');

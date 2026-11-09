@@ -29,13 +29,6 @@ class StudioController extends Controller {
             $this->view->edit_upgrade = Plan::can_use_creator_features($user) ? null
                 : array('message' => 'Upgrade to ' . PlanTiers::TIERS['creator']['name'] . ' to edit clips.') + UpgradePrompt::payload($user, '/studio/edit');
 
-            // Every active membership tier (free ones too), for the composer's tier checkboxes.
-            $plans = array();
-            foreach ((new CreatorPlansModel())->get_active_for_user((int) ($user['user_id'] ?? 0)) as $p) {
-                $plans[] = array('id' => (int) $p['id'], 'name' => (string) $p['name'], 'price_cents' => (int) $p['price_cents']);
-            }
-            $this->view->plans    = $plans;
-
             // Connected social accounts, for the composer's cross-post checkboxes.
             $accounts = array();
             foreach ((new SocialAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0)) as $a) {
@@ -44,15 +37,6 @@ class StudioController extends Controller {
                     'platform' => (string) $a['platform'],
                     'username' => (string) ($a['username'] ?? ''),
                 );
-            }
-            // Fanvue joins the same picker as a pseudo account (full-post mirror, see FanvueShareService).
-            $fv = (new FanvueAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0));
-            if ($fv) {
-                array_unshift($accounts, array(
-                    'id'       => FanvueShareService::ACCOUNT_ID,
-                    'platform' => 'fanvue',
-                    'username' => (string) ($fv['handle'] !== '' && $fv['handle'] !== null ? $fv['handle'] : 'Fanvue'),
-                ));
             }
             $this->view->social = array(
                 'accounts' => $accounts,

@@ -3,9 +3,8 @@
  * The scene template library (Influencers, Generate Images, Scenes): base prompts a creator runs with one of their
  * influencers for four variants, then rates. Every scene on the page is the creator's own (add, edit, turn off,
  * delete). The rows with creator_id NULL are the STARTER scenes, managed on /admin: an account gets its own copies
- * of them the first time it opens Scenes (seed), and from then on they are ordinary scenes of its own. Adult starters
- * are copied only for accounts that opted in to adult content (user_accounts.adult_content_enabled), the same switch
- * that gates adult posts. Shared by the web API, /admin and the Claude connector.
+ * of them the first time it opens Scenes (seed), and from then on they are ordinary scenes of its own. Shared by the
+ * web API, /admin and the Claude connector.
  */
 class SceneTemplates {
 
@@ -15,15 +14,13 @@ class SceneTemplates {
     private static function fail($error, array $extra = array()){ return array_merge(array('ok' => false, 'error' => (string) $error), $extra); }
     private static function okr(array $payload = array()){ return array_merge(array('ok' => true, 'error' => ''), $payload); }
 
-    public static function shows_adult($user){ return AgeVerification::adult_allowed($user); }   // toggle on AND age verified
-
     public static function thumb_url($row){
         $key = (string) ($row['thumb_key'] ?? '');
         return ($key !== '') ? S3Service::presigned_get_url($key, 3600) : '';
     }
 
     public static function json(array $row, $admin = false){
-        $out = array('id' => (int) $row['id'], 'title' => (string) $row['title'], 'category' => (string) $row['category'], 'is_adult' => (int) $row['is_adult'],
+        $out = array('id' => (int) $row['id'], 'title' => (string) $row['title'], 'category' => (string) $row['category'],
             'default_aspect' => Aspect::normalize($row['default_aspect']), 'thumb_url' => self::thumb_url($row),
             'is_active' => (int) $row['is_active'], 'mine' => !empty($row['mine']));
         if ($admin || !empty($row['mine'])) {
@@ -73,7 +70,7 @@ class SceneTemplates {
 
     /**
      * Create ($id 0) or update one of the creator's own scenes. $f: title, category, base_prompt,
-     * is_adult, default_aspect, sort_order (is_active is kept on update, on for a new scene).
+     * default_aspect, sort_order (is_active is kept on update, on for a new scene).
      */
     public static function save($cid, $id, array $f){
         $errors = self::errors($f);
@@ -118,7 +115,7 @@ class SceneTemplates {
     private static function copy_into($cid, array $t){
         $m = new SceneTemplatesModel();
         $new = (int) $m->create_own($cid, array('title' => (string) $t['title'], 'category' => (string) $t['category'], 'base_prompt' => (string) $t['base_prompt'],
-            'is_adult' => !empty($t['is_adult']), 'default_aspect' => (string) $t['default_aspect'], 'is_active' => true, 'sort_order' => (int) ($t['sort_order'] ?? 0)));
+            'default_aspect' => (string) $t['default_aspect'], 'is_active' => true, 'sort_order' => (int) ($t['sort_order'] ?? 0)));
         if ($new <= 0) { return 0; }
         if (!empty($t['thumb_key'])) {
             $key = 'scenes/' . $new . '/thumb_' . bin2hex(random_bytes(4)) . '.jpg';
@@ -131,7 +128,6 @@ class SceneTemplates {
      * The starter scenes (the rows managed on /admin, creator_id NULL) copied into an account the first time it looks at
      * its scenes, so they are the creator's own from day one: edit, turn off, delete. Runs once: an account that has ever
      * had a scene row (deleted ones included) is left alone, so deleting every scene does not bring them back.
-     * Adult starters are copied only for accounts that have adult content on.
      */
     public static function seed($cid, $user){
         $cid = (int) $cid;
@@ -139,7 +135,7 @@ class SceneTemplates {
         $m = new SceneTemplatesModel();
         if ($m->has_any($cid)) { return 0; }
         $n = 0;
-        foreach ($m->list_active(self::shows_adult($user)) as $t) { if (self::copy_into($cid, $t) > 0) { $n++; } }
+        foreach ($m->list_active() as $t) { if (self::copy_into($cid, $t) > 0) { $n++; } }
         return $n;
     }
 
@@ -200,7 +196,6 @@ class SceneTemplates {
         $tpl = (new SceneTemplatesModel())->get_one((int) $template_id);
         if (!$tpl || empty($tpl['is_active'])) { return self::fail('That scene is not available.'); }
         if ((int) ($tpl['creator_id'] ?? 0) > 0 && (int) $tpl['creator_id'] !== (int) $cid) { return self::fail('That scene is not available.'); }
-        if (!empty($tpl['is_adult']) && !self::shows_adult($user)) { return self::fail('That scene is not available.'); }
         // A model the caller named must do image generation: it is refused, never swapped for the default and re-priced.
         if ((string) $model_key !== '') { $m_err = ''; if (!InfluencerImageActions::model_for('image', $model_key, $m_err)) { return self::fail($m_err); } }
         $r = InfluencerActions::generate_image($cid, $infl, array(

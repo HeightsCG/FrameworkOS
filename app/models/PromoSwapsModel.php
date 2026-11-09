@@ -200,15 +200,11 @@ class PromoSwapsModel extends Model {
 
     /**
      * The creators $uid features right now: the other side of each active swap, with a public page.
-     * Each row: swap_id, user_id, u_name, display_name, avatar_url, verified, paid_from_cents / paid_from_interval (cheapest
-     * paid membership, null = none) and free_plans.
+     * Each row: swap_id, the user row, display_name and avatar urls.
      */
     public function featured_for($uid){
         return (array) parent::select(
-            "SELECT s.id AS swap_id, u.*, COALESCE(NULLIF(TRIM(cp.display_name), ''), TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))) AS display_name, cp.avatar_url, cp.avatar_webp_url,
-                    (SELECT MIN(p.price_cents) FROM creator_plans p WHERE p.user_id = u.user_id AND p.is_active = 1 AND p.price_cents > 0) AS paid_from_cents,
-                    (SELECT p.billing_interval FROM creator_plans p WHERE p.user_id = u.user_id AND p.is_active = 1 AND p.price_cents > 0 ORDER BY p.price_cents ASC LIMIT 1) AS paid_from_interval,
-                    (SELECT COUNT(*) FROM creator_plans p WHERE p.user_id = u.user_id AND p.is_active = 1 AND p.price_cents = 0) AS free_plans
+            "SELECT s.id AS swap_id, u.*, COALESCE(NULLIF(TRIM(cp.display_name), ''), TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')))) AS display_name, cp.avatar_url, cp.avatar_webp_url
              FROM promo_swaps s
              JOIN user_accounts u ON u.user_id = IF(s.requester_id = :u1, s.partner_id, s.requester_id)
              JOIN creator_profiles cp ON cp.user_id = u.user_id AND cp.cross_promo_in = 1

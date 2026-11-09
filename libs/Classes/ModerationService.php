@@ -1,6 +1,7 @@
 <?php
 /**
- * Content moderation — decides whether an image is adult/sexual content.
+ * Content moderation — decides whether an image is sexual content (the OpenAI 'sexual' category; 'adult' in the
+ * result means that category or a high sexual score). Flagged media is blocked from publishing (ModerationHold).
  *
  * Provider seam (per the compliance spec): this currently uses OpenAI's free,
  * image-capable "omni-moderation" endpoint. To swap vendors (AWS Rekognition,

@@ -16,24 +16,6 @@ class WebhookController extends Controller {
         parent::__construct();
     }
 
-    /**
-     * Fanvue creator.* webhooks. The inbox automation now runs on Creator Link Studio's own
-     * DMs, so every event is verified and acknowledged (2xx) so Fanvue stops retrying.
-     */
-    public function fanvueAction(){
-        $raw = (string) file_get_contents('php://input');
-        $sig = (string) ($_SERVER['HTTP_X_FANVUE_SIGNATURE'] ?? '');
-        $secret = FanvueService::webhook_secret();
-        if ($secret !== '' && !FanvueService::verify_webhook_signature($raw, $sig, $secret)) {
-            http_response_code(401);
-            echo 'unauthorized';
-            exit;
-        }
-        http_response_code(200);
-        echo 'ignored';
-        exit;
-    }
-
     public function postformeAction(){
         // Post for Me sends a shared secret on every delivery in the
         // "Post-For-Me-Webhook-Secret" header. Verify it before processing anything.
@@ -75,11 +57,9 @@ class WebhookController extends Controller {
     }
 
     /**
-     * Stripe webhook for subscription lifecycle (renewals, cancellations, failures).
-     * Configure the endpoint URL + signing secret (stripe_webhook_secret) in the
-     * Stripe dashboard. Can't be tested from localhost (Stripe can't reach it), so
-     * the checkout success redirect is the primary record path; this keeps state in
-     * sync afterward.
+     * Stripe webhook for platform payments: plan card setups, plan charges (BillingService), AI credit packs, and
+     * refunds/disputes on them. Configure the endpoint URL + signing secret (stripe_webhook_secret) in the
+     * Stripe dashboard.
      */
     public function stripeAction(){
         $payload = file_get_contents('php://input');
@@ -104,7 +84,6 @@ class WebhookController extends Controller {
         }
 
         $obj  = $event->data->object;
-        $subs = new CreatorSubscriptionsModel();
 
         // A card saved (or declined) in a plan / add-on checkout: Admin > Billing > Checkout attempts. The page reports it too; counted once.
         if (empty($event->account) && in_array($event->type, array('setup_intent.succeeded', 'setup_intent.setup_failed'), true)
@@ -145,7 +124,7 @@ class WebhookController extends Controller {
             exit;
         }
 
-        // Wallet top-ups and AI credit packs: the backup for a buyer who paid and closed the tab before the page
+        // AI credit packs: the backup for a buyer who paid and closed the tab before the page
         // confirmed. Same idempotent path as the page, so the credits are added exactly once.
         if (empty($event->account) && $event->type === 'payment_intent.succeeded'
             && in_array((string) ($obj->metadata['type'] ?? ''), TopUps::TYPES, true)) {
@@ -155,7 +134,7 @@ class WebhookController extends Controller {
             exit;
         }
 
-        // A top-up or AI credit pack refunded or disputed in Stripe: take the refunded or disputed share of its credits
+        // An AI credit pack refunded or disputed in Stripe: take the refunded or disputed share of its credits
         // back out (never below zero, never twice). A dispute then goes on to record_chargeback below.
         if (empty($event->account) && in_array($event->type, array('charge.refunded', 'charge.dispute.created'), true)) {
             try {
@@ -180,84 +159,14 @@ class WebhookController extends Controller {
             }
         }
 
-        $this->answer_account_event($event, $subs);
+        $this->answer_account_event($event);
     }
 
-    /**
-     * Stripe Connect webhook: payout.* events from creators' connected accounts, so the
-     * cash-out history shows each bank payout and its outcome. A separate endpoint in the
-     * Stripe dashboard ("listen to events on connected accounts"), so it has its own
-     * signing secret (stripe_connect_webhook_secret). See docs/ops.md.
-     */
-    public function stripe_connectAction(){
-        $payload = file_get_contents('php://input');
-        $sig     = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
-
-        $secret = '';
-        try { $secret = (string) Main::config(Main::get_environment(), 'stripe_connect_webhook_secret'); } catch (\Throwable $e) {}
-        if ($secret === '') {
-            error_log('[stripe connect webhook] stripe_connect_webhook_secret not configured');
-            http_response_code(500);
-            echo 'not configured';
-            exit;
-        }
-
-        try {
-            $event = \Stripe\Webhook::constructEvent($payload, $sig, $secret);
-        } catch (\Throwable $e) {
-            http_response_code(400);
-            echo 'invalid signature';
-            exit;
-        }
-
-        $types = array('payout.created', 'payout.updated', 'payout.paid', 'payout.failed', 'payout.canceled');
-        if (!in_array($event->type, $types, true)) {
-            // Fan memberships are subscriptions on the creator's connected account, so their subscription, invoice,
-            // refund and dispute events arrive here (a "connected accounts" destination), not on the platform endpoint.
-            $this->answer_account_event($event, new CreatorSubscriptionsModel());
-        }
-        if (in_array($event->type, $types, true)) {
-            $obj     = $event->data->object;
-            $account = (string) ($event->account ?? '');
-            $model   = new PayoutsModel();
-            $creator = $model->creator_for_account($account);
-            if ($creator <= 0) {
-                // an account we no longer know (disconnected or another environment): acknowledge so Stripe stops retrying.
-                error_log('[stripe connect webhook] ' . $event->type . ' for unknown account ' . $account);
-            } else {
-                // true only for the first delivery (of any payout.* type) that records the failure.
-                if ($model->upsert_from_event($creator, $obj)) {
-                    $row = $model->get_by_payout_id((string) $obj->id);
-                    $why = trim((string) ($row['failure_message'] ?? ($obj->failure_message ?? '')));
-                    $cur = strtoupper((string) ($row['currency'] ?? ($obj->currency ?? 'usd')));
-                    $amt = ($cur === 'USD' ? '$' : $cur . ' ') . number_format(((int) ($row['amount_cents'] ?? $obj->amount)) / 100, 2);
-                    Notify::send($creator, 'credits', 'Bank payout failed',
-                        'Your ' . $amt . ' payout to your bank did not go through.' . ($why !== '' ? ' ' . $why : '') . ' Check your bank details and contact support if it keeps happening.',
-                        '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');
-                }
-            }
-        }
-
-        http_response_code(200);
-        echo 'ok';
-        exit;
-    }
-
-    /**
-     * Record or update a subscription from its Stripe object. Creating (not just
-     * updating) matters when the fan closed the tab before the success redirect —
-     * the checkout still succeeded, so the membership must be captured here.
-     */
-    /**
-     * Subscription, invoice and dispute events, from either endpoint: fan memberships live on the creator's
-     * connected account (checkout is created with stripe_account), so Stripe delivers them to the connected-accounts
-     * destination; the platform destination sees them only for platform-account charges.
-     */
     /** Run handle_account_event and answer: 200, also after an error (logged), or 500 only when it asks Stripe to retry. */
-    private function answer_account_event($event, $subs): void {
+    private function answer_account_event($event): void {
         $ok = true;
         try {
-            $ok = $this->handle_account_event($event, $subs);
+            $ok = $this->handle_account_event($event);
         } catch (\Throwable $e) {
             error_log('[stripe webhook] ' . $event->type . ': ' . $e->getMessage());
         }
@@ -266,53 +175,14 @@ class WebhookController extends Controller {
         exit;
     }
 
-    /** False only when Stripe must retry the event (a full membership refund whose Stripe cancel failed). */
-    private function handle_account_event($event, $subs): bool {
+    /** Refunds and disputes on platform plan charges. False only when Stripe must retry the event. */
+    private function handle_account_event($event): bool {
+        if (!empty($event->account)) { return true; }   // connected-account events: nothing on the platform to act on
         $obj = $event->data->object;
         switch ($event->type) {
-            case 'customer.subscription.created':
-            case 'customer.subscription.updated':
-                $this->sync_subscription($subs, $obj, (string) ($event->account ?? ''));
-                break;
-
-            case 'customer.subscription.deleted':
-                $row = $subs->get_by_stripe_id((string) $obj->id);
-                $subs->update_by_stripe_id($obj->id, 'canceled', $obj->current_period_end ?? null, 0);
-                if ($row) {
-                    $this->sub_notice($row, 'ended', 'Your membership to ' . (Notify::name_of((int) $row['creator_id']) ?: 'this creator') . ' has ended. You can subscribe again anytime.', 'fa-heart-crack');
-                    Notify::send((int) $row['creator_id'], 'subscriptions', 'Subscriber left', (Notify::name_of((int) $row['subscriber_id']) ?: 'A subscriber') . '\'s ' . (string) ($row['plan_name'] ?? 'membership') . ' ended.', '/audience', 'fa-user-minus');
-                }
-                break;
-
-            case 'invoice.payment_failed':
-                // A failed renewal must stop granting access until it's resolved.
-                $sid = $this->invoice_subscription($obj);
-                $row = $sid !== '' ? $subs->get_by_stripe_id($sid) : null;
-                if ($row && (string) $row['status'] !== 'canceled') {
-                    $subs->update_by_stripe_id($sid, 'past_due', null, null);   // null: the fan's scheduled cancel stays as it is
-                    if ($row) { $this->sub_notice($row, 'payment failed', 'The renewal for your membership to ' . (Notify::name_of((int) $row['creator_id']) ?: 'this creator') . ' did not go through. Update your card to keep access.', 'fa-triangle-exclamation'); }
-                }
-                break;
-
-            case 'invoice.payment_succeeded':
-                // Renewal cleared a past_due; the paired subscription.updated carries the new period.
-                $sid = $this->invoice_subscription($obj);
-                $row = $sid !== '' ? $subs->get_by_stripe_id($sid) : null;
-                if ($row && (string) $row['status'] !== 'canceled') {   // a canceled row (ended or refunded) is never revived here
-                    $subs->update_by_stripe_id($sid, 'active', null, null);
-                    if ($row && (string) ($obj->billing_reason ?? '') === 'subscription_cycle') {
-                        $this->sub_notice($row, 'renewed', 'Your membership to ' . (Notify::name_of((int) $row['creator_id']) ?: 'this creator') . ' renewed' . (!empty($obj->amount_paid) ? ' for $' . number_format(((int) $obj->amount_paid) / 100, 2) : '') . '.', 'fa-heart');
-                    }
-                }
-                // the first payment: credit the tracking link with what the fan actually paid, after any discount
-                if ((string) ($obj->billing_reason ?? '') === 'subscription_create') {
-                    $this->attribute_first_invoice($subs, $obj, $sid);
-                }
-                break;
-
             case 'charge.refunded':
                 $this->affiliate_reverse($obj);   // a refunded plan charge takes back its affiliate commission
-                return $this->membership_refund($event, $subs);
+                break;
 
             case 'charge.dispute.closed':
                 // the bank sided with us: a plan charge's affiliate commission comes back where it can
@@ -324,8 +194,7 @@ class WebhookController extends Controller {
 
             case 'charge.dispute.created':
                 // A chargeback (PRD §21): log it and suspend the disputing account pending review.
-                // A membership dispute arrives from the creator's connected account and matches no platform payment: find the fan by the membership.
-                $suspended = (new RefundsModel())->record_chargeback($obj, $this->dispute_member((string) ($event->account ?? ''), $obj, $subs));
+                $suspended = (new RefundsModel())->record_chargeback($obj);
                 $this->affiliate_reverse($obj);   // a disputed plan charge takes back its affiliate commission
                 if ($suspended > 0) {
                     Notify::send($suspended, 'system', 'Account paused pending review', 'A payment on your account was disputed with your bank. Your account is paused while we review it. Reply to this email if you think this is a mistake.', '/', 'fa-shield-halved', false, true);
@@ -335,96 +204,6 @@ class WebhookController extends Controller {
         return true;
     }
 
-    private function sync_subscription($subs, $obj, $account = ''){
-        $status = $this->normalize_status((string) $obj->status);
-        $period = $obj->current_period_end ?? null;
-        $cape   = !empty($obj->cancel_at_period_end) ? 1 : 0;
-
-        if ($subs->exists_by_stripe_id((string) $obj->id)) {
-            // a canceled paid row stays canceled: Stripe never revives a canceled subscription, so this is a late or
-            // out-of-order event (e.g. after a refund ended it). A new checkout has a new id and goes through record_paid.
-            $row = $subs->get_by_stripe_id((string) $obj->id);
-            if ($row && (string) $row['status'] === 'canceled') { return; }
-            $subs->update_by_stripe_id((string) $obj->id, $status, $period, $cape);
-            return;
-        }
-
-        $meta       = ($obj->metadata && method_exists($obj->metadata, 'toArray')) ? $obj->metadata->toArray() : (array) $obj->metadata;
-        $subscriber = (int) ($meta['subscriber_id'] ?? 0);
-        $creator    = (int) ($meta['creator_id'] ?? 0);
-        $plan_id    = (int) ($meta['plan_id'] ?? 0);
-        if (!$subscriber || !$creator || !$plan_id) {
-            return;
-        }
-
-        $plan = (new CreatorPlansModel())->get_by_id($plan_id);
-        if (!$plan) {
-            return;
-        }
-
-        // A second paid membership with the same creator: cancel it in Stripe, never record it over the first.
-        if ($subs->has_other_active_paid($subscriber, $creator, (string) $obj->id)) {
-            $cu = (new UsersModel())->get_user_by_id($creator);
-            $acct = (is_array($cu) && count($cu) === 1) ? (string) ($cu[0]['stripe_connect_account_id'] ?? '') : '';
-            if ($acct !== '') { StripeService::cancel_subscription_now($acct, (string) $obj->id); }
-            error_log('[membership] duplicate canceled: fan=' . $subscriber . ' creator=' . $creator . ' sub=' . (string) $obj->id);
-            return;
-        }
-        $customer = is_string($obj->customer) ? $obj->customer : (isset($obj->customer->id) ? (string) $obj->customer->id : '');
-        $subs->record_paid($subscriber, $creator, $plan, array(
-            'subscription_id'    => (string) $obj->id,
-            'customer_id'        => $customer,
-            'current_period_end' => $period,
-            'sub_status'         => (string) $obj->status,   // 'trialing' only when Stripe really gave a trial
-        ));
-        // The fan closed the tab before the success page: tell both sides here instead. The success page and this webhook
-        // share one claim, so whichever runs first sends the notices (and counts the discount code) and the other doesn't.
-        if ($subs->claim_checkout_recorded((string) $obj->id)) {
-            $chandle = Notify::handle_of($creator);
-            Notify::send($subscriber, 'subscriptions', 'You\'re subscribed to ' . (Notify::name_of($creator) ?: $plan['name']), $plan['name'] . ' is active. Manage it in Settings › My Subscriptions.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
-            Notify::send($creator, 'subscriptions', 'New subscriber', (Notify::name_of($subscriber) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');
-            InboxAutomationService::trigger($creator, $subscriber, 'new_subscriber');
-            if (!empty($meta['promo_id'])) { (new CreatorPromoCodesModel())->redeem((int) $meta['promo_id']); }
-            // the /go link carried through checkout: same kind, user and ref as the success page, so it counts once
-            if ((int) ($meta['tl_link_id'] ?? 0) > 0 && (int) ($meta['tl_user_id'] ?? 0) === $subscriber) {
-                // what the fan paid after any discount (the first invoice); the price only when the invoice can't be read
-                $paid = null;
-                if ((string) $obj->status !== 'trialing') {
-                    $inv = $obj->latest_invoice ?? null;
-                    if (is_string($inv) && $inv !== '') { $inv = StripeService::connect_invoice($account, $inv); }
-                    if (is_object($inv) && isset($inv->amount_paid)) { $paid = (int) $inv->amount_paid; }
-                }
-                $cents = $paid ?? (int) ($obj->items->data[0]->price->unit_amount ?? $plan['price_cents']);
-                TrackingLinks::attribute_link((int) $meta['tl_link_id'], $creator, 'subscription', $subscriber, (string) $obj->status === 'trialing' ? 0 : (int) round($cents / 10), 'creator_plans', (int) $plan['id'], $paid !== null);   // credits ($1 = 10); 0 on a trial
-            }
-        }
-        if ($status !== 'active' || $cape) {
-            $subs->update_by_stripe_id((string) $obj->id, $status, $period, $cape);
-        }
-    }
-
-    /** The subscription an invoice belongs to: invoice.subscription on older API versions, parent.subscription_details on newer. */
-    private function invoice_subscription($inv): string {
-        $s = $inv->subscription ?? ($inv->parent->subscription_details->subscription ?? '');
-        return is_object($s) ? (string) $s->id : (string) $s;
-    }
-
-    /** First membership invoice: log or correct the tracking link's amount from amount_paid (0 on a trial). */
-    private function attribute_first_invoice($subs, $inv, $sid): void {
-        $m    = $inv->parent->subscription_details->metadata ?? ($inv->subscription_details->metadata ?? null);
-        $meta = $m ? (method_exists($m, 'toArray') ? $m->toArray() : (array) $m) : array();
-        $fan  = (int) ($meta['subscriber_id'] ?? 0);
-        $creator = (int) ($meta['creator_id'] ?? 0);
-        $plan_id = (int) ($meta['plan_id'] ?? 0);
-        if ((int) ($meta['tl_link_id'] ?? 0) <= 0 || $fan <= 0 || (int) ($meta['tl_user_id'] ?? 0) !== $fan || $creator <= 0 || $plan_id <= 0) { return; }
-        if ($subs->has_other_active_paid($fan, $creator, $sid)) { return; }   // a duplicate checkout, canceled in sync_subscription
-        TrackingLinks::attribute_link((int) $meta['tl_link_id'], $creator, 'subscription', $fan, (int) round((int) ($inv->amount_paid ?? 0) / 10), 'creator_plans', $plan_id, true);
-    }
-
-    /**
-     * A membership charge refunded in Stripe (on the creator's connected account). A full refund ends the membership
-     * and tells both sides; a partial one is only logged. Found by the charge's invoice, else by the fan's customer.
-     */
     /** Refund or dispute: take back the affiliate commission; a busy payout lock answers 500 so Stripe redelivers (never skip). */
     private function affiliate_reverse($obj): void {
         $pi = is_object($obj->payment_intent ?? null) ? (string) $obj->payment_intent->id : (string) ($obj->payment_intent ?? '');
@@ -439,107 +218,21 @@ class WebhookController extends Controller {
         }
     }
 
-    /** The fan behind a dispute on a creator's connected account (a membership payment), or 0. Same lookup as membership_refund. */
-    private function dispute_member($account, $dispute, $subs): int {
-        if ($account === '') { return 0; }
-        try {
-            $creator = (new PayoutsModel())->creator_for_account($account);
-            if ($creator <= 0) { return 0; }
-            $pi     = is_object($dispute->payment_intent ?? null) ? (string) $dispute->payment_intent->id : (string) ($dispute->payment_intent ?? '');
-            $inv_id = $pi !== '' ? StripeService::connect_invoice_for_payment($account, $pi) : '';
-            $inv    = $inv_id !== '' ? StripeService::connect_invoice($account, $inv_id) : null;
-            $sid    = $inv ? $this->invoice_subscription($inv) : '';
-            $row    = $sid !== '' ? $subs->get_by_stripe_id($sid) : null;
-            if (!$row) {
-                $charge = is_object($dispute->charge ?? null) ? (string) $dispute->charge->id : (string) ($dispute->charge ?? '');
-                $row = $subs->get_paid_by_customer($creator, StripeService::connect_charge_customer($account, $charge));
-            }
-            return ($row && (int) $row['creator_id'] === $creator) ? (int) $row['subscriber_id'] : 0;
-        } catch (\Throwable $e) {
-            error_log('[stripe webhook] dispute member lookup: ' . $e->getMessage());
-            return 0;
-        }
-    }
-
-    private function membership_refund($event, $subs): bool {
-        $obj     = $event->data->object;
-        $account = (string) ($event->account ?? '');
-        if ($account === '') { return true; }   // platform charges: credit packs are handled in stripeAction, plan charges by BillingService
-        $creator = (new PayoutsModel())->creator_for_account($account);
-        if ($creator <= 0) { error_log('[membership] charge.refunded for unknown account ' . $account); return true; }
-
-        $inv_id = is_object($obj->invoice ?? null) ? (string) $obj->invoice->id : (string) ($obj->invoice ?? '');
-        $pi     = is_object($obj->payment_intent ?? null) ? (string) $obj->payment_intent->id : (string) ($obj->payment_intent ?? '');
-        if ($inv_id === '' && $pi !== '') { $inv_id = StripeService::connect_invoice_for_payment($account, $pi); }
-        $inv = $inv_id !== '' ? StripeService::connect_invoice($account, $inv_id) : null;
-        $sid = $inv ? $this->invoice_subscription($inv) : '';
-        $row = $sid !== '' ? $subs->get_by_stripe_id($sid) : null;
-        if (!$row) {
-            $cust = is_object($obj->customer ?? null) ? (string) $obj->customer->id : (string) ($obj->customer ?? '');
-            $row  = $subs->get_paid_by_customer($creator, $cust);
-        }
-        if (!$row || (int) $row['creator_id'] !== $creator) { error_log('[membership] charge.refunded: no membership for charge ' . (string) $obj->id); return true; }
-
-        $full = !empty($obj->refunded) || ((int) ($obj->amount ?? 0) > 0 && (int) ($obj->amount_refunded ?? 0) >= (int) $obj->amount);
-        if (!$full) {
-            error_log('[membership] partial refund: sub=' . (string) $row['stripe_subscription_id'] . ' charge=' . (string) $obj->id . ' refunded=' . (int) ($obj->amount_refunded ?? 0) . ' of ' . (int) ($obj->amount ?? 0));
-            return true;
-        }
-        if ((string) $row['status'] === 'canceled') { return true; }   // a repeat delivery, or already ended
-        $sid = (string) $row['stripe_subscription_id'];
-        // end it in Stripe FIRST, so a renewal can't charge a fan whose membership we ended ("already canceled" counts as done);
-        // when that fails, alert the admins and answer 500 so Stripe retries this event
-        if (!StripeService::cancel_subscription_now($account, $sid)) {
-            error_log('[membership] refund: could not cancel sub=' . $sid . ' on ' . $account);
-            if (!(new UserNotificationsModel())->recent_with_title_about('Membership refund needs attention', $sid, 72)) {   // once per subscription, not on every retry
-                Notify::many((new UsersModel())->admin_ids(), 'system', 'Membership refund needs attention', 'A membership payment was refunded but its subscription ' . $sid . ' could not be canceled. Cancel it from the creator\'s Stripe account; the event will be retried.', '/admin', 'fa-triangle-exclamation');
-            }
-            return false;
-        }
-        if ($subs->cancel_open_by_stripe_id($sid) < 1) { return true; }   // a concurrent duplicate already ended it and told both sides
-        $cname = Notify::name_of($creator) ?: 'this creator';
-        Notify::send((int) $row['subscriber_id'], 'refunds', 'Membership refunded', 'Your ' . (string) ($row['plan_name'] ?? 'membership') . ' membership with ' . $cname . ' was refunded, so it has ended.', '/account/settings?section=subscriptions', 'fa-rotate-left');
-        Notify::send($creator, 'refunds', 'Membership refunded', (Notify::name_of((int) $row['subscriber_id']) ?: 'A subscriber') . '\'s ' . (string) ($row['plan_name'] ?? 'membership') . ' payment was refunded and the membership ended.', '/audience', 'fa-rotate-left');
-        return true;
-    }
-
-    private function sub_notice(array $row, $what, $body, $icon): void {
-        $plan = (string) ($row['plan_name'] ?? 'Membership');
-        Notify::send((int) $row['subscriber_id'], 'subscriptions', $plan . ' ' . $what, $body, '/account/settings?section=subscriptions', $icon);
-    }
-
-    /** Collapse Stripe's status set into the three our access checks understand. */
-    private function normalize_status($status){
-        if ($status === 'active' || $status === 'trialing') {
-            return 'active';
-        }
-        if ($status === 'past_due' || $status === 'unpaid') {
-            return 'past_due';
-        }
-        if ($status === 'canceled' || $status === 'incomplete_expired') {
-            return 'canceled';
-        }
-        return $status;
-    }
-
     /**
-     * Age verification and creator ID check results (Didit, or whichever AgeVerificationProvider is configured). The provider signs every
-     * delivery; an unsigned or stale one is refused. A genuine one is always answered 2xx so the vendor stops
-     * retrying, including an unknown session reference (acknowledged, nothing changes).
+     * Creator ID check results from Didit (IdentityVerification). Didit signs every delivery; an unsigned or stale one
+     * is refused. A genuine one is always answered 2xx so Didit stops retrying, including an unknown session reference
+     * (acknowledged, nothing changes).
      */
     public function diditAction(){
         $raw = (string) file_get_contents('php://input');
         $headers = function_exists('getallheaders') ? (getallheaders() ?: array()) : array();
-        $res = AgeVerification::apply_webhook($raw, $headers);
-        if (!empty($res['ok']) && ($res['status'] ?? '') === 'ignored') {   // not an age check: a creator ID check (IdentityVerification); the signature is already verified
-            $payload = json_decode($raw, true);
-            if (is_array($payload)) { IdentityVerification::apply_payload($payload); }
-        }
-        if (empty($res['ok'])) {
+        if (!DiditProvider::verify_webhook($raw, $headers)) {
             http_response_code(401);
             echo 'unauthorized';
             exit;
         }
+        $payload = json_decode($raw, true);
+        if (is_array($payload)) { IdentityVerification::apply_payload($payload); }
         http_response_code(200);
         echo 'ok';
         exit;

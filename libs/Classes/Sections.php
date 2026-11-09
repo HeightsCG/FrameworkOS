@@ -1,6 +1,6 @@
 <?php
 /**
- * The marketing-site section system. Every public page (home, features, pricing, compare, guides) is
+ * The marketing-site section system. Every public page (home, features, pricing, guides) is
  * built from these blocks so the site has one rhythm: full-width sections that alternate white and
  * light gray, a 1200px content column, black and white with color only from imagery, 4px corners.
  * Styles: public/css/sx.css. Each method returns HTML; text arguments are escaped here unless the
@@ -12,10 +12,10 @@ class Sections {
 
     /**
      * Headline Title Case (Daniel's rule): capitalise each word's first letter, keep short joining words lower
-     * (except first/last), and never lower anything, so "AI", "OnlyFans", "Ko-fi" and "$29/mo" stay as written.
+     * (except first/last), and never lower anything, so "AI", "TikTok", "YouTube" and "$29/mo" stay as written.
      */
     /** Hyphenated names tc() leaves exactly as written. */
-    const TC_KEEP = array('Ko-fi');
+    const TC_KEEP = array();
 
     public static function tc(string $s): string {
         $small = array('a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of', 'on', 'or', 'per', 'the', 'to', 'vs', 'via', 'with');
@@ -26,7 +26,7 @@ class Sections {
             $bare = strtolower(trim($word, '.,:;!?()"\''));
             if ($i !== 0 && $i !== $last && in_array($bare, $small, true)) { continue; }
             $w[$i] = preg_replace_callback('/^([\'"(\[]*)(\p{Ll})/u', function ($m) { return $m[1] . mb_strtoupper($m[2]); }, $word);
-            // hyphenated words take a capital after each hyphen too ("Pay-Per-View", "Built-In"); brand spellings are kept
+            // hyphenated words take a capital after each hyphen too ("Link-In-Bio", "Built-In"); brand spellings are kept
             if (strpos($word, '-') !== false && !in_array(trim($word, '.,:;!?()"\''), self::TC_KEEP, true)) {
                 $w[$i] = preg_replace_callback('/-(\p{Ll})/u', function ($m) { return '-' . mb_strtoupper($m[1]); }, $w[$i]);
             }
@@ -147,7 +147,7 @@ class Sections {
     /* ---------------------------------------------------------------------------------------------
      * Tab hero: the home-page pattern used on every page. Big words on the left are tabs; each one
      * switches a live panel on the right (landing.js rotates them until the visitor clicks).
-     * $h: id, tabs => array(array('word' => 'Sell.', 'pane' => html)), start (index), title (optional
+     * $h: id, tabs => array(array('word' => 'Create.', 'pane' => html)), start (index), title (optional
      * real H1 shown first with the words as a compact tab row under it; without it the words are the H1), tag, lead, buttons, after_html (trusted HTML under the grid, titled hero only). Pane HTML comes from the pane_*
      * helpers below (trusted, built from our own views).
      * ------------------------------------------------------------------------------------------- */
@@ -174,7 +174,7 @@ class Sections {
         if ($small) { $o .= '<p class="hx__words hx__words--eyebrow" aria-hidden="true">' . $words . '</p>'; }
         if (!empty($h['eyebrow'])) { $o .= '<p class="hx__eyebrow">' . self::e($h['eyebrow']) . '</p>'; }   // one line above the H1
         if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e($title) . '</h1>'; }   // the H1 as written, not title-cased: it is a sentence
-        if (!empty($h['sub'])) { $o .= '<p class="hx__sub">' . self::e($h['sub']) . '</p>'; }   // one line directly under the H1 (the fee line on the home page)
+        if (!empty($h['sub'])) { $o .= '<p class="hx__sub">' . self::e($h['sub']) . '</p>'; }   // one line directly under the H1 (the sub-line on the home page)
         if (!empty($h['tag'])) { $o .= '<span class="hx__tag">' . self::e($h['tag']) . '</span>'; }
         if (!empty($h['lead'])) { $o .= self::paragraphs((string) $h['lead'], 'hx__lead'); }
         $o .= self::buttons((array) ($h['buttons'] ?? array()));
@@ -281,7 +281,7 @@ class Sections {
 
     /**
      * Product schematics: small drawings of a screen in HTML with invented values, always labelled, never a screenshot (Daniel's rule).
-     * Kinds: automation, analytics, schedule, targets, offers, inbox, linkpage, domain, payout. Every row maps to a real feature.
+     * Kinds: automation, analytics, schedule, targets, offers (your page), inbox, linkpage, domain. Every row maps to a real feature.
      */
     public static function ui(string $kind): string {
         $e = function ($s) { return self::e($s); };
@@ -299,34 +299,31 @@ class Sections {
                 $bars = ''; foreach (array(38, 52, 45, 61, 57, 72, 66, 80, 74, 90, 84, 96) as $b) { $bars .= '<i style="height:' . (int) $b . '%"></i>'; }
                 $body = $bar('Analytics', '<span class="sx-ui__seg"><span>7d</span><span class="is-on">30d</span><span>90d</span></span>')
                     . '<div class="sx-ui__kpis"><div><small>Views</small><b>12,480</b></div><div><small>Engagement</small><b>6.2%</b></div><div><small>Link clicks</small><b>1,936</b></div><div><small>New followers</small><b>418</b></div></div>'
-                    . '<div class="sx-ui__chart"><small>Revenue</small><div class="sx-ui__bars">' . $bars . '</div></div>';
+                    . '<div class="sx-ui__chart"><small>Views</small><div class="sx-ui__bars">' . $bars . '</div></div>';
                 $cap = 'Illustrative figures';
                 break;
             case 'schedule':
-                $q = array(array('Mon 9:00', 'Studio tour', 'Instagram, TikTok'), array('Tue 18:30', 'Members-only set', 'Your page'), array('Wed 12:00', 'Behind the scenes', 'X, Threads, Bluesky'), array('Fri 9:00', 'Weekly recap', 'YouTube, Facebook'));
+                $q = array(array('Mon 9:00', 'Studio tour', 'Instagram, TikTok'), array('Tue 18:30', 'AI influencer photo set', 'Your page'), array('Wed 12:00', 'Behind the scenes', 'X, Threads, Bluesky'), array('Fri 9:00', 'Weekly recap', 'YouTube, Facebook'));
                 $li = ''; foreach ($q as $x) { $li .= '<li><time>' . $e($x[0]) . '</time><b>' . $e($x[1]) . '</b><span>' . $e($x[2]) . '</span></li>'; }
                 $body = $bar('Scheduled', '<span class="sx-ui__count">4 posts</span>') . '<ul class="sx-ui__queue">' . $li . '</ul>';
                 break;
             case 'targets':
                 $t = array(array('Instagram', '142 / 2,200'), array('TikTok', '142 / 2,200'), array('X', '142 / 280'), array('Threads', '142 / 500'), array('Bluesky', '142 / 300'), array('LinkedIn', '142 / 3,000'));
                 $li = ''; foreach ($t as $x) { $li .= '<li><span class="sx-ui__tick">' . self::icon('check', 14) . '</span><b>' . $e($x[0]) . '</b><small>' . $e($x[1]) . '</small></li>'; }
-                $body = $bar('New Post', '<span class="sx-ui__count">Publish now</span>') . '<p class="sx-ui__cap">New studio setup is finally done. Full tour for members tonight.</p><ul class="sx-ui__targets">' . $li . '</ul>';
+                $body = $bar('New Post', '<span class="sx-ui__count">Publish now</span>') . '<p class="sx-ui__cap">New studio setup is finally done. Full tour on my page tonight.</p><ul class="sx-ui__targets">' . $li . '</ul>';
                 break;
             case 'offers':
-                $body = $bar('Your Page') . $rows(array(array('Membership', 'Inner Circle, monthly'), array('Pay-per-view', 'Full studio session, unlock'), array('Bundle', 'Spring set, 24 photos'), array('Service', '1:1 portfolio review, 30 min'), array('Event', 'Live Q&A, Thursday 19:00')));
+                $body = $bar('Your Page') . $rows(array(array('Latest post', 'Studio tour, 12 photos'), array('AI influencer', 'Mia, posting daily'), array('Links', 'YouTube, newsletter, shop'), array('Socials', 'Instagram, TikTok, X'), array('Domain', 'www.yourname.com')));
                 break;
             case 'inbox':
-                $body = $bar('Inbox', '<span class="sx-ui__count">AI draft</span>') . '<div class="sx-ui__msgs"><p class="is-in">Do you do custom requests?</p><p class="is-out">I do. Book a 1:1 session from my page and tell me what you have in mind.</p></div><div class="sx-ui__acts"><span>Edit</span><span class="is-on">Send</span></div>';
+                $body = $bar('Inbox', '<span class="sx-ui__count">AI draft</span>') . '<div class="sx-ui__msgs"><p class="is-in">Do you do custom requests?</p><p class="is-out">I do. Send me the details here and I will get back to you this week.</p></div><div class="sx-ui__acts"><span>Edit</span><span class="is-on">Send</span></div>';
                 break;
             case 'linkpage':
-                $li = ''; foreach (array('Latest video', 'Join my membership', 'Book a session', 'Shop my presets') as $x) { $li .= '<li>' . $e($x) . '</li>'; }
+                $li = ''; foreach (array('Latest video', 'My newsletter', 'Brand partnerships', 'Shop my presets') as $x) { $li .= '<li>' . $e($x) . '</li>'; }
                 $body = $bar('@yourhandle') . '<ul class="sx-ui__links">' . $li . '</ul>';
                 break;
             case 'domain':
                 $body = $bar('Custom Domain', '<span class="sx-ui__on">Connected</span>') . $rows(array(array('Domain', 'www.yourname.com'), array('Points to', 'Your page'), array('Security', 'HTTPS on')));
-                break;
-            case 'payout':
-                $body = $bar('Balance') . $rows(array(array('Available', '1,840 credits'), array('Cash out to', 'Your bank account'), array('Status', 'Request sent')));
                 break;
             default:
                 return '';
@@ -421,131 +418,6 @@ class Sections {
     private static function chart_figure(string $svg, string $name, string $alt, int $w, int $h, string $caption, string $legend = '', bool $caption_is_html = false): string {
         $img = '<img class="sx-chart-img" src="' . self::e(self::svg_asset($svg, $name)) . '" alt="' . self::e($alt) . '" width="' . $w . '" height="' . $h . '" loading="lazy" decoding="async">';
         return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $img . '</div>' . $legend . '<figcaption class="sx-figcap">' . ($caption_is_html ? $caption : self::paragraphs($caption)) . '</figcaption></figure>';
-    }
-
-    /**
-     * Inline SVG bar chart of what each option leaves you on each sales figure (g_multimodal): built from the same
-     * $options rows as the fee table (label, percent, monthly, us). The figure carries the numbers in its caption and
-     * in the SVG's accessible name, so the chart reads the same without pixels.
-     */
-    public static function fee_chart(array $options, array $sales, string $title = 'What you keep'): string {
-        if (count($options) < 2 || empty($sales)) { return ''; }
-        $money = function ($n) { return '$' . number_format((float) $n, 0); };
-        $kept = array(); $max = 0;
-        foreach ($sales as $s) { foreach ($options as $o) { $k = max(0, $s - $s * ((float) $o['percent']) / 100); $kept[$s][] = $k; $max = max($max, $k); } }   // the platform percentage alone, never a plan price (Daniel 2026-10-12)
-        if ($max <= 0) { return ''; }
-        // drawn at the page's scale on the site palette: 960 wide, the groups spread across the width, bars sized to the room
-        $n = count($options); $groups = count($sales);
-        $w = 960; $h = 400; $left = 88; $right = 24; $top = 32; $base = 332;
-        $group_w = ($w - $left - $right) / $groups; $gap = 10; $bar_w = max(14, min(72, (int) floor(($group_w * 0.72 - ($n - 1) * $gap) / $n)));
-        $font = 'font-family="Inter, Helvetica, Arial, sans-serif"';
-        $ink = '#f4f4f5'; $muted = '#8e8e94'; $grid = '#2a2a2e'; $axis = '#3a3a40';
-        $palette = array('#CD4C00', '#FF6A13', '#5c5c66', '#8e8e94', '#b8b8c0', '#d8d8dc');
-        $colour = function ($oi, $o) use ($palette) { return !empty($o['us']) ? $palette[min((int) $oi, 1)] : $palette[2 + min((int) $oi, 3)]; };
-        $alt = array();
-        $svg = '<svg class="sx-chart" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" role="img" aria-labelledby="sxc_t sxc_d" xmlns="http://www.w3.org/2000/svg" ' . $font . '>';
-        $svg .= '<title id="sxc_t">' . self::e($title) . '</title><rect x="0" y="0" width="' . $w . '" height="' . $h . '" rx="12" fill="#161618"/>';
-        foreach (array(0.25, 0.5, 0.75, 1) as $f) { $y = $base - ($base - $top) * $f; $svg .= '<line x1="' . $left . '" y1="' . round($y, 1) . '" x2="' . ($w - $right) . '" y2="' . round($y, 1) . '" stroke="' . $grid . '" stroke-width="1"/><text x="' . ($left - 12) . '" y="' . round($y + 4, 1) . '" text-anchor="end" font-size="12" fill="' . $muted . '">' . self::e($money(round($max * $f / 50) * 50)) . '</text>'; }
-        $svg .= '<line x1="' . $left . '" y1="' . $base . '" x2="' . ($w - $right) . '" y2="' . $base . '" stroke="' . $axis . '" stroke-width="1"/>';
-        foreach ($sales as $gi => $s) {
-            $gx = $left + $gi * $group_w + ($group_w - ($n * $bar_w + ($n - 1) * $gap)) / 2; $parts = array();
-            foreach ($options as $oi => $o) {
-                $k = $kept[$s][$oi]; $bh = ($base - $top) * $k / $max; $x = $gx + $oi * ($bar_w + $gap); $y = $base - $bh;
-                $svg .= '<rect x="' . round($x, 1) . '" y="' . round($y, 1) . '" width="' . $bar_w . '" height="' . round($bh, 1) . '" fill="' . $colour($oi, $o) . '" rx="4"><title>' . self::e($o['label'] . ': you keep ' . $money($k) . ' of ' . $money($s)) . '</title></rect>';
-                $svg .= '<text x="' . round($x + $bar_w / 2, 1) . '" y="' . round($y - 8, 1) . '" text-anchor="middle" font-size="12" font-weight="600" fill="' . $ink . '">' . self::e($money($k)) . '</text>';
-                $parts[] = $o['label'] . ' ' . $money($k);
-            }
-            $svg .= '<text x="' . round($left + $gi * $group_w + $group_w / 2, 1) . '" y="' . ($base + 26) . '" text-anchor="middle" font-size="13" fill="' . $ink . '">' . self::e('on ' . $money($s) . ' of sales') . '</text>';
-            $alt[] = 'On ' . $money($s) . ' of sales you keep: ' . implode('; ', $parts);
-        }
-        $desc = implode('. ', $alt) . '.';
-        $svg .= '<desc id="sxc_d">' . self::e($desc) . '</desc></svg>';
-        $items = ''; foreach ($options as $oi => $o) { $cells = array(); foreach ($sales as $gi => $s) { $cells[] = $money($kept[$s][$oi]) . ' on ' . $money($s); } $items .= '<li>' . self::e($o['label'] . ': you keep ' . implode(', ', $cells) . '.') . '</li>'; }
-        $caption_html = '<p>' . self::e($title . '.') . '</p><ul class="sx-figcap__list">' . $items . '</ul>';
-        $legend = array(); foreach ($options as $oi => $o) { $legend[] = '<li class="sx-chart__key"><i style="background:' . $colour($oi, $o) . '"></i>' . self::e($o['label']) . '</li>'; }
-        $alt_text = 'Bar chart, ' . lcfirst($title) . '. ' . $desc;
-        $out = self::chart_figure($svg, 'fee-' . implode('-', array_map('intval', $sales)) . '-' . count($options), $alt_text, $w, $h, $caption_html, '<ul class="sx-chart__legend">' . implode('', $legend) . '</ul>', true);
-        return str_replace('<figure class="sx-figure">', '<figure class="sx-figure sx-figure--chart">', $out);
-    }
-
-    /**
-     * Schematic of a product screen (never a screenshot, so a UI change cannot date it; Daniel 2026-10-12): a window with the
-     * app's left rail and the screen's own structure, with INVENTED round figures and made-up names, never anything from a real
-     * account. $kind: 'plans' (Settings > Membership Plans), 'posts' (Content Studio posts list), 'analytics' (the Analytics dashboard).
-     */
-    public static function ui_sketch_svg(string $kind): string {
-        $w = 960; $h = 600; $bg = '#161618'; $line = '#2a2a2e'; $bar = '#3a3a40'; $soft = '#2f2f34'; $acc = '#FF6A13'; $ink = '#8e8e94'; $white = '#f4f4f5';
-        $font = 'font-family="Inter, Helvetica, Arial, sans-serif"';
-        $txt = function ($x, $y, $t, $size = 13, $fill = '#f4f4f5', $weight = 500, $anchor = 'start') use ($font) { return '<text x="' . $x . '" y="' . $y . '" font-size="' . $size . '" font-weight="' . $weight . '" fill="' . $fill . '" text-anchor="' . $anchor . '" ' . $font . '>' . self::e($t) . '</text>'; };
-        $o = '<svg viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="sk_t"><title id="sk_t">' . self::e(self::ui_sketch_name($kind)) . '</title>';
-        $o .= '<rect x="0" y="0" width="' . $w . '" height="' . $h . '" rx="12" fill="' . $bg . '"/>';
-        $o .= '<rect x="0" y="0" width="' . $w . '" height="56" fill="#121214"/><rect x="208" y="16" width="420" height="24" rx="6" fill="' . $soft . '"/>' . $txt(222, 32, 'Search creators and content', 12, $ink, 400) . '<circle cx="912" cy="28" r="14" fill="' . $acc . '"/>' . $txt(912, 32, 'A', 12, '#fff', 700, 'middle');
-        $o .= '<rect x="0" y="56" width="176" height="' . ($h - 56) . '" fill="#121214"/><circle cx="36" cy="92" r="12" fill="' . $acc . '"/>' . $txt(60, 96, 'Creator Link Studio', 12, $white, 600);
-        $rail = array('Home', 'Inbox', 'Analytics', 'Content Studio', 'Ideas', 'Influencers', 'Audience', 'Events', 'Services', 'Promote');
-        $rail_on = array('plans' => 10, 'posts' => 3, 'analytics' => 2, 'inbox' => 1)[$kind] ?? 2;
-        foreach ($rail as $i => $label) { $y = 136 + $i * 34; $on = ($i === $rail_on); $o .= ($on ? '<rect x="12" y="' . ($y - 12) . '" width="152" height="30" rx="6" fill="#1f1f23"/>' : '') . '<rect x="28" y="' . ($y - 7) . '" width="12" height="12" rx="3" fill="' . ($on ? $acc : $bar) . '"/>' . $txt(50, $y + 4, $label, 12, $on ? $acc : $ink, $on ? 600 : 400); }
-        $x0 = 208; $cw = $w - $x0 - 32;
-        if ($kind === 'plans') {
-            $o .= $txt($x0, 98, 'Membership Plans', 18, $white, 700) . $txt($x0, 122, 'Create tiers your fans can subscribe to. Toggle to show or hide a tier on your profile.', 12, $ink, 400);
-            $o .= '<rect x="' . ($x0 + $cw - 120) . '" y="80" width="120" height="32" rx="6" fill="none" stroke="' . $ink . '"/>' . $txt($x0 + $cw - 60, 101, '+ Add Plan', 12, $white, 600, 'middle');
-            foreach (array(array('Supporter', '$5', true), array('Insider', '$12', true), array('VIP', '$25', false)) as $i => $row) {
-                $y = 148 + $i * 80; $on = $row[2];
-                $o .= '<rect x="' . $x0 . '" y="' . $y . '" width="' . $cw . '" height="64" rx="8" fill="#1c1c20" stroke="' . $line . '"/>';
-                $o .= '<rect x="' . ($x0 + 20) . '" y="' . ($y + 24) . '" width="8" height="16" rx="2" fill="' . $bar . '"/>' . $txt($x0 + 44, $y + 37, $row[0], 14, $white, 600) . $txt($x0 + 170, $y + 37, $row[1], 14, $acc, 700) . $txt($x0 + 170 + strlen($row[1]) * 9, $y + 37, '/mo', 11, $ink, 400);
-                $o .= '<rect x="' . ($x0 + $cw - 150) . '" y="' . ($y + 20) . '" width="44" height="24" rx="12" fill="' . ($on ? $acc : $bar) . '"/><circle cx="' . ($x0 + $cw - 150 + ($on ? 32 : 12)) . '" cy="' . ($y + 32) . '" r="9" fill="#fff"/>';
-                $o .= '<rect x="' . ($x0 + $cw - 84) . '" y="' . ($y + 22) . '" width="20" height="20" rx="4" fill="' . $bar . '"/><rect x="' . ($x0 + $cw - 52) . '" y="' . ($y + 22) . '" width="20" height="20" rx="4" fill="' . $bar . '"/>';
-            }
-            $o .= $txt($x0, 428, 'Discount Codes', 16, $white, 700) . '<rect x="' . ($x0 + $cw - 120) . '" y="408" width="120" height="32" rx="6" fill="none" stroke="' . $ink . '"/>' . $txt($x0 + $cw - 60, 429, '+ Add Code', 12, $white, 600, 'middle');
-            $o .= '<rect x="' . $x0 . '" y="452" width="' . $cw . '" height="56" rx="8" fill="#1c1c20" stroke="' . $line . '"/>' . $txt($x0 + 20, 485, 'WELCOME20', 13, $white, 600) . $txt($x0 + 150, 485, '20% off, first month, 40 uses left', 12, $ink, 400);
-            $o .= $txt($x0, 548, 'Content Bundles', 16, $white, 700) . '<rect x="' . ($x0 + $cw - 130) . '" y="528" width="130" height="32" rx="6" fill="none" stroke="' . $ink . '"/>' . $txt($x0 + $cw - 65, 549, '+ Add Bundle', 12, $white, 600, 'middle');
-        } elseif ($kind === 'posts') {
-            $o .= $txt($x0, 98, 'Content Studio', 18, $white, 700) . $txt($x0, 122, 'Upload once, use everywhere.', 12, $ink, 400);
-            foreach (array('Posts', 'Library', 'Calendar', 'Collections', 'Scheduler') as $t => $tab) { $o .= $txt($x0 + $t * 96, 156, $tab, 12, $t === 0 ? $acc : $ink, $t === 0 ? 600 : 400); }
-            $o .= '<rect x="' . $x0 . '" y="166" width="40" height="2" fill="' . $acc . '"/><rect x="' . $x0 . '" y="184" width="' . ($cw - 150) . '" height="30" rx="6" fill="' . $soft . '"/>' . $txt($x0 + 14, 203, 'Search posts', 12, $ink, 400) . '<rect x="' . ($x0 + $cw - 130) . '" y="184" width="130" height="30" rx="6" fill="none" stroke="' . $line . '"/>' . $txt($x0 + $cw - 65, 203, 'All statuses', 12, $white, 500, 'middle');
-            $rows = array(array('Rooftop set, part two', 'Scheduled', 'Subscribers', '0', '0'), array('Morning run, three photos', 'Scheduled', 'Everyone', '0', '0'), array('Studio day, new lighting', 'Published', 'Everyone', '1,240', '18'), array('Market walk, Saturday', 'Published', 'Subscribers', '860', '9'), array('Coffee stop, two photos', 'Published', 'Everyone', '2,105', '31'), array('Beach day, full set', 'Published', 'Pay-per-view', '640', '12'));
-            foreach ($rows as $i => $r) {
-                $y = 232 + $i * 58; $sched = ($r[1] === 'Scheduled');
-                $o .= '<rect x="' . $x0 . '" y="' . $y . '" width="' . $cw . '" height="50" rx="8" fill="#1c1c20" stroke="' . $line . '"/><rect x="' . ($x0 + 12) . '" y="' . ($y + 8) . '" width="34" height="34" rx="6" fill="' . $bar . '"/>';
-                $o .= $txt($x0 + 58, $y + 21, $r[0], 13, $white, 600) . '<rect x="' . ($x0 + 58) . '" y="' . ($y + 28) . '" width="' . ($sched ? 66 : 64) . '" height="14" rx="7" fill="' . ($sched ? $acc : $soft) . '"/>' . $txt($x0 + 58 + ($sched ? 33 : 32), $y + 38, $r[1], 10, $sched ? '#fff' : $ink, 600, 'middle') . $txt($x0 + 136, $y + 39, $r[2], 11, $ink, 400);
-                $o .= $txt($x0 + $cw - 190, $y + 30, $r[3] . ' views', 11, $ink, 400) . $txt($x0 + $cw - 110, $y + 30, $r[4], 11, $ink, 400) . '<rect x="' . ($x0 + $cw - 70) . '" y="' . ($y + 11) . '" width="58" height="28" rx="6" fill="none" stroke="' . $ink . '"/>' . $txt($x0 + $cw - 41, $y + 29, 'Edit', 12, $white, 500, 'middle');
-            }
-        } elseif ($kind === 'inbox') {
-            // left: the conversation list (one row highlighted); right: the thread with a fan message, a priced media bubble, and the agent's draft waiting for approval
-            $lw = 250; $o .= $txt($x0, 98, 'Inbox', 18, $white, 700) . $txt($x0, 122, '3 waiting for your approval', 12, $acc, 600);
-            $convs = array(array('Jade', 'Loved the rooftop set, is there a part three?', true), array('Noah', 'Can I book a call next week?', false), array('Priya', 'Thanks for the welcome message!', false), array('Sam', 'Does the VIP tier include the archive?', false), array('Lena', 'Just joined, hi!', false));
-            foreach ($convs as $i => $c) { $y = 144 + $i * 62; $on = $c[2]; $o .= '<rect x="' . $x0 . '" y="' . $y . '" width="' . $lw . '" height="54" rx="8" fill="' . ($on ? '#1f1f23' : '#1c1c20') . '" stroke="' . ($on ? $acc : $line) . '"/><circle cx="' . ($x0 + 24) . '" cy="' . ($y + 27) . '" r="14" fill="' . $bar . '"/>' . $txt($x0 + 48, $y + 22, $c[0], 13, $white, 600) . $txt($x0 + 48, $y + 40, mb_substr($c[1], 0, 28) . (mb_strlen($c[1]) > 28 ? '…' : ''), 11, $ink, 400); }
-            $tx = $x0 + $lw + 20; $tw = $cw - $lw - 20;
-            $o .= '<rect x="' . $tx . '" y="84" width="' . $tw . '" height="476" rx="8" fill="#1c1c20" stroke="' . $line . '"/>' . $txt($tx + 20, 112, 'Jade', 14, $white, 700) . $txt($tx + 70, 112, 'Insider member since March', 11, $ink, 400);
-            $o .= '<rect x="' . ($tx + 20) . '" y="140" width="300" height="44" rx="10" fill="' . $soft . '"/>' . $txt($tx + 34, 167, 'Loved the rooftop set, is there a part three?', 12, $white, 400);
-            $o .= '<rect x="' . ($tx + $tw - 320) . '" y="200" width="300" height="44" rx="10" fill="#2a1a10" stroke="' . $acc . '"/>' . $txt($tx + $tw - 306, 219, 'Part three, 12 photos', 12, $white, 600) . $txt($tx + $tw - 306, 236, 'Unlock for 40 credits', 11, $acc, 600) . '<rect x="' . ($tx + $tw - 74) . '" y="210" width="40" height="24" rx="4" fill="' . $bar . '"/>';
-            $o .= $txt($tx + 20, 286, 'Draft reply, in your voice', 11, $ink, 400) . '<rect x="' . ($tx + 20) . '" y="298" width="' . ($tw - 40) . '" height="110" rx="10" fill="' . $soft . '" stroke="' . $line . '"/>' . $txt($tx + 36, 326, 'Part three went up this morning, Jade. It is 12 photos from the', 12, $white, 400) . $txt($tx + 36, 346, 'same rooftop, and members get it at 40 credits. Thank you for', 12, $white, 400) . $txt($tx + 36, 366, 'sticking around since March.', 12, $white, 400);
-            $o .= '<rect x="' . ($tx + 20) . '" y="428" width="110" height="34" rx="6" fill="' . $acc . '"/>' . $txt($tx + 75, 450, 'Approve', 12, '#fff', 700, 'middle') . '<rect x="' . ($tx + 140) . '" y="428" width="90" height="34" rx="6" fill="none" stroke="' . $ink . '"/>' . $txt($tx + 185, 450, 'Edit', 12, $white, 500, 'middle') . '<rect x="' . ($tx + 240) . '" y="428" width="90" height="34" rx="6" fill="none" stroke="' . $ink . '"/>' . $txt($tx + 285, 450, 'Skip', 12, $white, 500, 'middle');
-            $o .= '<rect x="' . ($tx + 20) . '" y="488" width="' . ($tw - 40) . '" height="40" rx="8" fill="' . $bg . '" stroke="' . $line . '"/>' . $txt($tx + 36, 513, 'Write a message', 12, $ink, 400);
-        } else {
-            $o .= $txt($x0, 98, 'Analytics', 18, $white, 700) . $txt($x0, 122, 'Last 30 days vs. previous 30 days', 12, $ink, 400);
-            $o .= '<rect x="' . ($x0 + $cw - 210) . '" y="80" width="210" height="30" rx="6" fill="' . $soft . '"/>' . $txt($x0 + $cw - 175, 100, '7 days', 11, $ink, 400, 'middle') . '<rect x="' . ($x0 + $cw - 140) . '" y="84" width="70" height="22" rx="4" fill="#f4f4f5"/>' . $txt($x0 + $cw - 105, 100, '30 days', 11, '#161618', 600, 'middle') . $txt($x0 + $cw - 35, 100, '90 days', 11, $ink, 400, 'middle');
-            $tiles = array(array('Revenue', '2,400 credits', '+12%'), array('Subscribers', '128', '+6%'), array('Followers', '3,410', '+9%'), array('Views', '12,800', '+21%'), array('Posts', '24', '+4'), array('Engagement', '4.1%', '+0.3'));
-            $tw = (int) floor(($cw - 5 * 12) / 6);
-            foreach ($tiles as $i => $tile) { $x = $x0 + $i * ($tw + 12); $o .= '<rect x="' . $x . '" y="132" width="' . $tw . '" height="92" rx="8" fill="#1c1c20" stroke="' . $line . '"/>' . $txt($x + 12, 152, $tile[0], 11, $ink, 400) . '<circle cx="' . ($x + $tw - 18) . '" cy="148" r="8" fill="' . ($i === 0 ? $acc : $soft) . '"/>' . $txt($x + 12, 180, $tile[1], 16, $white, 700) . '<rect x="' . ($x + 12) . '" y="194" width="38" height="16" rx="4" fill="' . $soft . '"/>' . $txt($x + 31, 206, $tile[2], 10, $acc, 600, 'middle'); }
-            $o .= '<rect x="' . $x0 . '" y="244" width="' . $cw . '" height="316" rx="8" fill="#1c1c20" stroke="' . $line . '"/>' . $txt($x0 + 20, 272, 'Revenue', 14, $white, 700) . $txt($x0 + 20, 292, 'Last 30 days', 11, $ink, 400) . $txt($x0 + $cw - 20, 272, '2,400 credits earned', 13, $white, 600, 'end');
-            $n = 30; $bw = (int) floor(($cw - 40 - ($n - 1) * 6) / $n);
-            for ($i = 0; $i < $n; $i++) { $hh = 30 + (($i * 53) % 160); $x = $x0 + 20 + $i * ($bw + 6); $o .= '<rect x="' . $x . '" y="' . (528 - $hh) . '" width="' . $bw . '" height="' . $hh . '" rx="3" fill="' . ($i === 23 ? $acc : $soft) . '"/>'; }
-            $o .= '<rect x="' . ($x0 + 20) . '" y="532" width="' . ($cw - 40) . '" height="1" fill="' . $line . '"/>' . $txt($x0 + 20, 550, 'Sep 12', 10, $ink, 400) . $txt($x0 + $cw - 20, 550, 'Oct 12', 10, $ink, 400, 'end');
-        }
-        return $o . '</svg>';
-    }
-
-    public static function ui_sketch_name(string $kind): string {
-        return array('plans' => 'Schematic of the Membership Plans screen', 'posts' => 'Schematic of the Content Studio posts list', 'analytics' => 'Schematic of the Analytics dashboard', 'inbox' => 'Schematic of the Inbox with a drafted reply waiting for approval')[$kind] ?? 'Schematic of a product screen';
-    }
-
-    /** The sketch as a static SVG file (written on dev like the charts, shipped with the deploy), returned as its URL. */
-    public static function ui_sketch_url(string $kind): string { return self::svg_asset(self::ui_sketch_svg($kind), 'sketch-' . $kind); }
-
-    /** The sketch as a figure: <img> with a descriptive alt and a visible caption. */
-    public static function ui_sketch(string $kind, string $alt, string $caption = ''): string {
-        return '<figure class="sx-figure sx-figure--sketch"><img class="sx-sketch" src="' . self::e(self::ui_sketch_url($kind)) . '" alt="' . self::e($alt) . '" width="960" height="600" loading="lazy" decoding="async">'
-            . ($caption !== '' ? '<figcaption class="sx-figcap">' . self::e($caption) . '</figcaption>' : '') . '</figure>';
     }
 
     /** Inline SVG process diagram: boxes joined by arrows, each step a short label (g_multimodal). The steps are the accessible name. */
@@ -661,7 +533,7 @@ class Sections {
 
     /**
      * Table. $head: column labels (text). $rows: arrays of cells; cells are HTML (callers escape their own text,
-     * which lets compare tables carry source links). $highlight: 0-based column index to emphasise, or -1.
+     * which lets tables carry source links). $highlight: 0-based column index to emphasise, or -1.
      */
     public static function table(array $head, array $rows, int $highlight = -1): string {
         $o = '<div class="sx-table-wrap"><table class="sx-table"><thead><tr>';
@@ -677,8 +549,7 @@ class Sections {
 
     /**
      * Prose section: a heading and paragraphs of plain text. Inside a paragraph, [text](https://url) becomes a source link
-     * (nofollow, new tab) and [text](/path) an internal link; everything else is escaped. Used by the compare, alternatives,
-     * best-of and monetize pages for their page-specific copy (CompareProse).
+     * (nofollow, new tab) and [text](/path) an internal link; everything else is escaped. Used for page-specific copy blocks.
      */
     public static function prose(string $bg, string $title, array $paragraphs, string $lead = ''): string {
         $o = self::open($bg, $title, $lead);
@@ -767,12 +638,12 @@ class Sections {
      * The trial button: while founding spots remain it starts the free first Founding::TRIAL_DAYS (the claim link),
      * after that it is the plain sign-up. Returns array(label, href, data-auth). The number always comes from Founding.
      */
-    /** One line on what Free can't do and what unlocks selling; names the trial only while the founding offer is open (as trial_link). */
+    /** One line on what Free can't do and which plan opens the tools; names the trial only while the founding offer is open (as trial_link). */
     public static function plan_note(): string {
         $open = false;
         try { $open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[sections] founding: ' . $ex->getMessage()); }
-        $unlock = $open ? 'A ' . (int) Founding::TRIAL_DAYS . '-day trial on ' . Founding::plan_names() . ' unlocks selling.' : 'The ' . Founding::plan_names() . ' plan unlocks selling.';
-        return 'Free accounts can browse and buy, but can\'t publish or sell. ' . $unlock;
+        $unlock = $open ? 'A ' . (int) Founding::TRIAL_DAYS . '-day trial on ' . Founding::plan_names() . ' opens them all.' : 'The ' . Founding::plan_names() . ' plan opens them all.';
+        return 'Free accounts can build drafts, but publishing, scheduling and the AI tools need a plan. ' . $unlock;
     }
 
     public static function trial_link(): array {

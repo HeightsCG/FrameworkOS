@@ -8,7 +8,7 @@ class SeoController extends Controller {
 
     public $protected = 0;
 
-    /** The ten platforms the studio publishes to, as the features page names them; with Fanvue cross-posting that makes ten platforms. */
+    /** The nine platforms the studio publishes to, as the features page names them. */
     const NETWORKS = 'X, Instagram, TikTok, Facebook, LinkedIn, Pinterest, YouTube, Threads and Bluesky';
 
     /** Legal pages: listed under "## Optional" in llms.txt and placed last in llms-full.txt. */
@@ -25,7 +25,7 @@ class SeoController extends Controller {
         header('Content-Type: text/plain; charset=utf-8');
         header('Cache-Control: public, max-age=3600');
 
-        $private = array('/account', '/admin', '/api', '/audience', '/dashboard', '/events', '/go', '/inbox', '/influencers', '/mcp', '/purchases', '/services', '/setup', '/studio');
+        $private = array('/account', '/admin', '/api', '/audience', '/dashboard', '/go', '/inbox', '/influencers', '/mcp', '/purchases', '/setup', '/studio');
 
         $lines   = array();
         $lines[] = 'User-agent: *';
@@ -47,7 +47,7 @@ class SeoController extends Controller {
         $urls   = array();
         $urls[] = array('loc' => $base . '/', 'changefreq' => 'weekly', 'priority' => '1.0', 'lastmod' => PageDates::get('/'));
 
-        // Every static page carries a real date: the later of its facts' "checked" date (compare pages) and the day its text last
+        // Every static page carries a real date: the later of its own lastmod (if any) and the day its text last
         // changed (PageDates, moved by cron/build_page_dates.php only when the page text differs). A file mtime would stamp every
         // page on every deploy, which teaches crawlers the dates mean nothing.
         foreach (self::public_pages() as $p) {
@@ -102,7 +102,7 @@ class SeoController extends Controller {
         echo '</urlset>', "\n";
     }
 
-    /** robots.txt / sitemap.xml on a creator's own domain: just their profile, events and services. */
+    /** robots.txt / sitemap.xml on a creator's own domain: just their profile. */
     private function custom_domain_crawl($which){
         $d    = CustomDomains::current();
         $base = 'https://' . $d['hostname'];
@@ -113,8 +113,6 @@ class SeoController extends Controller {
             return;
         }
         $locs = array($base . '/');
-        foreach ((new EventsModel())->list_public_for_creator((int) $d['user_id']) as $ev) { $locs[] = $base . '/events/' . (int) $ev['id']; }
-        foreach ((new ServicesModel())->list_public_for_creator((int) $d['user_id']) as $sv) { $locs[] = $base . '/services/' . (int) $sv['id']; }
         header('Content-Type: application/xml; charset=utf-8');
         echo '<?xml version="1.0" encoding="UTF-8"?>', "\n", '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', "\n";
         foreach ($locs as $loc) { echo '  <url><loc>', htmlspecialchars($loc, ENT_QUOTES | ENT_XML1, 'UTF-8'), "</loc></url>\n"; }
@@ -124,8 +122,8 @@ class SeoController extends Controller {
     /** The hand-written public pages. Sitemap, llms.txt and the content engine read this list. */
     public static function public_pages(): array {
         $pages = array(
-            array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'changefreq' => 'monthly', 'priority' => '0.9'),
-            array('path' => '/pricing',  'title' => 'Pricing',  'description' => PagesController::plan_price_sentence() . ' Platform fee: ' . PagesController::fee_short() . '. ' . PagesController::addon_sentence(),                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
+            array('path' => '/features', 'title' => 'Features', 'description' => 'One AI content studio for creators and brands: AI influencers, AI images and video, scheduling and cross-posting, link in bio, inbox automation and analytics.', 'changefreq' => 'monthly', 'priority' => '0.9'),
+            array('path' => '/pricing',  'title' => 'Pricing',  'description' => PagesController::plan_price_sentence() . ' AI credits included on Creator and Studio. ' . PagesController::addon_sentence(),                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
         );
         foreach (PagesController::feature_pages() as $slug => $f) {
             $pages[] = array('path' => '/features/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
@@ -136,21 +134,10 @@ class SeoController extends Controller {
         foreach (PagesController::niche_pages() as $slug => $f) {   // /for/<niche> (NichePages, same template)
             $pages[] = array('path' => '/for/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
         }
-        $checked = '';   // the newest "facts checked" date across the compare pages dates the best-of page too
-        foreach (PagesController::COMPETITORS as $slug => $c) {
-            if (isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? ''])) { $checked = max($checked, (string) ($c['checked'] ?? '')); }   // only competitors listed on the best-of page
-            $pages[] = array('path' => '/compare/' . $slug, 'title' => (string) ($c['meta_title'] ?? '') !== '' ? PagesController::fill_compare_meta((string) $c['meta_title']) : Main::site_name() . ' vs ' . $c['name'],
-                'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for ' . ((($c['type'] ?? '') === 'photo') ? 'photographers' : 'creators') . ', compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => (string) ($c['checked'] ?? ''));
-        }
-        $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => $checked);
-        foreach (array_keys(AlternativesPages::PAGES) as $k) {   // /onlyfans-alternatives, /fanvue-alternatives
-            $a = PagesController::alternatives_page($k);
-            $pages[] = array('path' => $a['path'], 'title' => $a['title'], 'description' => $a['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
-        }
         $pages[] = array('path' => '/terms',   'title' => 'Terms of Service', 'description' => 'Terms for using the platform.',                         'changefreq' => 'yearly', 'priority' => '0.3');
         $pages[] = array('path' => '/privacy', 'title' => 'Privacy Policy',   'description' => 'What we collect, how it is used, and your choices.', 'changefreq' => 'yearly', 'priority' => '0.3');
-        $pages[] = array('path' => '/about',   'title' => 'About ' . Main::site_name(), 'description' => 'What the platform is, who it is for, the AI influencer tools and how creators get paid.', 'changefreq' => 'monthly', 'priority' => '0.5');
-        $pages[] = array('path' => '/contact', 'title' => 'Contact support', 'description' => 'Contact support about billing, payouts, your account or a bug.', 'changefreq' => 'yearly', 'priority' => '0.4');
+        $pages[] = array('path' => '/about',   'title' => 'About ' . Main::site_name(), 'description' => 'What the platform is, who it is for, and the AI content tools it gives creators and brands.', 'changefreq' => 'monthly', 'priority' => '0.5');
+        $pages[] = array('path' => '/contact', 'title' => 'Contact support', 'description' => 'Contact support about billing, your account or a bug.', 'changefreq' => 'yearly', 'priority' => '0.4');
         $pages[] = array('path' => '/integrations', 'title' => PagesController::INTEGRATIONS_TITLE, 'description' => PagesController::INTEGRATIONS_DESC, 'changefreq' => 'monthly', 'priority' => '0.8');
         foreach (array_keys(IntegrationPages::PAGES) as $i_slug) {   // /integrations/<platform>
             $im = PagesController::integration_meta($i_slug);
@@ -166,14 +153,13 @@ class SeoController extends Controller {
         try {
             $counts = (new CreatorProfileModel())->directory_counts();
             if (array_sum($counts) > 0) {
-                $pages[] = array('path' => '/creators', 'title' => 'Creator directory', 'description' => 'Creators who chose to be listed, by category: follow them, join a membership or book a service.', 'changefreq' => 'daily', 'priority' => '0.8');
+                $pages[] = array('path' => '/creators', 'title' => 'Creator directory', 'description' => 'Creators who chose to be listed, by category: follow them and see their latest posts.', 'changefreq' => 'daily', 'priority' => '0.8');
                 foreach (DirectoryService::categories() as $slug => $label) {
                     if (empty($counts[$slug])) { continue; }
                     $pages[] = array('path' => '/creators/' . $slug, 'title' => $label . ' creators', 'description' => $label . ' creators on ' . Main::site_name() . '.', 'changefreq' => 'daily', 'priority' => '0.6');
                 }
             }
         } catch (\Throwable $e) { error_log('[seo] directory pages: ' . $e->getMessage()); }
-        $pages[] = array('path' => '/monetize-your-content',               'title' => 'How to monetize your content',        'description' => 'Memberships, pay-per-view, bundles, services and events, and how to price each.',           'changefreq' => 'monthly', 'priority' => '0.8');
         $am = PagesController::affiliates_meta();   // affiliate program
         $pages[] = array('path' => '/affiliates', 'title' => $am['title'], 'description' => $am['description'], 'changefreq' => 'monthly', 'priority' => '0.6');
         return $pages;
@@ -192,10 +178,11 @@ class SeoController extends Controller {
         $l[] = '- ' . PagesController::plan_cost_answer();
         $l[] = '';
         $l[] = '## Facts';
-        foreach (PagesController::quotable_facts() as $fact) { $l[] = '- ' . $fact; }
-        $l[] = '- ' . $site . ' publishes to ten platforms: ' . self::NETWORKS . ', plus Fanvue.';
+        $l[] = '- ' . $site . ' is an AI content studio for creators and brands: AI influencers, AI images and video, scheduling and cross-posting, a link-in-bio page, inbox automation and analytics in one account.';
+        $l[] = '- On ' . $site . ' you can create an AI influencer from photos or a description and generate photos and short videos of the same person, with the same face from post to post.';
+        $l[] = '- ' . $site . ' publishes to nine platforms: ' . self::NETWORKS . '. Posts go out now, on a schedule, or from automations.';
+        $l[] = '- The only things you pay for on ' . $site . ' are your plan and any extra AI credits you buy. Creator and Studio include AI credits every month.';
         $l[] = '- A plan on ' . $site . ' can be canceled at any time and runs to the end of the paid period.';
-        $l[] = '- Payouts go to your bank: earnings collect as credits (' . Price::CREDITS_PER_DOLLAR . ' credits = $1) and you cash them out to your own bank account on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum.';
         $l[] = '- ' . $site . ' has a Claude connector (MCP server) so a creator can run their account from Claude: posts, messages, analytics and more.';
         $l[] = '';
         $l[] = '## Product';
@@ -225,7 +212,7 @@ class SeoController extends Controller {
 
     /** Every public page's text, concatenated, for LLM ingestion. Rendered pages are fetched internally and stripped to text. */
     /**
-     * The Markdown copy of a public page (Daniel 2026-10-12): /pricing.md, /compare/patreon.md, /blog/<slug>.md, /index.md.
+     * The Markdown copy of a public page (Daniel 2026-10-12): /pricing.md, /features/ai-influencer.md, /blog/<slug>.md, /index.md.
      * Every page that has one links to it with <link rel="alternate" type="text/markdown">. An article is its own Markdown source;
      * a product page is its rendered text (the same extraction llms-full.txt uses). Not indexed: the HTML page is the canonical copy.
      */
@@ -248,7 +235,7 @@ class SeoController extends Controller {
             $title = $site; $body = implode("\n", array_slice($out, 3));
         } elseif ($path === '/blog') {
             // the index is a list, so it is written as one: a line per article, newest first
-            $title = 'Creator Monetization Guides'; $rows = array();
+            $title = BlogController::NAME; $rows = array();
             try { $rows = (array) (new SeoArticlesModel())->published(200, 0); } catch (\Throwable $e) { error_log('[seo] markdown blog: ' . $e->getMessage()); }
             foreach ($rows as $r) {
                 $when = !empty($r['published_at']) ? ' (' . gmdate('Y-m-d', strtotime($r['published_at'] . ' UTC')) . ')' : '';

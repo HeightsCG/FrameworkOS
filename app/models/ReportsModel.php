@@ -13,7 +13,7 @@ class ReportsModel extends Model {
     public static function reason_label($r){
         $map = array(
             'spam' => 'Spam or scam', 'harassment' => 'Harassment or hate',
-            'nudity' => 'Unlabeled adult content', 'illegal' => 'Illegal or dangerous',
+            'nudity' => 'Nudity or sexual content', 'illegal' => 'Illegal or dangerous',
             'impersonation' => 'Impersonation', 'copyright' => 'Copyright / DMCA', 'other' => 'Other',
         );
         return $map[$r] ?? 'Other';

@@ -13,31 +13,11 @@ class SocialShareService {
 
     /**
      * Returns array('ok'=>bool, 'shared'=>int, 'error'=>string) so callers can surface the outcome.
-     * The pseudo id 'fanvue' in $account_ids routes to FanvueShareService (full-post mirror);
-     * everything else is a Post for Me social account id.
+     * Every id in $account_ids is a Post for Me social account id.
      */
     public static function share(array $user, array $post, array $account_ids, $scheduled_iso = null, array $opts = array()){
         $account_ids = array_values(array_map('strval', $account_ids));
-        $fanvue      = in_array(FanvueShareService::ACCOUNT_ID, $account_ids, true);
-        $account_ids = array_values(array_diff($account_ids, array(FanvueShareService::ACCOUNT_ID)));
-
-        $res = self::share_social($user, $post, $account_ids, $scheduled_iso, $opts);
-        if ($fanvue && class_exists('DatabaseJobQueue') && FanvueShareService::has_video($post)) {
-            // Videos upload in the background so publishing doesn't wait on them; a failure arrives as a notification.
-            (new DatabaseJobQueue())->dispatch('fanvue_share', array('user_id' => (int) $user['user_id'], 'post_id' => (int) $post['id'], 'scheduled_iso' => $scheduled_iso), 'fanvue_share:' . (int) $post['id']);
-            $res['ok']     = empty($account_ids) ? true : $res['ok'];
-            $res['shared'] = (int) $res['shared'] + 1;
-        } elseif ($fanvue) {
-            $fv = FanvueShareService::share($user, $post, $scheduled_iso);
-            if (!empty($fv['ok'])) {
-                $res['ok']     = empty($account_ids) ? true : $res['ok'];
-                $res['shared'] = (int) $res['shared'] + 1;
-            } else {
-                $res['ok']    = false;
-                $res['error'] = trim((string) $res['error'] . ' ' . (string) $fv['error']);
-            }
-        }
-        return $res;
+        return self::share_social($user, $post, $account_ids, $scheduled_iso, $opts);
     }
 
     private static function share_social(array $user, array $post, array $account_ids, $scheduled_iso = null, array $opts = array()){
@@ -162,7 +142,7 @@ class SocialShareService {
 
     /**
      * The media a cross-post of $post sends, in order (cover first), before any upload: [['asset' => row (with 'id'),
-     * 'teaser' => bool (the blurred still: a members-only post, or adult / not-yet-cleared media), 'video' => bool]].
+     * 'teaser' => bool (the blurred still: media the content check has not cleared), 'video' => bool]].
      * Free posts send the rest of their cleared media as a carousel.
      */
     public static function items_for_post(array $post, array $assets): array {
@@ -431,11 +411,11 @@ class SocialShareService {
         return '';
     }
 
-    /** Safe for mainstream socials: media (image, or a video's poster frame) cleared as non-adult. */
+    /** Safe for mainstream socials: media (image, or a video's poster frame) cleared by the content check. */
     private static function sfw(array $a): bool{
         $st = (string) ($a['moderation_status'] ?? '');
         if ($st === 'n_a') { return true; }   // video uploaded before videos were moderated
-        return $st === 'approved' && empty($a['is_adult']);
+        return $st === 'approved';
     }
 
 }

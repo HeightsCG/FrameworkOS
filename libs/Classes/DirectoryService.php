@@ -1,9 +1,9 @@
 <?php
 /**
  * Creator directory (/creators, /creators/<category>). On by default once a creator upgrades from Free (they can
- * switch it off in Settings); safe-for-work only.
+ * switch it off in Settings).
  * A creator shows when they switched it on, picked a category, their profile photo and cover passed the
- * adult-image check as they are now, and they have at least one published, non-adult page post
+ * content check as they are now, and they have at least one published page post cleared by the content check
  * (CreatorProfileModel::directory_where). Changing a photo queues a re-check (DirectoryRecheckJob), and
  * until it passes the creator is left out. Sorts: Trending (new followers in 7 days, then post views), New, Most
  * active (posts in 30 days). A featured row on page one shows paid-plan creators, Studio first, rotated daily.
@@ -61,7 +61,7 @@ class DirectoryService {
 
     /**
      * Turn the listing on or off from Settings. On needs a category; with a profile photo, both images
-     * must pass the adult check, and without one the choice is saved and the creator shows once a photo is added. ['ok', 'message'] or ['ok' => false, 'message'].
+     * must pass the content check, and without one the choice is saved and the creator shows once a photo is added. ['ok', 'message'] or ['ok' => false, 'message'].
      */
     public static function save($user_id, $listed, $category): array {
         $m = new CreatorProfileModel();
@@ -76,7 +76,7 @@ class DirectoryService {
         // creator without a photo out (CreatorProfileModel::directory_where). Adding a photo queues the image check.
         if ((string) ($p['avatar_url'] ?? '') === '') {
             $m->set_directory($user_id, true, $category);
-            return array('ok' => true, 'message' => 'Saved. You\'ll appear in the directory once you add a profile photo and have a published post whose photos and videos aren\'t adult content.');
+            return array('ok' => true, 'message' => 'Saved. You\'ll appear in the directory once you add a profile photo and have a published post whose photos and videos passed our content check.');
         }
         $check = self::check_images($p);
         if (!$check['ok']) { return array('ok' => false, 'message' => $check['message']); }
@@ -84,7 +84,7 @@ class DirectoryService {
         $m->set_directory_media($user_id, self::media_hash($p));
         return array('ok' => true, 'message' => $m->directory_eligible($user_id)
             ? 'You\'re listed in the Creator Directory.'
-            : 'Saved. You\'ll appear in the directory once you have a published post whose photos and videos aren\'t adult content.');
+            : 'Saved. You\'ll appear in the directory once you have a published post whose photos and videos passed our content check.');
     }
 
     /**
@@ -124,14 +124,14 @@ class DirectoryService {
         return 'failed';
     }
 
-    /** Both images must be clearly not adult. A scan that can't run is a "not now", never a pass. */
+    /** Both images must pass the content check. A scan that can't run is a "not now", never a pass. */
     private static function check_images(array $p): array {
         foreach (array('avatar_url' => 'profile photo', 'cover_url' => 'cover image') as $col => $label) {
             $url = (string) ($p[$col] ?? '');
             if ($url === '') { continue; }
             $r = ModerationService::classify_image($url);
             if (empty($r['ok'])) { return array('ok' => false, 'retry' => true, 'message' => 'We couldn\'t check your ' . $label . ' right now. Try again in a few minutes.'); }
-            if (!empty($r['adult']) || !empty($r['minors'])) { return array('ok' => false, 'message' => 'Your ' . $label . ' can\'t be shown in the directory, which is safe for work only. Choose a different image.'); }
+            if (!empty($r['adult']) || !empty($r['minors'])) { return array('ok' => false, 'message' => 'Your ' . $label . ' can\'t be shown in the directory. Choose a different image.'); }
         }
         return array('ok' => true);
     }

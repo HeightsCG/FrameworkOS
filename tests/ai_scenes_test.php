@@ -19,8 +19,8 @@ function check($label, $ok, $extra = ''){ global $fail; echo ($ok ? 'ok   ' : 'F
 
 $cid = 1; $other = 27;
 $sm = new SceneTemplatesModel();
-$owner = array('user_id' => $cid, 'adult_content_enabled' => 1);
-$stranger = array('user_id' => $other, 'adult_content_enabled' => 1);
+$owner = array('user_id' => $cid);
+$stranger = array('user_id' => $other);
 $ids = function ($user) { return array_column(SceneTemplates::for_user($user)['templates'], 'id'); };
 $row = function ($user, $id) { foreach (SceneTemplates::for_user($user)['templates'] as $t) { if ($t['id'] === $id) { return $t; } } return null; };
 $made = array();
@@ -42,7 +42,7 @@ check('an unknown shape is refused',                    empty($r['ok']) && $r['e
 /* ---- create ---- */
 // clean_post_data() html-encodes POST text; the controller decodes it before the save (one round trip here).
 $title = html_entity_decode(htmlspecialchars("Dan's Rooftop Cafe", ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8');
-$r = SceneTemplates::save($cid, 0, array('title' => $title, 'category' => 'Test Own', 'base_prompt' => 'photo of a {subject} at a rooftop cafe', 'default_aspect' => '4:5', 'is_adult' => 0));
+$r = SceneTemplates::save($cid, 0, array('title' => $title, 'category' => 'Test Own', 'base_prompt' => 'photo of a {subject} at a rooftop cafe', 'default_aspect' => '4:5'));
 check('the owner creates a scene',                      !empty($r['ok']) && $r['id'] > 0 && !empty($r['scene']['mine']) && $r['scene']['is_active'] === 1, json_encode($r));
 $id = (int) ($r['id'] ?? 0); if ($id > 0) { $made[] = $id; }
 check('the title survives the POST round trip',         (string) $sm->get_own($cid, $id)['title'] === "Dan's Rooftop Cafe" && $r['scene']['title'] === "Dan's Rooftop Cafe");
@@ -61,7 +61,7 @@ check('another creator cannot run it',                  empty(($r = SceneTemplat
 check('the stranger\'s title edit did not land',        (string) $sm->get_own($cid, $id)['title'] === "Dan's Rooftop Cafe");
 
 /* ---- edit ---- */
-$r = SceneTemplates::save($cid, $id, array('title' => 'Rooftop Cafe, Golden Hour', 'category' => 'Test Own', 'base_prompt' => 'photo of a {subject} at a rooftop cafe at golden hour', 'default_aspect' => '3:4', 'is_adult' => 0));
+$r = SceneTemplates::save($cid, $id, array('title' => 'Rooftop Cafe, Golden Hour', 'category' => 'Test Own', 'base_prompt' => 'photo of a {subject} at a rooftop cafe at golden hour', 'default_aspect' => '3:4'));
 check('the owner edits it in place',                    !empty($r['ok']) && $r['id'] === $id && $r['scene']['title'] === 'Rooftop Cafe, Golden Hour' && $r['scene']['default_aspect'] === '3:4' && $r['scene']['is_active'] === 1, json_encode($r));
 check('the edit is not a new row',                      count(array_filter($ids($owner), function ($x) use ($id) { return $x === $id; })) === 1);
 
@@ -76,7 +76,7 @@ check('the owner turns it back on',                     !empty($r['ok']) && $r['
 check('editing keeps the on/off state',                 !empty(SceneTemplates::save($cid, $id, array('title' => 'Rooftop Cafe', 'base_prompt' => 'photo of a {subject}', 'default_aspect' => '3:4'))['ok']) && (int) $sm->get_own($cid, $id)['is_active'] === 1);
 
 /* ---- the platform library beside it ---- */
-$pid = (int) $sm->add(array('title' => 'Test Platform', 'category' => 'Test Platform', 'base_prompt' => 'photo of a {subject} on a beach', 'is_adult' => 0, 'default_aspect' => '3:4', 'is_active' => 1));
+$pid = (int) $sm->add(array('title' => 'Test Platform', 'category' => 'Test Platform', 'base_prompt' => 'photo of a {subject} on a beach', 'default_aspect' => '3:4', 'is_active' => 1));
 $made[] = $pid;
 check('a platform scene is listed after the creator\'s own, not mine', ($t = $row($owner, $pid)) !== null && $t['mine'] === false && array_search($pid, $ids($owner), true) > array_search($id, $ids($owner), true));
 check('a platform scene is in the admin list, the creator\'s is not', in_array($pid, array_column($sm->list_all(), 'id'), true) && !in_array($id, array_column($sm->list_all(), 'id'), true));

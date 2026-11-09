@@ -36,7 +36,7 @@ class Bootstrap
     }
 
     /**
-     * On a creator's own domain: / and /events|services/<id> are their profile (rewritten to /@handle/...),
+     * On a creator's own domain: / is their profile (rewritten to /@handle),
      * AJAX and crawler routes work as they are, and every other page (settings, wallet, inbox) is the
      * platform's, so the visitor is sent there, still signed in.
      */

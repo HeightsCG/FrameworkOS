@@ -3,7 +3,7 @@
 (function () {
     var tabs = document.getElementById('dashTabs');
     if (!tabs) { return; }
-    var PANELS = ['revenue', 'content', 'audience', 'customers'];
+    var PANELS = ['content', 'audience'];
 
     function activate(panel) {
         if (PANELS.indexOf(panel) === -1) { return false; }

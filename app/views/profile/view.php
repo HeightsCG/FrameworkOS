@@ -38,7 +38,7 @@ $pub_links   = array(
     'base'     => $on_own_domain ? $main_base : '',
     'login'    => $on_own_domain ? $login_href : '/?auth=login&next=' . rawurlencode($here_path),
     'register' => $on_own_domain ? $join_href : '/?auth=register&ref=' . rawurlencode((string) $user['u_name']) . '&next=' . rawurlencode($here_path),
-    'cta'      => 'outline',   // the creator's Follow / Subscribe is this page's one primary button
+    'cta'      => 'outline',   // the creator's Follow is this page's one primary button
 );
 ?>
 <?php if ($in_app): $this->view->site_header(); ?>
@@ -46,7 +46,7 @@ $pub_links   = array(
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
-<div class="pf pf--app<?php echo (!empty($focus_event) || !empty($focus_service)) ? ' pf--event' : ''; ?>">
+<div class="pf pf--app">
 <?php else: ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -65,7 +65,7 @@ $pub_links   = array(
         $seo_base   = Main::get_base_domain();
         $seo_url    = CustomDomains::canonical_profile_url($user);
         $seo_image  = $has_avatar ? (string) $profile['avatar_url'] : SeoMeta::default_image();
-        $seo_about  = $display_name . ' (@' . $handle . ') on ' . $site_name . ': content, memberships, services, events, and links.';
+        $seo_about  = $display_name . ' (@' . $handle . ') on ' . $site_name . ': content and links.';
         // A bio too short to describe the page gets the standard line after it.
         $seo_desc   = $bio === '' ? $seo_about : (mb_strlen($bio) < 70 ? mb_substr(rtrim($bio, '. ') . '. ' . $seo_about, 0, 160) : mb_substr($bio, 0, 160));
         $seo_same   = array();
@@ -116,7 +116,7 @@ $pub_links   = array(
 <?php endif; ?>
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
 </head>
-<body class="pf<?php echo (!empty($focus_event) || !empty($focus_service)) ? ' pf--event' : ''; ?>">
+<body class="pf">
 <?php if ($site_chrome) { include Main::app_path() . '/libs/Layout/public_nav.php'; } /* signed-out: the site nav (Sign In / Get Started come back here) */ ?>
 <?php endif; ?>
 
@@ -159,303 +159,9 @@ $pub_links   = array(
 
         <div class="pf-grid">
             <div class="pf-main">
-<?php $render_ev_card = function (array $ec) use ($user, $display_name, $pf_base) {
-    // One row per event in the Events tab; the whole row opens the event page, where people register.
-    $h_   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
-    $paid = ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0);
-    $req  = $ec['access_type'] === 'tier' ? ($ec['tier_name'] !== '' ? $ec['tier_name'] . ' subscribers' : 'Subscribers') : ($ec['access_type'] === 'subscribers' ? 'Subscribers' : '');
-    $left = (int) $ec['capacity'] > 0 ? max(0, (int) $ec['capacity'] - (int) $ec['attendees']) : null;
-    $replay = !empty($ec['is_past']) && empty($ec['is_canceled']) && (int) ($ec['replay_price'] ?? 0) > 0;   // an ended event selling its replay
-    $flag = !empty($ec['is_canceled']) ? array('Canceled', 'off') : ($replay ? array('Replay', 'ok') : (!empty($ec['is_past']) ? array('Ended', 'off') : (!empty($ec['registered']) ? array('Registered', 'ok') : (!empty($ec['is_full']) ? array('Sold out', 'off') : null))));
-    $where = $ec['is_inperson'] ? ($ec['place']['short'] !== '' ? $ec['place']['short'] : 'In person') : 'Online';
-?>
-                        <a class="pel" href="<?php echo $h_($pf_base); ?>/events/<?php echo (int) $ec['id']; ?>" data-ev-card="<?php echo (int) $ec['id']; ?>">
-                            <span class="pel__date" aria-hidden="true"><span class="pel__m"><?php echo $h_($ec['tile_month']); ?></span><span class="pel__d"><?php echo $h_($ec['tile_day']); ?></span></span>
-                            <span class="pel__body">
-                                <span class="pel__title"><?php echo $h_($ec['title']); ?><?php if ($flag): ?> <span class="pel__flag pel__flag--<?php echo $flag[1]; ?>"><?php echo $flag[0]; ?></span><?php endif; ?></span>
-                                <span class="pel__meta">
-                                    <span><?php echo $h_($ec['time_line']); ?></span>
-                                    <span class="pel__sep" aria-hidden="true">·</span>
-                                    <span class="pel__where"><i class="fa-solid <?php echo $ec['is_inperson'] ? 'fa-location-dot' : 'fa-video'; ?>" aria-hidden="true"></i> <?php echo $h_($where); ?></span>
-                                    <?php if ($left !== null && !$flag): ?><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $left; ?> <?php echo $left === 1 ? 'spot' : 'spots'; ?> left</span><?php endif; ?>
-                                </span>
-                                <?php if (trim((string) $ec['description']) !== ''): ?><span class="pel__desc"><?php echo $h_($ec['description']); ?></span><?php endif; ?>
-                            </span>
-                            <span class="pel__price">
-                                <?php if ($replay): ?>
-                                <span class="pel__amount"><?php echo $h_(Price::credits($ec['replay_price'])); ?></span><span class="pel__req">replay</span>
-                                <?php else: ?>
-                                <span class="pel__amount"><?php echo $paid ? $h_(Price::credits($ec['price_credits'])) : 'Free'; ?></span>
-                                <?php if ($req !== ''): ?><span class="pel__req"><?php echo $h_($req); ?></span><?php endif; ?>
-                                <?php endif; ?>
-                            </span>
-                            <i class="fa-solid fa-chevron-right pel__go" aria-hidden="true"></i>
-                        </a>
-<?php }; ?>
-                <?php if (!empty($focus_event)): $fe = $focus_event;
-                    $h_       = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
-                    $fe_url   = $pf_home;
-                    $fe_paid  = ($fe['access_type'] !== 'free' && (int) $fe['price_credits'] > 0);
-                    $fe_left  = (int) $fe['capacity'] > 0 ? max(0, (int) $fe['capacity'] - (int) $fe['attendees']) : null;
-                    $fe_members = in_array($fe['access_type'], array('subscribers', 'tier'), true);
-                    $fe_req   = $fe['access_type'] === 'tier' ? ($fe['tier_name'] !== '' ? 'For ' . $fe['tier_name'] . ' subscribers' : 'For subscribers on one plan') : ($fe_members ? 'For ' . $display_name . '’s subscribers' : 'Open to everyone');
-                    // One state drives the card: what this viewer can do right now.
-                    $fe_state = !empty($fe['is_canceled']) ? 'canceled' : (!empty($fe['is_past']) ? 'ended'
-                              : (!empty($fe['registered']) ? 'registered'
-                              : (!empty($fe['is_full']) ? 'full' : (!$viewer_logged_in ? 'signin' : (empty($fe['eligible']) && empty($fe['is_self']) ? 'ineligible' : 'open')))));   // the host sees what an eligible fan sees
-                    $ax = $fe['access'] ?? null;   // venue / link / instructions: only for registered attendees and the host
-                    $can_see = is_array($ax);
-                ?>
-                <?php
-                    $pl = $fe['place'];
-                    $maps_q = trim(implode(', ', array_filter(array($pl['venue'], $pl['street'], $pl['city_line']), 'strlen')));
-                    if ($maps_q === '') { $maps_q = $pl['line']; }
-                ?>
-                <div class="pe pf-ev" data-ev-card="<?php echo (int) $fe['id']; ?>">
-                    <div class="pe-bar">
-                        <a class="pe-back" href="<?php echo $h_($fe_url); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <?php echo $h_($display_name); ?></a>
-                        <?php if (!empty($fe['is_self'])): ?><a class="pe-manage" href="/events/manage/<?php echo (int) $fe['id']; ?>"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Manage Event</a><?php endif; ?>
-                    </div>
-
-
-                    <div class="pe-grid">
-                        <div class="pe-main">
-                            <header class="pe-hero">
-                                <div class="pe-hero__date" aria-hidden="true">
-                                    <span class="pe-hero__m"><?php echo $h_($fe['tile_month']); ?></span>
-                                    <span class="pe-hero__d"><?php echo $h_($fe['tile_day']); ?></span>
-                                    <span class="pe-hero__w"><?php echo $h_($fe['tile_wday']); ?></span>
-                                </div>
-                                <div class="pe-hero__text">
-                                    <h1 class="pe-title<?php echo mb_strlen((string) $fe['title']) > 60 ? ' pe-title--long' : ''; ?>"><?php echo $h_($fe['title']); ?></h1>
-                                    <div class="pe-meta">
-                                    <a class="pe-host" href="<?php echo $h_($fe_url); ?>">
-                                        <span class="pe-host__av"<?php echo $has_avatar ? ' style="background-image:url(\'' . $h_($profile['avatar_url']) . '\')"' : ''; ?>><?php echo $has_avatar ? '' : $h_($initial); ?></span>
-                                        <span class="pe-host__text"><span class="pe-host__by">Hosted by</span><span class="pe-host__name"><?php echo $h_($display_name); ?><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?></span></span>
-                                    </a>
-                                    </div>
-                                </div>
-                            </header>
-                            <div class="pe-tiles">
-                                <section class="pe-tile">
-                                    <h2 class="pe-tile__h"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Date and Time</h2>
-                                    <p class="pe-tile__main"><?php echo $h_($fe['date_long']); ?></p>
-                                    <p class="pe-tile__sub"><?php echo $h_($fe['time_range']); ?></p>
-                                </section>
-                                <section class="pe-tile">
-                                    <h2 class="pe-tile__h"><i class="fa-solid <?php echo $fe['is_inperson'] ? 'fa-location-dot' : 'fa-video'; ?>" aria-hidden="true"></i> <?php echo $fe['is_inperson'] ? 'In-Person Event' : 'Online Event'; ?></h2>
-                                    <?php if ($fe['is_inperson']): ?>
-                                        <?php if ($pl['venue'] !== ''): ?><p class="pe-tile__main"><?php echo $h_($pl['venue']); ?></p><?php endif; ?>
-                                        <?php if ($pl['street'] !== ''): ?><p class="<?php echo $pl['venue'] === '' ? 'pe-tile__main' : 'pe-tile__sub'; ?>"><?php echo $h_($pl['street']); ?></p><?php endif; ?>
-                                        <?php if ($pl['city_line'] !== ''): ?><p class="pe-tile__sub"><?php echo $h_($pl['city_line']); ?></p><?php endif; ?>
-                                        <?php if ($maps_q === ''): ?><p class="pe-tile__main">In person</p><?php else: ?>
-                                        <a class="pe-tile__link" href="https://www.google.com/maps/search/?api=1&amp;query=<?php echo $h_(rawurlencode($maps_q)); ?>" target="_blank" rel="noopener noreferrer">Open in Maps <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-                                        <?php endif; ?>
-                                    <?php else: ?>
-                                        <?php if (!empty($fe['is_video'])): ?>
-                                        <p class="pe-tile__main">CLS Video</p>
-                                        <p class="pe-tile__sub"><?php echo !empty($fe['open_call']) ? 'Anyone can join the call on this page. No registration needed.' : ($fe_state === 'registered' ? 'Join the call on this page.' : 'Join the call on this page after you register.'); ?></p>
-                                        <?php else: ?>
-                                        <p class="pe-tile__main">Online</p>
-                                        <?php if ($fe_state === 'registered'): ?><p class="pe-tile__sub">Your meeting link was sent to your email.</p>
-                                        <?php elseif (in_array($fe_state, array('open', 'signin', 'ineligible'), true)): ?><p class="pe-tile__sub">The meeting link is emailed when you register.</p><?php endif; ?>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </section>
-                            </div>
-                            <?php if (trim((string) $fe['description']) !== ''): ?>
-                            <section class="pe-about">
-                                <h2 class="pe-about__h">About This Event</h2>
-                                <p class="pe-desc"><?php echo nl2br($h_($fe['description'])); ?></p>
-                            </section>
-                            <?php endif; ?>
-                            <?php if (!empty($fe['replay'])): $rp = $fe['replay']; ?>
-                            <section class="pe-replay" aria-labelledby="peReplayH">
-                                <h2 class="pe-about__h" id="peReplayH">Replay</h2>
-                                <?php if ($rp['access'] !== ''): ?>
-                                <div class="pe-replay__player" id="peReplayPlayer" data-event="<?php echo (int) $fe['id']; ?>">
-                                    <button type="button" class="pe-replay__start" data-replay-watch="<?php echo (int) $fe['id']; ?>"><span class="pe-replay__icon"><i class="fa-solid fa-play" aria-hidden="true"></i></span><span>Watch the Replay<?php echo $rp['length'] !== '' ? ' · ' . $h_($rp['length']) : ''; ?></span></button>
-                                </div>
-                                <p class="pe-replay__note"><?php echo $rp['access'] === 'host' ? ($rp['on_sale'] ? 'Your replay is on sale for ' . $h_(Price::credits($rp['price'])) . '.' : 'Your replay isn’t for sale right now. People who bought it can still watch it.') : ($rp['access'] === 'attendee' ? 'Included because you registered for this event.' : 'You bought this replay.'); ?></p>
-                                <?php else: ?>
-                                <div class="pe-replay__locked">
-                                    <span class="pe-replay__icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></span>
-                                    <div class="pe-replay__text">
-                                        <p class="pe-replay__main">Watch the full recording<?php echo $rp['length'] !== '' ? ' · ' . $h_($rp['length']) : ''; ?></p>
-                                        <p class="pe-replay__sub"><?php echo $h_(Price::credits($rp['price'])); ?><?php echo $rp['free_attendees'] ? ' · Free for people who registered' : ''; ?></p>
-                                    </div>
-                                    <?php if (!$viewer_logged_in): ?>
-                                    <a class="pe-btn pe-replay__buy" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Buy</a>
-                                    <?php else: ?>
-                                    <button type="button" class="pe-btn pe-replay__buy" data-replay-buy="<?php echo (int) $fe['id']; ?>" data-price="<?php echo (int) $rp['price']; ?>">Buy Replay</button>
-                                    <?php endif; ?>
-                                </div>
-                                <?php endif; ?>
-                            </section>
-                            <?php endif; ?>
-                            <?php if ($can_see && trim((string) $ax['instructions']) !== ''): ?>
-                            <section class="pe-about pe-about--instr">
-                                <h2 class="pe-about__h">Instructions for Attendees</h2>
-                                <p class="pe-desc"><?php echo nl2br($h_($ax['instructions'])); ?></p>
-                            </section>
-                            <?php endif; ?>
-                        </div>
-
-                        <aside class="pe-ticket" aria-label="Registration">
-                            <div class="pe-ticket__top">
-                                <p class="pe-ticket__label">Admission</p>
-                                <p class="pe-ticket__price"><?php echo $fe_paid ? $h_(Price::credits($fe['price_credits'])) . ' <span>per person</span>' : 'Free'; ?></p>
-                                <p class="pe-ticket__row"><i class="fa-solid <?php echo $fe_members ? 'fa-user-group' : 'fa-globe'; ?>" aria-hidden="true"></i> <?php echo $h_($fe_req); ?></p>
-                                <?php if ($fe_left !== null && in_array($fe_state, array('open', 'signin', 'ineligible'), true)): ?>
-                                <p class="pe-ticket__row"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <?php echo $fe_left; ?> of <?php echo (int) $fe['capacity']; ?> <?php echo (int) $fe['capacity'] === 1 ? 'spot' : 'spots'; ?> left</p>
-                                <?php endif; ?>
-                            </div>
-                            <div class="pe-ticket__tear" aria-hidden="true"></div>
-                            <div class="pf-ev__cta pe-ticket__bottom">
-                                <?php
-                                // CLS Video: a free event open to everyone can be joined by anyone while the call is open, registered or
-                                // not (no account needed). Paid / members events: ticket holders only. Registering works as before.
-                                $fe_video_now = !empty($fe['is_video']) && ($fe['video_phase'] ?? '') === 'open';
-                                $fe_can_join  = $fe_video_now && (!empty($fe['open_call']) || !empty($fe['registered']));
-                                $fe_pw_note   = !empty($fe['has_password']) ? '<p class="pe-card__sub"><i class="fa-solid fa-lock" aria-hidden="true"></i> You&rsquo;ll need the call password from the host.</p>' : '';
-                                ?>
-                                <?php if ($fe_state === 'canceled'): ?>
-                                <p class="pe-status">This event was canceled.</p>
-                                <?php elseif ($fe_can_join): ?>
-                                <a class="pe-btn" href="<?php echo $h_($fe['video_url']); ?>"><i class="fa-solid fa-video" aria-hidden="true"></i> Join Video</a>
-                                <?php echo $fe_pw_note; ?>
-                                <?php if ($fe_state === 'registered'): ?>
-                                <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</p>
-                                <?php elseif ($fe_state === 'open'): ?>
-                                <button type="button" class="pe-btn pe-btn--secondary" data-ev-register="<?php echo (int) $fe['id']; ?>">Register for Event</button>
-                                <?php endif; ?>
-                                <?php if (!empty($fe['open_call']) && $fe_state !== 'registered'): ?><p class="pe-card__sub">Anyone can join. Registering is optional.</p><?php endif; ?>
-                                <?php elseif ($fe_state === 'ended'): ?>
-                                <p class="pe-status">This event has ended.</p>
-                                <?php if (!empty($fe['replay'])): ?><a class="pe-card__sub pe-replay__jump" href="#peReplayH"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the replay</a><?php endif; ?>
-                                <?php elseif ($fe_state === 'registered'): ?>
-                                <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</p>
-                                <?php if (!empty($fe['is_video'])): ?><p class="pe-card__sub">The call opens here at <?php echo $h_($fe['video_opens']); ?>.</p><?php echo $fe_pw_note; ?><?php endif; ?>
-                                <button type="button" class="pe-cancel" data-ev-cancel="<?php echo (int) $fe['id']; ?>" data-paid="<?php echo (int) ($fe['my_paid'] ?? 0); ?>">Cancel Registration</button>
-                                <?php elseif ($fe_state === 'full'): ?>
-                                <p class="pe-status">This event is full.</p>
-                                <?php if (!empty($fe['open_call'])): ?><p class="pe-card__sub">The call is still open to everyone. It opens here at <?php echo $h_($fe['video_opens']); ?>.</p><?php endif; ?>
-                                <?php elseif ($fe_state === 'signin'): ?>
-                                <a class="pe-btn" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Register</a>
-                                <?php if (!empty($fe['open_call'])): ?><p class="pe-card__sub">Anyone can join the call here at <?php echo $h_($fe['video_opens']); ?>, registered or not.</p><?php echo $fe_pw_note; ?><?php endif; ?>
-                                <?php elseif ($fe_state === 'ineligible'): ?>
-                                <a class="pe-btn" href="<?php echo $h_($fe_url); ?>#plans">View Membership Plans</a>
-                                <p class="pe-card__sub"><?php echo $fe['access_type'] === 'tier' && $fe['tier_name'] !== '' ? 'Subscribe to ' . $h_($fe['tier_name']) . ' to register.' : 'Subscribe to ' . $h_($display_name) . ' to register.'; ?></p>
-                                <?php else: ?>
-                                <button type="button" class="pe-btn" data-ev-register="<?php echo (int) $fe['id']; ?>">Register for Event</button>
-                                <?php if (!empty($fe['open_call'])): ?><p class="pe-card__sub">Anyone can join the call here at <?php echo $h_($fe['video_opens']); ?>, registered or not.</p><?php echo $fe_pw_note; ?><?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                        </aside>
-                    </div>
-                </div>
-                <?php elseif (!empty($focus_service)): $fs = $focus_service;
-                    $h_     = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
-                    $dx     = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'); };
-                    $fs_url = $pf_home;
-                    $fs_paid = (int) $fs['price_credits'] > 0;
-                    $fs_left = (int) $fs['capacity'] > 0 ? max(0, (int) $fs['capacity'] - (int) $fs['purchases']) : null;
-                    $fs_method = ServicesModel::method_label($fs['delivery_method']);
-                    $fs_icon = $fs['delivery_method'] === 'in_person' ? 'fa-location-dot' : ($fs['delivery_method'] === 'phone' ? 'fa-phone' : 'fa-video');
-                    $fs_state = !empty($fs['purchased']) ? 'booked' : (!empty($fs['is_full']) ? 'full' : (!$viewer_logged_in ? 'signin' : 'open'));   // the creator sees what a fan sees
-                    $fs_title = $dx($fs['name']);
-                ?>
-                <div class="pe pf-ev" data-sv-card="<?php echo (int) $fs['id']; ?>">
-                    <div class="pe-bar">
-                        <a class="pe-back" href="<?php echo $h_($fs_url); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <?php echo $h_($display_name); ?></a>
-                        <?php if (!empty($fs['is_self'])): ?><a class="pe-manage" href="/services/manage/<?php echo (int) $fs['id']; ?>"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Manage Service</a><?php endif; ?>
-                    </div>
-                    <div class="pe-grid">
-                        <div class="pe-main">
-                            <header class="pe-hero">
-                                <div class="pe-hero__date" aria-hidden="true">
-                                    <span class="pe-hero__m">Session</span>
-                                    <?php if ((int) $fs['duration_min'] > 0): ?>
-                                    <span class="pe-hero__d"><?php echo (int) $fs['duration_min']; ?></span>
-                                    <span class="pe-hero__w">min</span>
-                                    <?php else: ?>
-                                    <span class="pe-hero__d pe-hero__d--ic"><i class="fa-solid <?php echo $fs_icon; ?>"></i></span>
-                                    <span class="pe-hero__w"><?php echo $h_($fs_method); ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="pe-hero__text">
-                                    <h1 class="pe-title<?php echo mb_strlen($fs_title) > 60 ? ' pe-title--long' : ''; ?>"><?php echo $h_($fs_title); ?></h1>
-                                    <div class="pe-meta">
-                                    <a class="pe-host" href="<?php echo $h_($fs_url); ?>">
-                                        <span class="pe-host__av"<?php echo $has_avatar ? ' style="background-image:url(\'' . $h_($profile['avatar_url']) . '\')"' : ''; ?>><?php echo $has_avatar ? '' : $h_($initial); ?></span>
-                                        <span class="pe-host__text"><span class="pe-host__by">Offered by</span><span class="pe-host__name"><?php echo $h_($display_name); ?><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?></span></span>
-                                    </a>
-                                    </div>
-                                </div>
-                            </header>
-                            <div class="pe-tiles">
-                                <section class="pe-tile">
-                                    <h2 class="pe-tile__h"><i class="fa-solid <?php echo $fs_icon; ?>" aria-hidden="true"></i> Session</h2>
-                                    <p class="pe-tile__main"><?php echo (int) $fs['duration_min'] > 0 ? (int) $fs['duration_min'] . ' minutes' : 'Flexible length'; ?> · <?php echo $h_($fs_method); ?></p>
-                                    <?php if (trim($dx($fs['category'])) !== ''): ?><p class="pe-tile__sub"><?php echo $h_($dx($fs['category'])); ?></p><?php endif; ?>
-                                </section>
-                                <?php if (trim($dx($fs['refund_policy'])) !== ''): ?>
-                                <section class="pe-tile">
-                                    <h2 class="pe-tile__h"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Refund Policy</h2>
-                                    <p class="pe-tile__sub"><?php echo $h_($dx($fs['refund_policy'])); ?></p>
-                                </section>
-                                <?php endif; ?>
-                            </div>
-                            <?php if (trim($dx($fs['description'])) !== ''): ?>
-                            <section class="pe-about">
-                                <h2 class="pe-about__h">About This Service</h2>
-                                <p class="pe-desc"><?php echo nl2br($h_($dx($fs['description']))); ?></p>
-                            </section>
-                            <?php endif; ?>
-                            <?php if (!empty($fs['access']) && trim($dx($fs['access']['details'])) !== ''): ?>
-                            <section class="pe-about pe-about--instr">
-                                <h2 class="pe-about__h">Your Booking Details</h2>
-                                <p class="pe-desc"><?php echo nl2br($h_($dx($fs['access']['details']))); ?></p>
-                            </section>
-                            <?php endif; ?>
-                        </div>
-
-                        <aside class="pe-ticket" aria-label="Booking">
-                            <div class="pe-ticket__top">
-                                <p class="pe-ticket__label">Booking</p>
-                                <p class="pe-ticket__price"><?php echo $fs_paid ? $h_(Price::credits($fs['price_credits'])) . ' <span>per booking</span>' : 'Free'; ?></p>
-                                <p class="pe-ticket__row"><i class="fa-solid <?php echo $fs_icon; ?>" aria-hidden="true"></i> <?php echo (int) $fs['duration_min'] > 0 ? (int) $fs['duration_min'] . ' min · ' : ''; ?><?php echo $h_($fs_method); ?></p>
-                                <?php if ($fs_left !== null && in_array($fs_state, array('open', 'signin'), true)): ?>
-                                <p class="pe-ticket__row"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <?php echo $fs_left; ?> of <?php echo (int) $fs['capacity']; ?> <?php echo (int) $fs['capacity'] === 1 ? 'spot' : 'spots'; ?> left</p>
-                                <?php endif; ?>
-                            </div>
-                            <div class="pe-ticket__tear" aria-hidden="true"></div>
-                            <div class="pf-ev__cta pe-ticket__bottom">
-                                <?php if ($fs_state === 'booked'): ?>
-                                <?php if (!empty($fs['video_url'])): ?>
-                                <a class="pe-btn" href="<?php echo $h_($fs['video_url']); ?>"><i class="fa-solid fa-video" aria-hidden="true"></i> Join Call</a>
-                                <?php endif; ?>
-                                <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re booked</p>
-                                <p class="pe-card__sub">Your booking details are on this page.</p>
-                                <?php elseif ($fs_state === 'full'): ?>
-                                <p class="pe-status">This service is fully booked.</p>
-                                <?php elseif ($fs_state === 'signin'): ?>
-                                <a class="pe-btn" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Book</a>
-                                <?php else: ?>
-                                <button type="button" class="pe-btn" data-sv-purchase="<?php echo (int) $fs['id']; ?>">Book Now</button>
-                                <?php endif; ?>
-                            </div>
-                        </aside>
-                    </div>
-                </div>
-                <?php else: ?>
                 <nav class="pf-tabs" role="tablist">
                     <button class="pf-tab is-active" data-panel="content" role="tab">Content</button>
-                    <button class="pf-tab" data-panel="plans" role="tab">Membership</button>
                     <?php /* Every tab is always there (2026-10-13): one with nothing in it says so, it is never left out. */ ?>
-                    <button class="pf-tab" data-panel="services" role="tab">Services</button>
-                    <?php $has_events_tab = true;   // the Events tab and its panel are always there; empty lists say so ?>
-                    <button class="pf-tab" data-panel="events" role="tab">Events</button>
                     <button class="pf-tab" data-panel="about" role="tab">About</button>
                     <button class="pf-tab" data-panel="links" role="tab">Links</button>
                 </nav>
@@ -494,191 +200,6 @@ $pub_links   = array(
                     <?php endif; ?>
                 </section>
 
-                <section class="pf-panel" data-panel="plans">
-                    <?php if (empty($plans) && empty($bundle_cards)): ?>
-                    <div class="pf-empty">
-                        <i class="fa-regular fa-star pf-empty__icon"></i>
-                        <p class="pf-empty__title">No membership plans yet</p>
-                        <p class="pf-empty__text"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> hasn't set up membership tiers. Check back soon.</p>
-                    </div>
-                    <?php else: ?>
-                    <?php if ($viewer_logged_in && !empty($plans)): ?>
-                    <div class="pf-promo">
-                        <input type="text" id="pf_promo_code" class="pf-promo__input" placeholder="Have a discount code? Enter it here" maxlength="40" autocomplete="off">
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($plans)): ?>
-                    <div class="pf-plans">
-                        <?php foreach ($plans as $plan): ?>
-                        <?php
-                            $is_free = ((int) $plan['price_cents'] === 0);
-                            $is_subscribed = in_array((int) $plan['id'], $subscribed_plan_ids, true);
-                            $unit = ($plan['billing_interval'] === 'year') ? 'year' : (($plan['billing_interval'] === 'week') ? 'week' : 'month');
-                            $perk_lines = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string) $plan['perks'])));
-                        ?>
-                        <div class="pf-plan<?php echo $is_free ? ' pf-plan--free' : ''; ?>">
-                            <div class="pf-plan__body">
-                                <div class="pf-plan__head">
-                                    <span class="pf-plan__name"><?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <span class="pf-plan__price"><?php if ($is_free): ?>Free<?php else: ?>$<?php echo number_format($plan['price_cents'] / 100, 2); ?><span class="pf-plan__unit">/<?php echo $unit; ?></span><?php endif; ?></span>
-                                </div>
-                                <?php
-                                    $tunit2 = in_array(($plan['trial_unit'] ?? 'day'), array('day', 'week', 'month'), true) ? $plan['trial_unit'] : 'day';
-                                    $has_trial = !$is_free && !empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0 && empty($trial_used);   // one trial per fan per creator
-                                    $trial_label = $has_trial ? ((int) $plan['trial_value'] . '-' . $tunit2) : '';
-                                ?>
-                                <?php if ($has_trial): ?><span class="pf-plan__trial"><i class="fa-solid fa-gift"></i> <?php echo $trial_label; ?> free trial</span><?php endif; ?>
-                                <?php if (trim((string) $plan['description']) !== ''): ?><p class="pf-plan__desc"><?php echo htmlspecialchars((string) $plan['description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
-                                <?php if (!empty($perk_lines)): ?>
-                                <ul class="pf-plan__perks">
-                                    <?php foreach ($perk_lines as $perk): ?><li><i class="fa-solid fa-check"></i> <span><?php echo htmlspecialchars($perk, ENT_QUOTES, 'UTF-8'); ?></span></li><?php endforeach; ?>
-                                </ul>
-                                <?php endif; ?>
-                            </div>
-                            <?php if ($is_subscribed): ?>
-                            <div class="pf-plan__cta pf-plan__member"><i class="fa-solid fa-circle-check"></i> <?php echo $is_free ? 'Joined' : 'Member'; ?></div>
-                            <?php elseif ($is_free): ?>
-                            <button class="pf-btn pf-btn--follow pf-plan__cta" data-join-free="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-plus"></i> Join for Free</button>
-                            <?php else: ?>
-                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-subscribe-plan="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-star"></i> <?php echo $has_trial ? ('Start ' . $trial_label . ' free trial') : 'Subscribe'; ?></button>
-                            <?php endif; ?>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($bundle_cards)): ?>
-                    <h3 class="pf-bundles__title">Content bundles</h3>
-                    <p class="pf-bundles__sub">Buy a group of content together at one price.</p>
-                    <div class="pf-bundles">
-                        <?php foreach ($bundle_cards as $bd): ?>
-                        <div class="pf-bundle">
-                            <div class="pf-bundle__body">
-                                <div class="pf-bundle__head">
-                                    <span class="pf-bundle__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <span class="pf-bundle__price"><?php echo htmlspecialchars(Price::credits($bd['price_credits']), ENT_QUOTES, 'UTF-8'); ?></span>
-                                </div>
-                                <span class="pf-bundle__count"><i class="fa-solid fa-layer-group"></i> <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span>
-                                <?php if (trim((string) $bd['description']) !== ''): ?><p class="pf-bundle__desc"><?php echo htmlspecialchars((string) $bd['description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
-                            </div>
-                            <?php if (!empty($bd['owned'])): ?>
-                            <div class="pf-plan__cta pf-plan__member"><i class="fa-solid fa-circle-check"></i> Owned</div>
-                            <?php elseif (!$viewer_logged_in): ?>
-                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-login><i class="fa-solid fa-lock"></i> Log in to Unlock</button>
-                            <?php elseif ($viewer_credit_balance >= (int) $bd['price_credits']): ?>
-                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-unlock="<?php echo (int) $bd['id']; ?>"><i class="fa-solid fa-unlock"></i> Unlock for <?php echo htmlspecialchars(Price::credits($bd['price_credits']), ENT_QUOTES, 'UTF-8'); ?></button>
-                            <?php else: ?>
-                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings?section=wallet"><i class="fa-solid fa-plus"></i> Buy Credits to Unlock</a>
-                            <?php endif; ?>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php endif; ?>
-                </section>
-
-                <?php if (!empty($service_cards)): ?>
-                <?php $svm = ServicesModel::method_labels() + array('cls_video' => 'CLS Video'); ?>
-                <section class="pf-panel" data-panel="services">
-                    <div class="pel-list">
-                        <?php foreach ($service_cards as $sc):   // one row per service; the row opens the service page, where people book
-                            $sc_h = function ($x) { return htmlspecialchars(html_entity_decode((string) $x, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8'); };
-                            $sc_icon = $sc['delivery_method'] === 'in_person' ? 'fa-location-dot' : ($sc['delivery_method'] === 'phone' ? 'fa-phone' : 'fa-video');
-                            $sc_left = (int) $sc['capacity'] > 0 ? max(0, (int) $sc['capacity'] - (int) $sc['purchases']) : null;
-                            $sc_flag = !empty($sc['purchased']) ? array('Booked', 'ok') : (!empty($sc['is_full']) ? array('Fully booked', 'off') : null);
-                        ?>
-                        <a class="pel" href="<?php echo htmlspecialchars($pf_base, ENT_QUOTES, 'UTF-8'); ?>/services/<?php echo (int) $sc['id']; ?>" data-sv-card="<?php echo (int) $sc['id']; ?>">
-                            <span class="pel__date" aria-hidden="true"><?php if ((int) $sc['duration_min'] > 0): ?><span class="pel__m">Min</span><span class="pel__d"><?php echo (int) $sc['duration_min']; ?></span><?php else: ?><span class="pel__d pel__d--ic"><i class="fa-solid <?php echo $sc_icon; ?>"></i></span><?php endif; ?></span>
-                            <span class="pel__body">
-                                <span class="pel__title"><?php echo $sc_h($sc['name']); ?><?php if ($sc_flag): ?> <span class="pel__flag pel__flag--<?php echo $sc_flag[1]; ?>"><?php echo $sc_flag[0]; ?></span><?php endif; ?></span>
-                                <span class="pel__meta">
-                                    <span class="pel__where"><i class="fa-solid <?php echo $sc_icon; ?>" aria-hidden="true"></i> <?php echo htmlspecialchars($svm[$sc['delivery_method']] ?? 'Other', ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <?php if (trim((string) $sc['category']) !== ''): ?><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $sc_h($sc['category']); ?></span><?php endif; ?>
-                                    <?php if ($sc_left !== null && !$sc_flag): ?><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $sc_left; ?> <?php echo $sc_left === 1 ? 'spot' : 'spots'; ?> left</span><?php endif; ?>
-                                </span>
-                                <?php if (trim((string) $sc['description']) !== ''): ?><span class="pel__desc"><?php echo $sc_h($sc['description']); ?></span><?php endif; ?>
-                            </span>
-                            <span class="pel__price"><span class="pel__amount"><?php echo (int) $sc['price_credits'] > 0 ? htmlspecialchars(Price::credits($sc['price_credits']), ENT_QUOTES, 'UTF-8') : 'Free'; ?></span><span class="pel__req">per booking</span></span>
-                            <i class="fa-solid fa-chevron-right pel__go" aria-hidden="true"></i>
-                        </a>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
-                <?php else: ?>
-                <section class="pf-panel" data-panel="services">
-                    <div class="pf-empty">
-                        <i class="fa-solid fa-briefcase pf-empty__icon"></i>
-                        <p class="pf-empty__title">No services yet</p>
-                        <p class="pf-empty__text"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> has no services to book right now.</p>
-                    </div>
-                </section>
-                <?php endif; ?>
-
-                <?php if ($has_events_tab):
-                    // One Events tab with sub-tabs: Upcoming | Replays (anyone can buy, follower or not) | Past.
-                    $replay_ids = array_map(function ($c) { return (int) $c['id']; }, (array) $replay_cards);
-                    $past_only  = array_values(array_filter((array) $past_event_cards, function ($c) use ($replay_ids) { return !in_array((int) $c['id'], $replay_ids, true); }));
-                    $rh = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
-                <section class="pf-panel" data-panel="events">
-                    <?php
-                    // Sub-tabs inside Events: Upcoming | Replays, both always shown. Replays opens first only when nothing is upcoming and a replay exists.
-                    $ev_first = (empty($event_cards) && !empty($replay_cards)) ? 'replays' : 'upcoming';
-                    $ev_name = htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?>
-                    <?php if (true): ?>
-                    <div class="pel-subs" role="tablist" aria-label="Events">
-                        <?php foreach (array('upcoming' => 'Upcoming', 'replays' => 'Replays') as $sk => $sl): ?>
-                        <button type="button" class="pel-sub<?php echo $sk === $ev_first ? ' is-on' : ''; ?>" role="tab" aria-selected="<?php echo $sk === $ev_first ? 'true' : 'false'; ?>" data-ev-sub="<?php echo $sk; ?>"><?php echo $sl; ?></button>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($event_cards)): ?>
-                    <div class="pel-list" data-ev-list="upcoming"<?php echo $ev_first !== 'upcoming' ? ' hidden' : ''; ?>>
-                        <?php foreach ($event_cards as $ec) { $render_ev_card($ec); } ?>
-                    </div>
-                    <?php else: ?>
-                    <div class="pf-empty" data-ev-list="upcoming"<?php echo $ev_first !== 'upcoming' ? ' hidden' : ''; ?>>
-                        <i class="fa-regular fa-calendar pf-empty__icon"></i>
-                        <p class="pf-empty__title">No upcoming events</p>
-                        <p class="pf-empty__text"><?php echo $ev_name; ?> has nothing scheduled right now.</p>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($replay_cards)): ?>
-                    <div class="pel-list" data-ev-list="replays"<?php echo $ev_first !== 'replays' ? ' hidden' : ''; ?>>
-                        <?php foreach ($replay_cards as $rc): $rpc = $rc['replay']; $ev_href = $pf_base . '/events/' . (int) $rc['id']; ?>
-                        <div class="pel pel--replay" data-ev-card="<?php echo (int) $rc['id']; ?>">
-                            <a class="pel__link" href="<?php echo $rh($ev_href); ?>">
-                                <span class="pel__date" aria-hidden="true"><span class="pel__m"><?php echo $rh($rc['tile_month']); ?></span><span class="pel__d"><?php echo $rh($rc['tile_day']); ?></span></span>
-                                <span class="pel__body">
-                                    <span class="pel__title"><?php echo $rh($rc['title']); ?> <span class="pel__flag pel__flag--ok">Replay</span></span>
-                                    <span class="pel__meta"><span><i class="fa-solid fa-circle-play" aria-hidden="true"></i> <?php echo $rpc['length'] !== '' ? 'Full recording · ' . $rh($rpc['length']) : 'Full recording'; ?></span><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $rh($rc['date_long']); ?></span></span>
-                                </span>
-                            </a>
-                            <span class="pel__buy">
-                                <?php if ($rpc['access'] !== ''): ?>
-                                <a class="pel__btn" href="<?php echo $rh($ev_href); ?>#peReplayH">Watch</a>
-                                <?php else: ?>
-                                <span class="pel__amount"><?php echo $rh(Price::credits($rpc['price'])); ?></span>
-                                <?php if ($viewer_logged_in): ?><button type="button" class="pel__btn" data-replay-buy="<?php echo (int) $rc['id']; ?>" data-price="<?php echo (int) $rpc['price']; ?>">Buy</button>
-                                <?php else: ?><a class="pel__btn" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Buy</a><?php endif; ?>
-                                <?php endif; ?>
-                            </span>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php else: ?>
-                    <div class="pf-empty" data-ev-list="replays"<?php echo $ev_first !== 'replays' ? ' hidden' : ''; ?>>
-                        <i class="fa-solid fa-circle-play pf-empty__icon"></i>
-                        <p class="pf-empty__title">No replays yet</p>
-                        <p class="pf-empty__text"><?php echo $ev_name; ?> has no event recordings to watch.</p>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($past_only)): ?>
-                    <div class="pel-list" data-ev-list="past"<?php echo $ev_first !== 'past' ? ' hidden' : ''; ?>>
-                        <?php foreach ($past_only as $ec) { $render_ev_card($ec); } ?>
-                    </div>
-                    <?php endif; ?>
-                </section>
-                <?php endif; ?>
-
                 <section class="pf-panel" data-panel="about">
                     <div class="pf-info<?php echo ($bio !== '' && ($location !== '' || $member_since !== '')) ? ' pf-info--about' : ''; ?>">
                         <?php if ($bio !== ''): ?><p class="pf-info__bio"><?php echo nl2br(htmlspecialchars($bio, ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
@@ -711,7 +232,6 @@ $pub_links   = array(
                         <p class="pf-empty__text"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> has not added any links.</p>
                     </div>
                 </section>
-                <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -752,9 +272,7 @@ $pub_links   = array(
         var HANDLE     = '<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>';
         var IS_SELF    = <?php echo $is_self ? 'true' : 'false'; ?>;
         var LOGGED_IN  = <?php echo $viewer_logged_in ? 'true' : 'false'; ?>;
-        function money(credits) { var n = parseInt(credits, 10) || 0; return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }   // everything inside the platform is credits
         var PF_LOGIN   = <?php echo json_encode($login_href, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?>;
-        var VIEWER_CREDITS = <?php echo (int) $viewer_credit_balance; ?>;
         // site nav phone menu (landing.js is not on this page)
         var nav_toggle = document.getElementById('ld_nav_toggle'), nav_links = document.getElementById('ld_nav_links');
         if (nav_toggle && nav_links) {
@@ -764,7 +282,6 @@ $pub_links   = array(
             });
         }
         var following  = <?php echo $is_following ? 'true' : 'false'; ?>;
-        var SUB_NOTICE = '<?php echo $sub_notice; ?>';
         var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
         function actionsHtml() {
@@ -774,7 +291,6 @@ $pub_links   = array(
                        '<i class="fa-solid ' + (following ? 'fa-check' : 'fa-plus') + '"></i> ' +
                        '<span data-follow-label>' + followLabel + '</span>' +
                    '</button>' +
-                   '<button class="pf-btn pf-btn--subscribe" data-subscribe><i class="fa-solid fa-star"></i> Subscribe</button>' +
                    (LOGGED_IN && !IS_SELF
                        ? '<button type="button" class="pf-btn pf-btn--quiet" data-block-user="' + CREATOR_ID + '" data-block-name="@' + HANDLE + '" data-block-redirect="/" title="Block @' + HANDLE + '" aria-label="Block @' + HANDLE + '"><i class="fa-solid fa-ban"></i></button>'
                        : '');
@@ -784,12 +300,6 @@ $pub_links   = array(
             document.getElementById('pf_actions').innerHTML = actionsHtml();
             document.getElementById('pf_dock_actions').innerHTML = actionsHtml();
             document.querySelectorAll('[data-follow]').forEach(function (b) { b.onclick = toggleFollow; });
-            document.querySelectorAll('[data-subscribe]').forEach(function (b) { b.onclick = goToPlans; });
-        }
-
-        function goToPlans() {
-            selectTab('plans');
-            document.querySelector('.pf-tabs').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function toggleFollow() {
@@ -812,11 +322,10 @@ $pub_links   = array(
             document.querySelectorAll('.pf-panel').forEach(function (p) { p.classList.toggle('is-active', p.dataset.panel === panel); });
         }
         document.querySelectorAll('.pf-tab').forEach(function (t) { t.onclick = function () { selectTab(t.dataset.panel); }; });
-        // Deep link to a tab (e.g. /@handle#events from a creator's "Copy Event Link").
+        // Deep link to a tab (e.g. /@handle#links).
         var hashTab = (location.hash || '').replace('#', '');
         if (hashTab && document.querySelector('.pf-tab[data-panel="' + hashTab.replace(/[^a-z]/g, '') + '"]')) { selectTab(hashTab.replace(/[^a-z]/g, '')); }
 
-        // Plan subscribe (checkout flow lands next; interim: prompt login / notice).
         function pfToast(msg) {
             var t = document.createElement('div');
             t.className = 'pf-toast'; t.textContent = msg;
@@ -824,238 +333,6 @@ $pub_links   = array(
             requestAnimationFrame(function () { t.classList.add('is-in'); });
             setTimeout(function () { t.classList.remove('is-in'); setTimeout(function () { t.remove(); }, 300); }, 2600);
         }
-        document.querySelectorAll('[data-subscribe-plan]').forEach(function (b) {
-            b.onclick = function () {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                b.disabled = true;
-                var promoEl = document.getElementById('pf_promo_code');
-                ApiDataSvc.apiCall('post', 'subscribe_plan', { plan_id: b.getAttribute('data-subscribe-plan'), code: (promoEl ? promoEl.value.trim() : '') }, function (resp) {
-                    var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.success && o.url) { window.location = o.url; return; }
-                    b.disabled = false;
-                    pfToast(o.message || 'Could not start checkout.');
-                });
-            };
-        });
-
-        document.querySelectorAll('[data-join-free]').forEach(function (b) {
-            b.onclick = function () {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                b.disabled = true;
-                ApiDataSvc.apiCall('post', 'join_free_plan', { plan_id: b.getAttribute('data-join-free') }, function (resp) {
-                    var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (!o.success) { b.disabled = false; pfToast(o.message); return; }
-                    var member = document.createElement('div');
-                    member.className = 'pf-plan__cta pf-plan__member';
-                    member.innerHTML = '<i class="fa-solid fa-circle-check"></i> Joined';
-                    b.replaceWith(member);
-                    pfToast(o.message);
-                });
-            };
-        });
-
-        // Content bundle unlock.
-        document.querySelectorAll('[data-bundle-login]').forEach(function (b) {
-            b.onclick = function () { window.location = PF_LOGIN; };
-        });
-        document.querySelectorAll('[data-bundle-unlock]').forEach(function (b) {
-            b.onclick = function () {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                var orig = b.innerHTML; b.disabled = true; b.textContent = 'Unlocking…';
-                ApiDataSvc.apiCall('post', 'bundle_unlock', { bundle_id: b.getAttribute('data-bundle-unlock') }, function (resp) {
-                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-                    if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not unlock'); return; }
-                    if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.need_credits) {
-                        b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough credits in your wallet.');
-                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
-                        return;
-                    }
-                    if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not unlock'); return; }
-                    pfToast(o.message || 'Bundle unlocked!');
-                    setTimeout(function () { window.location.reload(); }, 900);   // reveal the now-unlocked posts
-                });
-            };
-        });
-
-        // Events tab sub-tabs: Upcoming | Replays | Past.
-        document.querySelectorAll('[data-ev-sub]').forEach(function (t) {
-            t.onclick = function () {
-                var k = t.getAttribute('data-ev-sub');
-                document.querySelectorAll('[data-ev-sub]').forEach(function (x) { var on = x === t; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
-                document.querySelectorAll('[data-ev-list]').forEach(function (l) { l.hidden = l.getAttribute('data-ev-list') !== k; });
-            };
-        });
-
-        // Event replay: buy it with wallet credits (confirm first), then watch it right here.
-        document.querySelectorAll('[data-replay-buy]').forEach(function (b) {
-            b.onclick = function () {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                var price = parseInt(b.getAttribute('data-price'), 10) || 0;
-                var go = function () {
-                    var orig = b.innerHTML; b.disabled = true; b.textContent = 'Buying…';
-                    ApiDataSvc.apiCall('post', 'event_replay_buy', { event_id: b.getAttribute('data-replay-buy') }, function (resp) {
-                        var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-                        if (o && o.need_login) { window.location = PF_LOGIN; return; }
-                        if (o && o.need_credits) {
-                            b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Not enough credits in your wallet.');
-                            setTimeout(function () { window.location = '/account/settings?section=wallet'; }, 1400); return;
-                        }
-                        if (!o || !o.success) { b.disabled = false; b.innerHTML = orig; pfToast((o && o.message) || 'Could not buy the replay'); return; }
-                        pfToast(o.message || 'Replay purchased');
-                        setTimeout(function () { window.location.reload(); }, 800);
-                    });
-                };
-                if (!window.Swal) { go(); return; }
-                Swal.fire({ title: 'Buy the replay for ' + price.toLocaleString('en-US') + ' credits?', text: 'You watch it here on the event page. Sales are final.',
-                            showCancelButton: true, reverseButtons: true, confirmButtonText: 'Buy Replay', cancelButtonText: 'Cancel', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
-                    .then(function (r) { if (r.isConfirmed) { go(); } });
-            };
-        });
-        document.querySelectorAll('[data-replay-watch]').forEach(function (b) {
-            b.onclick = function () {
-                b.disabled = true;
-                ApiDataSvc.apiCall('post', 'event_replay_watch', { event_id: b.getAttribute('data-replay-watch') }, function (resp) {
-                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-                    if (!o || !o.success || !o.url) { b.disabled = false; pfToast((o && o.message) || 'Could not load the replay'); return; }
-                    var v = document.createElement('video');
-                    v.controls = true; v.playsInline = true; v.preload = 'metadata'; v.className = 'pe-replay__video';
-                    if (o.poster) { v.poster = o.poster; }
-                    v.src = o.url;
-                    b.parentNode.replaceChild(v, b);
-                    v.play().catch(function () {});
-                });
-            };
-        });
-
-        // Event registration (free / paid-with-credits / subscribers / tier).
-        document.querySelectorAll('[data-ev-register]').forEach(function (b) {
-            b.onclick = function () {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                var orig = b.innerHTML; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registering…';
-                ApiDataSvc.apiCall('post', 'event_register', { event_id: b.getAttribute('data-ev-register') }, function (resp) {
-                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-                    if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not register'); return; }
-                    if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.need_subscription) {
-                        b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'This event is for subscribers.');
-                        if (document.querySelector('.pf-tabs')) { goToPlans(); } else { window.location = <?php echo json_encode($pf_home, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?> + '#plans'; }
-                        return;
-                    }
-                    if (o.need_credits) {
-                        b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough credits in your wallet.');
-                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
-                        return;
-                    }
-                    if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not register'); return; }
-                    pfToast('You\'re registered!');
-                    if (b.closest('.pe')) { setTimeout(function () { window.location.reload(); }, 700); return; }   // the event page re-renders with the attendee details
-                    revealEventAccess(b, o.access || {});
-                });
-            };
-        });
-        // Cancel my registration (event page). Before the start a paid ticket is refunded to the wallet.
-        document.querySelectorAll('[data-ev-cancel]').forEach(function (b) {
-            b.onclick = function () {
-                var paid = parseInt(b.getAttribute('data-paid'), 10) || 0;
-                var text = paid > 0 ? money(paid) + ' go back to your wallet and your spot is released.' : 'Your spot is released for someone else.';
-                var go = function () {
-                    b.disabled = true; b.textContent = 'Canceling…';
-                    ApiDataSvc.apiCall('post', 'event_cancel', { event_id: b.getAttribute('data-ev-cancel') }, function (resp) {
-                        var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-                        if (!o || !o.success) { b.disabled = false; b.textContent = 'Cancel Registration'; pfToast((o && o.message) || 'Could not cancel'); return; }
-                        pfToast(o.refunded > 0 ? 'Registration canceled. ' + money(o.refunded) + ' returned to your wallet.' : 'Registration canceled.');
-                        setTimeout(function () { window.location.reload(); }, 900);
-                    });
-                };
-                if (!window.Swal) { if (window.confirm('Cancel your registration? ' + text)) { go(); } return; }
-                Swal.fire({ title: 'Cancel your registration?', text: text, showCancelButton: true, reverseButtons: true, focusCancel: true,
-                    confirmButtonText: 'Cancel Registration', cancelButtonText: 'Keep My Spot', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
-                    .then(function (r) { if (r.isConfirmed) { go(); } });
-            };
-        });
-
-        function revealEventAccess(btn, ax) {
-            var card = btn.closest('.pf-ev');
-            if (!card) { return; }
-            var cta = btn.closest('.pf-ev__cta');
-            if (cta) { cta.innerHTML = '<span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Registered</span>'; }
-            var main = card.querySelector('.pf-ev__main');
-            if (!main || main.querySelector('.pf-ev__access')) { return; }
-            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
-            var rows = '<span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> You&rsquo;re registered</span>';
-            if (ax.instructions) { rows += '<span class="pf-ev__access-row pf-ev__access-instr">' + e(ax.instructions).replace(/\n/g, '<br>') + '</span>'; }
-            var wrap = document.createElement('div'); wrap.className = 'pf-ev__access'; wrap.innerHTML = rows;
-            main.appendChild(wrap);
-        }
-
-        // Service purchase (one-time, credits) → reveals booking details on success.
-        document.querySelectorAll('[data-sv-purchase]').forEach(function (b) {
-            b.onclick = function () {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                var orig = b.innerHTML; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Booking…';
-                ApiDataSvc.apiCall('post', 'service_purchase', { service_id: b.getAttribute('data-sv-purchase') }, function (resp) {
-                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
-                    if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not book'); return; }
-                    if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.need_credits) {
-                        b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough credits in your wallet.');
-                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
-                        return;
-                    }
-                    if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not book'); return; }
-                    pfToast('You\'re booked!');
-                    setTimeout(function () { window.location.reload(); }, 700);   // the service page re-renders with the booking details
-                });
-            };
-        });
-
-        // Content locked-state CTAs.
-        document.querySelectorAll('[data-content-login]').forEach(function (b) {
-            b.onclick = function () { window.location = PF_LOGIN; };
-        });
-        document.querySelectorAll('[data-content-subscribe]').forEach(function (b) {
-            b.onclick = goToPlans;
-        });
-        document.querySelectorAll('[data-unlock-content]').forEach(function (b) {
-            b.onclick = function () {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                b.disabled = true;
-                ApiDataSvc.apiCall('post', 'unlock_content', { content_id: b.getAttribute('data-unlock-content') }, function (resp) {
-                    var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.need_credits) { b.disabled = false; pfToast('Not enough credits in your wallet.'); return; }
-                    if (!o.success) { b.disabled = false; pfToast(o.message || 'Could not unlock'); return; }
-                    revealPost(b, o);
-                    pfToast('Unlocked');
-                });
-            };
-        });
-        function revealPost(btn, o) {
-            var article = btn.closest('.pf-post');
-            if (!article) { return; }
-            var title = (article.querySelector('.pf-post__title') || {}).textContent || '';
-            article.innerHTML = '';
-            (o.assets || []).forEach(function (a) {
-                var el;
-                if (a.type === 'image') { el = document.createElement('img'); el.className = 'pf-post__img'; el.src = a.url; }
-                else if (a.type === 'video') { el = document.createElement('video'); el.className = 'pf-post__video'; el.src = a.url; el.controls = true; el.preload = 'metadata'; }
-                else if (a.type === 'audio') { el = document.createElement('div'); el.className = 'pf-post__audiowrap'; var au = document.createElement('audio'); au.className = 'pf-post__audio'; au.src = a.url; au.controls = true; au.preload = 'none'; el.appendChild(au); }
-                else { el = document.createElement('a'); el.className = 'pf-post__doc'; el.href = a.url; el.target = '_blank'; el.rel = 'noopener'; el.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Open document'; }
-                article.appendChild(el);
-            });
-            var wrap = document.createElement('div'); wrap.className = 'pf-post__body';
-            if (title) { var h = document.createElement('h3'); h.className = 'pf-post__title'; h.textContent = title; wrap.appendChild(h); }
-            if (o.description) { var d = document.createElement('p'); d.className = 'pf-post__desc'; d.textContent = o.description; wrap.appendChild(d); }
-            if (o.body) { var p = document.createElement('p'); p.className = 'pf-post__text'; p.textContent = o.body; wrap.appendChild(p); }
-            article.appendChild(wrap);
-        }
-
         // Sticky dock reveals once the hero name scrolls out of view.
         var hero = document.querySelector('.pf-name');
         var dock = document.getElementById('pf_dock');
@@ -1067,7 +344,7 @@ $pub_links   = array(
         }
         window.addEventListener('scroll', onScroll, { passive: true });
 
-        // Click any unlocked post image to view it larger.
+        // Click any post image to view it larger.
         var lb = document.getElementById('pf_lightbox');
         var lbImg = document.getElementById('pf_lightbox_img');
         function closeLightbox() { lb.classList.remove('is-open'); lbImg.src = ''; document.body.style.overflow = ''; }
@@ -1091,110 +368,31 @@ $pub_links   = array(
             function openPost(id) {
                 var p = byId[id]; if (!p) { return; }
                 var h = '';
-                if (p.entitled) {
-                    var assets = p.assets || [];
-                    h += '<div class="pf-plb__media' + (assets.length > 1 ? ' pf-plb__media--carousel' : '') + '">';
-                    assets.forEach(function (a, i) {
-                        var slide = (a.type === 'video')
-                            ? '<video src="' + e(a.url) + '"' + (a.poster ? ' poster="' + e(a.poster) + '"' : '') + ' controls preload="metadata" controlsList="nodownload"></video>'
-                            : '<img src="' + e(a.url) + '" alt="" oncontextmenu="return false">';
-                        h += '<div class="pf-plb__slide' + (i === 0 ? ' is-on' : '') + '">' + slide + '</div>';
-                    });
-                    if (assets.length > 1) {
-                        h += '<button type="button" class="pf-plb__nav pf-plb__nav--prev" data-plb="prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>' +
-                             '<button type="button" class="pf-plb__nav pf-plb__nav--next" data-plb="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
-                             '<div class="pf-plb__dots">' + assets.map(function (a, i) { return '<span class="pf-plb__dot' + (i === 0 ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
-                    }
-                    h += '</div>';
-                    h += '<div class="pf-plb__body">';
-                    if (p.caption) { h += '<p>' + e(p.caption).replace(/\n/g, '<br>') + '</p>'; }
-                    if (p.published_at) { h += '<span class="pf-plb__date">' + e(p.published_at) + '</span>'; }
-                    h += '<div class="pf-plb__engage" id="pfLbEngage"></div>';
-                    h += '<div class="pf-plb__comments" id="pfLbComments"></div>';
-                    h += '</div>';
-                } else if (p.audience === 'ppv') {
-                    h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Pay-per-view post</span>' +
-                        '<div class="pf-plb__ppv" id="pfLbPpvAction"></div>' +
-                        (LOGGED_IN ? '<div class="pf-plb__promo"><input type="text" id="pfLbPromo" class="pf-plb__promo-input" placeholder="Discount code" maxlength="40" autocomplete="off"><button type="button" class="pf-plb__promo-apply" id="pfLbPromoApply">Apply</button></div><div class="pf-plb__promo-msg" id="pfLbPromoMsg"></div>' : '') +
-                        '</div></div>';
-                    if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
-                } else {
-                    h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Subscribers-only post</span>' +
-                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAct">' + (LOGGED_IN ? 'Subscribe to unlock' : 'Log in to view') + '</button></div></div>';
-                    if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
+                var assets = p.assets || [];
+                h += '<div class="pf-plb__media' + (assets.length > 1 ? ' pf-plb__media--carousel' : '') + '">';
+                assets.forEach(function (a, i) {
+                    var slide = (a.type === 'video')
+                        ? '<video src="' + e(a.url) + '"' + (a.poster ? ' poster="' + e(a.poster) + '"' : '') + ' controls preload="metadata" controlsList="nodownload"></video>'
+                        : '<img src="' + e(a.url) + '" alt="" oncontextmenu="return false">';
+                    h += '<div class="pf-plb__slide' + (i === 0 ? ' is-on' : '') + '">' + slide + '</div>';
+                });
+                if (assets.length > 1) {
+                    h += '<button type="button" class="pf-plb__nav pf-plb__nav--prev" data-plb="prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>' +
+                         '<button type="button" class="pf-plb__nav pf-plb__nav--next" data-plb="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
+                         '<div class="pf-plb__dots">' + assets.map(function (a, i) { return '<span class="pf-plb__dot' + (i === 0 ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
                 }
+                h += '</div>';
+                h += '<div class="pf-plb__body">';
+                if (p.caption) { h += '<p>' + e(p.caption).replace(/\n/g, '<br>') + '</p>'; }
+                if (p.published_at) { h += '<span class="pf-plb__date">' + e(p.published_at) + '</span>'; }
+                h += '<div class="pf-plb__engage" id="pfLbEngage"></div>';
+                h += '<div class="pf-plb__comments" id="pfLbComments"></div>';
+                h += '</div>';
                 inner.innerHTML = h;
                 lb.hidden = false; document.body.style.overflow = 'hidden';
-                var act = document.getElementById('pfLbAct');
-                if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = PF_LOGIN; } else { closePlb(); goToPlans(); } }; }
-                if (p.audience === 'ppv') { renderPpvAction(p); }
-                var promoApply = document.getElementById('pfLbPromoApply');
-                if (promoApply) { promoApply.onclick = function () { applyPpvPromo(p); }; }
                 plbAutoplay();
                 plbPost = p;
-                if (p.entitled) { renderEngage(p); recordView(p); loadComments(p); }
-            }
-            // Show the viewer's balance and either an Unlock button (can afford) or an
-            // Add-credits button (short) — recomputed whenever the effective price changes.
-            function renderPpvAction(p) {
-                var wrap = document.getElementById('pfLbPpvAction');
-                if (!wrap) { return; }
-                if (!LOGGED_IN) {
-                    wrap.innerHTML = '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Log in to Unlock</button>';
-                    document.getElementById('pfLbPpv').onclick = function () { window.location = PF_LOGIN; };
-                    return;
-                }
-                // Prices and the wallet are in credits.
-                var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
-                var bal     = '<div class="pf-plb__bal">Your balance: ' + money(VIEWER_CREDITS) + '</div>';
-                if (VIEWER_CREDITS >= price) {
-                    wrap.innerHTML = bal + '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Unlock for ' + money(price) + '</button>';
-                    var b = document.getElementById('pfLbPpv');
-                    b.onclick = function () { unlockPpv(p, b); };
-                } else {
-                    wrap.innerHTML = bal +
-                        '<div class="pf-plb__short">You need ' + money(price - VIEWER_CREDITS) + ' more to unlock this.</div>' +
-                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Buy Credits</button>';
-                    document.getElementById('pfLbAddCredits').onclick = function () { window.location = '/account/settings?section=wallet'; };
-                }
-            }
-            function applyPpvPromo(p) {
-                var input = document.getElementById('pfLbPromo');
-                var msg   = document.getElementById('pfLbPromoMsg');
-                var code  = input ? input.value.trim().toUpperCase() : '';
-                if (code === '') { return; }
-                ApiDataSvc.apiCall('post', 'promo_preview', { post_id: p.id, code: code }, function (resp) {
-                    var o = null; try { o = JSON.parse(resp); } catch (err) { o = null; }
-                    if (!o || !o.success) {
-                        p.applied_code = null; p.effective_price = p.ppv_price_credits;
-                        if (msg) { msg.textContent = (o && o.message) ? o.message : "That code isn't valid."; msg.className = 'pf-plb__promo-msg is-err'; }
-                        renderPpvAction(p);
-                        return;
-                    }
-                    p.applied_code = code; p.effective_price = o.new_price;
-                    if (msg) { msg.textContent = (o.label || (o.percent_off + '% off')) + ' applied'; msg.className = 'pf-plb__promo-msg is-ok'; }
-                    renderPpvAction(p);   // may flip Add-credits → Unlock if the discount brings it within budget
-                });
-            }
-            function unlockPpv(p, btn) {
-                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
-                var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Unlocking…';
-                ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id, code: (p.applied_code || '') }, function (resp) {
-                    var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.need_credits) {
-                        btn.disabled = false; btn.textContent = orig;
-                        pfToast(o.message || 'Not enough credits in your wallet.');
-                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
-                        return;
-                    }
-                    if (!o.success) { btn.disabled = false; btn.textContent = orig; pfToast(o.message || 'Could not unlock'); return; }
-                    p.entitled = true; p.assets = o.assets || []; p.unlocked = true; byId[p.id] = p;
-                    var card = document.querySelector('.pf-pc[data-post-id="' + p.id + '"]');
-                    if (card) { card.classList.remove('pf-pc--locked'); }
-                    pfToast('Unlocked!');
-                    openPost(p.id);
-                });
+                renderEngage(p); recordView(p); loadComments(p);
             }
             function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; clearInterval(plbTimer); }
             function bindCards() {
@@ -1374,17 +572,6 @@ $pub_links   = array(
             });
         }
 
-        // Returned from Stripe Checkout — show the outcome, land on Membership, tidy the URL.
-        if (SUB_NOTICE === 'success') {
-            selectTab('plans');
-            pfToast("You're now a member!");
-            if (window.CLSHeyCatch) { CLSHeyCatch('trackEvent', 'membership_started'); }   // HeyCatch: a paid membership the browser just witnessed
-        } else if (SUB_NOTICE === 'cancel') {
-            pfToast('Checkout canceled — you have not been charged.');
-        }
-        if (SUB_NOTICE && window.history.replaceState) {
-            window.history.replaceState({}, '', window.location.pathname);
-        }
     })();
     </script>
 <?php if ($in_app): ?>

@@ -27,11 +27,6 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
                     <?php foreach (NichePages::PAGES as $n_slug => $n): ?><a href="<?php echo $fb; ?>/for/<?php echo $fl($n_slug); ?>"><?php echo $fl($n['nav_title']); ?></a><?php endforeach; ?>
                 </div>
                 <div class="sf__col">
-                    <p class="sf__h">Compare</p>
-                    <?php foreach (PagesController::COMPETITORS as $slug => $c): ?><a href="<?php echo $fb; ?>/compare/<?php echo $fl($slug); ?>"><?php echo $fl($c['name']); ?> alternative</a><?php endforeach; ?><a href="<?php echo $fb; ?>/best-creator-monetization-platforms">Best creator platforms</a>
-                    <?php foreach (array_keys(AlternativesPages::PAGES) as $alt): ?><a href="<?php echo $fb; ?>/<?php echo $fl($alt); ?>-alternatives">All <?php echo $fl(AlternativesPages::PAGES[$alt]['name']); ?> Alternatives</a><?php endforeach; ?>
-                </div>
-                <div class="sf__col">
                     <p class="sf__h">Integrations</p>
                     <a href="<?php echo $fb; ?>/integrations">All integrations</a><?php foreach (IntegrationPages::PAGES as $i_slug => $i): ?><a href="<?php echo $fb; ?>/integrations/<?php echo $fl($i_slug); ?>"><?php echo $fl($i['name']); ?></a><?php endforeach; ?>
                 </div>
@@ -44,7 +39,7 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
                     <a href="<?php echo $fb; ?>/press">Press kit</a><a href="<?php echo $fb; ?>/press#logos">Logos</a><a href="<?php echo $fb; ?>/press#link-to-us">Link to us</a>
                     <a href="<?php echo $fb; ?>/about">About</a><a href="<?php echo $fb; ?>/contact">Contact</a>
                     <a href="<?php echo $fb; ?>/affiliates">Affiliate program</a>
-                    <a href="<?php echo $fb; ?>/monetize-your-content">Monetize your content</a><a href="<?php echo $fb; ?>/blog/feed.xml">RSS feed</a>
+                    <a href="<?php echo $fb; ?>/blog/feed.xml">RSS feed</a>
                 </div>
             </nav>
         </div>

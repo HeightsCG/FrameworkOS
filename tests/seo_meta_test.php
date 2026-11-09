@@ -26,7 +26,7 @@ check('og:type defaults to website', strpos(SeoMeta::head(array('title' => 't', 
 $faq = SeoMeta::faq(array(array('q' => 'Q1?', 'a' => 'A1.')));
 check('faq schema', $faq['@type'] === 'FAQPage' && $faq['mainEntity'][0]['acceptedAnswer']['text'] === 'A1.');
 check('org has name+url', SeoMeta::org()['@type'] === 'Organization' && !empty(SeoMeta::org()['url']));
-check('internal links map', SeoMeta::internal_links()['pricing'] === '/pricing' && SeoMeta::internal_links()['fanvue alternative'] === '/compare/fanvue');
+check('internal links map', SeoMeta::internal_links()['pricing'] === '/pricing' && SeoMeta::internal_links()['link in bio'] === '/features/link-in-bio' && !isset(SeoMeta::internal_links()['fanvue alternative']));
 
 $art = SeoMeta::article(array('headline' => 'H', 'description' => 'D', 'url' => 'https://x/a', 'published' => '2026-09-21T00:00:00+00:00'));
 check('article schema', $art['@type'] === 'Article' && $art['datePublished'] === '2026-09-21T00:00:00+00:00' && $art['publisher']['@type'] === 'Organization');

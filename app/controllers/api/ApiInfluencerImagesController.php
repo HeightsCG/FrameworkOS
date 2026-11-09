@@ -180,7 +180,7 @@ class ApiInfluencerImagesController extends BaseApiController {
     public function scene_saveAction(){
         $user = $this->ai_user();
         $f = array('title' => $this->text('title', 120), 'category' => $this->text('category', 60), 'base_prompt' => $this->text('base_prompt', InfluencerService::TEXT_MAX),
-            'is_adult' => (string) ($this->post['is_adult'] ?? '0') === '1', 'default_aspect' => (string) ($this->post['default_aspect'] ?? ''),
+            'default_aspect' => (string) ($this->post['default_aspect'] ?? ''),
             'sort_order' => (int) ($this->post['sort_order'] ?? 0));
         $r = SceneTemplates::save((int) $user['user_id'], (int) ($this->post['id'] ?? 0), $f);
         if (empty($r['ok'])) { $this->jsonError((string) $r['error'], ['errors' => (array) ($r['errors'] ?? array())]); }

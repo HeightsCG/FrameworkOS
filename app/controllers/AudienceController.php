@@ -1,8 +1,7 @@
 <?php
 /**
  * Creator audience / CRM (/audience). Creator-only; non-creators are redirected home.
- * Lists everyone connected to the creator with relationship badges, spend, tags and
- * notes. Tag/note mutations and messaging happen via ApiAudienceController + the messenger widget.
+ * Lists the creator's followers with tags and notes. Tag/note mutations and messaging happen via ApiAudienceController + the messenger widget.
  */
 class AudienceController extends Controller {
 

@@ -36,7 +36,7 @@ try {
     check('checkout link opens the trial checkout and returns', $u === '/account/billing?tab=plan&plan=creator&founding=1&checkout=1&return=%2Fstudio%3Fx%3D1');
     $p = UpgradePrompt::payload($row($a), '/influencers');
     check('need_plan payload carries plan, return and founding_eligible', $p['need_plan'] === true && $p['plan'] === 'creator' && $p['return'] === '/influencers' && $p['founding_eligible'] === Founding::open());
-    check('generic gates get named actions', UpgradePrompt::action_words('influencer_create') === 'create an AI influencer' && UpgradePrompt::action_words('toggle_bundle') === 'turn on bundles' && UpgradePrompt::action_words('scene_vote') === 'use scenes' && UpgradePrompt::action_words('nothing_here') === '');
+    check('generic gates get named actions', UpgradePrompt::action_words('influencer_create') === 'create an AI influencer' && UpgradePrompt::action_words('scene_vote') === 'use scenes' && UpgradePrompt::action_words('nothing_here') === '');
 
     $pa = SetupService::progress($a, true);
     $first = $pa['steps'][0] ?? array();

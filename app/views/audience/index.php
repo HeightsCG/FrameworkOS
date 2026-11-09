@@ -11,17 +11,14 @@ $fmt_since = function ($utc) use ($aud_tz) {
 };
 $e   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 $ini = function ($n) { $n = trim((string) $n); return $n === '' ? '?' : mb_strtoupper(mb_substr($n, 0, 1)); };
-$dollars = function ($credits) { return Price::credits((int) $credits); };   // everything inside is credits
 $counts   = $this->counts;
 $audience = $this->audience;
-$revenue  = 0;
-foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
 ?>
 <div class="aud">
     <header class="aud__head">
         <div>
             <h1 class="aud__title">Audience</h1>
-            <p class="aud__sub">Everyone connected to you — followers, subscribers, and buyers.</p>
+            <p class="aud__sub">Everyone who follows you.</p>
         </div>
         <?php if (!Plan::cover('audience')): ?>
         <div class="aud__actions">
@@ -35,15 +32,12 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
     <div class="aud__empty">
         <span class="aud__empty-icon"><i class="fa-solid fa-users"></i></span>
         <h2 class="aud__empty-title">No Audience Yet</h2>
-        <p class="aud__empty-text">When people follow you, subscribe, or buy your content, they'll show up here — ready to tag, note, and message.</p>
+        <p class="aud__empty-text">When people follow you, they'll show up here, ready to tag, note, and message.</p>
     </div>
 <?php else: ?>
     <div class="aud__toolbar">
         <div class="aud__filters" id="audFilters">
-            <button type="button" class="aud__chip is-on" data-seg="all">All <b><?php echo (int) $counts['all']; ?></b></button>
-            <button type="button" class="aud__chip" data-seg="followers">Followers <b><?php echo (int) $counts['followers']; ?></b></button>
-            <button type="button" class="aud__chip" data-seg="subscribers">Subscribers <b><?php echo (int) $counts['subscribers']; ?></b></button>
-            <button type="button" class="aud__chip" data-seg="buyers">Buyers <b><?php echo (int) $counts['buyers']; ?></b></button>
+            <button type="button" class="aud__chip is-on" data-seg="all">Followers <b><?php echo (int) $counts['followers']; ?></b></button>
         </div>
         <div class="aud__search">
             <i class="fa-solid fa-magnifying-glass"></i>
@@ -53,13 +47,12 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
 
     <div class="aud-table">
         <div class="aud-table__cap">
-            <span class="aud-table__cap-l"><i class="fa-solid fa-arrow-down-wide-short"></i> Top spenders first</span>
-            <span class="aud-table__cap-r"><b><?php echo $dollars($revenue); ?></b> lifetime revenue</span>
+            <span class="aud-table__cap-l"><i class="fa-solid fa-arrow-down-wide-short"></i> Newest first</span>
+            <span class="aud-table__cap-r"><b><?php echo (int) $counts['all']; ?></b> <?php echo (int) $counts['all'] === 1 ? 'person' : 'people'; ?></span>
         </div>
         <div class="aud-table__head">
             <span>Member</span>
             <span>Relationship</span>
-            <span class="aud-r">Spent</span>
             <span>Member since</span>
             <span></span>
         </div>
@@ -67,12 +60,10 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
             <?php foreach ($audience as $f):
                 $base   = mb_strtolower($f['name'] . ' @' . $f['handle']);
                 $search = trim($base . ' ' . mb_strtolower(implode(' ', $f['tags'])));
-                $since  = $f['subscribed_at'] ?: ($f['followed_at'] ?: $f['last_at']);
+                $since  = $f['followed_at'] ?: $f['last_at'];
             ?>
             <div class="aud-row" data-fan="<?php echo (int) $f['id']; ?>"
                  data-follower="<?php echo $f['is_follower'] ? 1 : 0; ?>"
-                 data-subscriber="<?php echo $f['is_subscriber'] ? 1 : 0; ?>"
-                 data-buyer="<?php echo $f['is_buyer'] ? 1 : 0; ?>"
                  data-search-base="<?php echo $e($base); ?>"
                  data-search="<?php echo $e($search); ?>">
                 <div class="aud-row__main">
@@ -89,16 +80,6 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
                     </div>
                     <div class="aud-cell aud-cell--rel">
                         <?php if ($f['is_follower']): ?><span class="aud-badge"><i class="fa-solid fa-user-plus"></i> Follower</span><?php endif; ?>
-                        <?php if ($f['is_subscriber']): ?><span class="aud-badge aud-badge--sub"><i class="fa-solid fa-heart"></i> Subscriber</span><?php endif; ?>
-                        <?php if ($f['is_buyer']): ?><span class="aud-badge aud-badge--buy"><i class="fa-solid fa-bag-shopping"></i> Buyer</span><?php endif; ?>
-                    </div>
-                    <div class="aud-cell aud-cell--spend aud-r">
-                        <?php if ($f['spend_credits'] > 0): ?>
-                            <span class="aud-spend"><?php echo $dollars($f['spend_credits']); ?></span>
-                            <span class="aud-spend__meta"><?php echo (int) $f['purchases']; ?> <?php echo ((int) $f['purchases'] === 1 ? 'purchase' : 'purchases'); ?></span>
-                        <?php else: ?>
-                            <span class="aud-spend__meta">—</span>
-                        <?php endif; ?>
                     </div>
                     <div class="aud-cell aud-cell--since">
                         <?php echo $since ? $e($fmt_since($since)) : '<span class="aud-spend__meta">—</span>'; ?>
@@ -162,10 +143,6 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
                         <label class="lc__label" for="lcInfl">Written As</label>
                         <select class="form-select" id="lcInfl"></select>
                     </div>
-                    <div class="lc__field">
-                        <label class="lc__label" for="lcDest">Destination</label>
-                        <select class="form-select" id="lcDest"><option value="cls">Creator Link Studio</option></select>
-                    </div>
                     <div class="lc__field lc__field--full">
                         <div class="lc__label">Send Messages To</div>
                         <div class="lc__checks" id="lcSegs"></div>
@@ -182,14 +159,6 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
                             <button type="button" class="btn btn-secondary btn-sm" id="lcPickChoose">Choose Image</button>
                             <button type="button" class="btn btn-ghost btn-sm" id="lcPickClear" hidden>Remove</button>
                         </div>
-                    </div>
-                    <div class="lc__field">
-                        <label class="lc__label" for="lcCode">Promo Code</label>
-                        <input type="text" class="form-control" id="lcCode" maxlength="24" placeholder="LAUNCH20" autocomplete="off">
-                    </div>
-                    <div class="lc__field lc__field--pair">
-                        <div><label class="lc__label" for="lcPct">Percent Off</label><input type="number" class="form-control" id="lcPct" min="1" max="100" placeholder="20" disabled></div>
-                        <div><label class="lc__label" for="lcValid">Days Valid</label><input type="number" class="form-control" id="lcValid" min="1" max="60" value="7" disabled></div>
                     </div>
                 </form>
 

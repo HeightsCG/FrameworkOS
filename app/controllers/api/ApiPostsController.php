@@ -1,23 +1,15 @@
 <?php
-/** Fan-facing feed, post detail, engagement, PPV/bundle unlocks and creator-plan subscriptions. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
+/** Fan-facing feed, post detail and engagement. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
 class ApiPostsController extends BaseApiController {
 
     /**
      * Home discovery feed — cross-creator published content, newest first, paginated.
-     * All gating is decided HERE (server-side): the clear cover is signed only for an
-     * entitled viewer; everyone else gets the blurred teaser. Mirrors the safety gate
-     * used on the profile grid (blocked hidden from all, pending withheld, adult opt-in).
+     * Every post is free to view. Mirrors the safety gate used on the profile grid
+     * (blocked and flagged hidden from all, pending withheld).
      */
     public function feedAction(){
         $viewer = (int) Session::get('user_id');
         $logged = $viewer > 0;
-
-        $show_adult = false;
-        if ($logged) {
-            $rows = (new UsersModel())->get_user_by_id($viewer);
-            $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            $show_adult = AgeVerification::adult_allowed($row);   // toggle on AND age verified
-        }
 
         $limit  = 4;
         $offset = max(0, (int) ($this->post['offset'] ?? 0));
@@ -28,7 +20,7 @@ class ApiPostsController extends BaseApiController {
         $pos      = $offset;   // raw rows consumed so far; next_offset continues from here
         $has_more = false;
         $batch    = 12;
-        // Rows hidden from this viewer (adult, still being scanned, blocked) are filtered after the SQL LIMIT, so keep
+        // Rows hidden from this viewer (flagged, still being scanned, blocked) are filtered after the SQL LIMIT, so keep
         // reading until $limit cards survive or the rows run out (a few rounds at most).
         for ($round = 0; $round < 5 && count($cards) < $limit; $round++) {
             $rows     = (array) $feed_model->recent($batch + 1, $pos, $viewer);   // one extra row says whether more exist
@@ -38,7 +30,6 @@ class ApiPostsController extends BaseApiController {
 
             $post_ids       = array_map(function ($p) { return (int) $p['id']; }, $rows);
             $moderation_map = !empty($post_ids) ? $posts_model->moderation_map($post_ids) : [];
-            $unlocked_map   = ($logged && !empty($post_ids)) ? (new PpvUnlocksModel())->unlocked_map($viewer, $post_ids) : [];
             $liked_map      = ($logged && !empty($post_ids)) ? (new PostLikesModel())->liked_map($viewer, $post_ids) : [];
 
             // Discover is the shared surface: the creator is treated exactly like any other
@@ -48,24 +39,7 @@ class ApiPostsController extends BaseApiController {
                 $pos++;
                 $id  = (int) $p['id'];
                 $mod = $moderation_map[$id] ?? '';
-                if ($mod === 'blocked') { continue; }
-                if ($mod === 'pending') { continue; }
-                if ($mod === 'adult' && !$show_adult) { continue; }
-
-                $audience = (string) $p['audience'];
-                if ($audience === 'free') {
-                    $entitled = true;
-                } elseif ($audience === 'ppv') {
-                    $entitled = isset($unlocked_map[$id]);
-                } else {
-                    // The feed only returns a subscriber post to someone subscribed to its creator (FeedModel::subscriber_sql). They see
-                    // it clear when their tier covers it, and as a locked tile when the post is for a higher tier.
-                    $s_subs  = new CreatorSubscriptionsModel(); $s_cid = (int) $p['creator_id'];
-                    $s_tiers = $posts_model->tiers_for_posts(array($id))[$id] ?? array();
-                    $s_price = array(); $s_tid = (int) ($p['tier_id'] ?? 0);
-                    if (empty($s_tiers) && $s_tid > 0) { $s_plan = (new CreatorPlansModel())->get_public($s_tid); $s_price[$s_tid] = (int) ($s_plan['price_cents'] ?? 0); }
-                    $entitled = $logged && PostsModel::tier_entitled($p, $s_tiers, (array) $s_subs->active_plan_ids($viewer, $s_cid), $s_subs->max_active_tier_price($viewer, $s_cid), $s_price);
-                }
+                if ($mod === 'blocked' || $mod === 'flagged' || $mod === 'pending') { continue; }
 
                 $display = trim((string) ($p['display_name'] ?? ''));
                 if ($display === '') { $display = '@' . (string) $p['u_name']; }
@@ -85,8 +59,6 @@ class ApiPostsController extends BaseApiController {
                     'handle'      => (string) $p['u_name'],
                     'avatar'      => (string) ($p['avatar_url'] ?? ''),
                     'caption'     => mb_substr($cap, 0, 140),
-                    'audience'    => $audience,
-                    'entitled'    => $entitled,
                     'is_video'    => ($cover_asset['type'] === 'video'),
                     'media_count' => (int) $p['asset_count'],
                     'views'       => (int) $p['views'],
@@ -94,47 +66,36 @@ class ApiPostsController extends BaseApiController {
                     'liked'       => isset($liked_map[$id]),
                     'comments'    => (int) $p['comments'],
                 ];
-                if ($audience === 'ppv') {
-                    $card['ppv_price_credits'] = (int) $p['ppv_price_credits'];
-                    $card['unlocked']          = isset($unlocked_map[$id]);
-                }
                 if (!$has_cover) {
                     $card['cover'] = '';
-                } elseif ($entitled) {
-                    // free posts use the public, cacheable webp copy (PublicThumbService checks the asset is approved and not adult).
-                    $pub = $audience === 'free' ? PublicThumbService::url(array(
-                        'moderation_status' => (string) ($p['cover_moderation_status'] ?? ''), 'is_adult' => (int) ($p['cover_is_adult'] ?? 1),
-                        'public_display_key' => (string) ($p['cover_public_display_key'] ?? '')), 'feed') : '';
-                    $card['cover'] = $pub !== '' ? $pub : MediaService::signed_variant($cover_asset, ($cover_asset['type'] === 'video' ? 'poster' : 'thumb'), 900);
                 } else {
-                    $card['cover'] = MediaService::signed_variant($cover_asset, 'blurred', 900);
+                    // the public, cacheable webp copy when there is one (PublicThumbService checks the asset is approved).
+                    $pub = PublicThumbService::url(array(
+                        'moderation_status' => (string) ($p['cover_moderation_status'] ?? ''),
+                        'public_display_key' => (string) ($p['cover_public_display_key'] ?? '')), 'feed');
+                    $card['cover'] = $pub !== '' ? $pub : MediaService::signed_variant($cover_asset, ($cover_asset['type'] === 'video' ? 'poster' : 'thumb'), 900);
                 }
                 $cards[] = $card;
             }
             if (!$has_more) { break; }
         }
 
-        $this->jsonSuccess(['viewer_logged' => $logged, 'viewer_credits' => $logged ? (int) (new CreditsModel())->get_balance($viewer) : 0, 'items' => $cards, 'has_more' => $has_more, 'next_offset' => $pos]);
+        $this->jsonSuccess(['viewer_logged' => $logged, 'items' => $cards, 'has_more' => $has_more, 'next_offset' => $pos]);
     }
 
     /**
      * Count of posts published since a watermark id — the Home feed polls this to
-     * raise its "N new posts" alert. Same filters as feedAction, moderation and adult gate included.
+     * raise its "N new posts" alert. Same filters as feedAction, moderation gate included.
      */
     public function feed_newAction(){
         $since  = (int) ($this->post['since_id'] ?? 0);
         $viewer = (int) Session::get('user_id');
-        $show_adult = false;
-        if ($viewer > 0) {
-            $rows = (new UsersModel())->get_user_by_id($viewer);
-            $show_adult = AgeVerification::adult_allowed((is_array($rows) && count($rows) === 1) ? $rows[0] : null);
-        }
-        $this->jsonSuccess(['count' => (new FeedModel())->count_since($since, 50, $viewer, $show_adult)]);
+        $this->jsonSuccess(['count' => (new FeedModel())->count_since($since, 50, $viewer)]);
     }
 
     /**
      * "Load More" on a creator's profile: the next page of post cards. Same visibility rules as the page and the same
-     * gate/entitlement code (ProfilePosts), so locked media is only ever the blurred preview.
+     * gate code (ProfilePosts).
      */
     public function profile_postsAction(){
         $handle = preg_replace('/[^a-z0-9_]/', '', strtolower(ltrim((string) ($this->post['handle'] ?? ''), '@')));
@@ -155,10 +116,9 @@ class ApiPostsController extends BaseApiController {
     }
 
     /**
-     * Full detail for a single post — feeds the Home lightbox. Entitlement is decided
-     * here: an entitled viewer (owner, free, active subscriber, or PPV-unlocked) gets
-     * signed asset URLs; everyone else gets only the blurred teaser + the unlock/subscribe
-     * path. Author identity is carried by the feed card, so it isn't repeated here.
+     * Full detail for a single post — feeds the Home lightbox: signed asset URLs for a
+     * post that passes the visibility gates. Author identity is carried by the feed card,
+     * so it isn't repeated here.
      */
     public function post_detailAction(){
         $viewer = (int) Session::get('user_id');
@@ -177,18 +137,12 @@ class ApiPostsController extends BaseApiController {
             $this->jsonError('Post not available');
         }
 
-        $audience = (string) $post['audience'];
-        $unlocked = ($viewer > 0) ? isset((new PpvUnlocksModel())->unlocked_map($viewer, [$id])[$id]) : false;
-        // Free / active-subscriber; PPV needs an unlock. Ownership does not count on Discover.
-        $entitled = $this->post_engagement_ok($post, $viewer, false);
-        if (!$entitled && $audience === 'ppv' && $unlocked) { $entitled = true; }
+        if (!$this->post_engagement_ok($post, $viewer, false)) { $this->jsonError('Post not available'); }
         $liked = ($viewer > 0) ? isset((new PostLikesModel())->liked_map($viewer, [$id])[$id]) : false;
 
         $out = [
             'id'               => $id,
             'caption'          => trim((string) $post['caption']),
-            'audience'         => $audience,
-            'entitled'         => $entitled,
             'published_at'     => !empty($post['published_at']) ? date('M j, Y', strtotime((string) $post['published_at'])) : '',
             'likes'            => (int) $post['likes'],
             'liked'            => $liked,
@@ -196,20 +150,7 @@ class ApiPostsController extends BaseApiController {
             'views'            => (int) $post['views'],
             'comments_enabled' => (int) $post['comments_enabled'],
         ];
-        if ($audience === 'ppv') {
-            $out['ppv_price_credits'] = (int) $post['ppv_price_credits'];
-            $out['ppv_price_dollars'] = Price::input((int) $post['ppv_price_credits']);
-            $out['unlocked']          = $unlocked;
-        }
-        if ($entitled) {
-            $out['assets'] = $this->ppv_reveal_assets($post);
-        } else {
-            $assets = (new PostsModel())->get_assets($id);
-            $cover  = null;
-            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
-            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
-            $out['locked_url'] = $cover ? MediaService::signed_variant($cover, 'blurred', 900) : '';
-        }
+        $out['assets'] = $this->post_assets($post);
 
         $this->jsonSuccess(['post' => $out]);
     }
@@ -288,7 +229,7 @@ class ApiPostsController extends BaseApiController {
         $viewer = (int) Session::get('user_id');
         $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
         if (!$post) { echo json_encode(['success' => false]); exit; }
-        // Entitled to see it? Owner/free/subscriber via post_engagement_ok; PPV needs an unlock (checked in there too).
+        // Visible to this viewer? (post_engagement_ok)
         $can_view = $this->post_engagement_ok($post, $viewer);
         if (!$can_view) {
             $this->jsonSuccess(['views' => (int) $post['views']]);
@@ -305,386 +246,6 @@ class ApiPostsController extends BaseApiController {
         $this->jsonSuccess(['views' => (int) $post['views']]);
     }
 
-    /** Spend credits to unlock a pay-per-view post. Records the unlock and pays the creator. */
-    public function ppv_unlockAction(){
-        $viewer = (int) Session::get('user_id');
-        if ($viewer <= 0) {
-            $this->jsonError('Sign in to unlock this post.', ['need_login' => true]);
-        }
-        $post_id = (int) ($this->post['post_id'] ?? 0);
-        $post    = (new PostsModel())->get_by_id($post_id);
-        if (!$post || $post['state'] !== 'published' || $post['audience'] !== 'ppv' || empty($post['on_cls'])) {
-            $this->jsonError('That post is not available.');
-        }
-        // Never sell (or reveal) held content by id: blocked, unscanned, or adult for a viewer who opted out.
-        if (!$this->moderation_ok((int) $post['id'], $viewer)) {
-            $this->jsonError('That post is not available.');
-        }
-        $creator_id = (int) $post['creator_id'];
-        $price      = (int) $post['ppv_price_credits'];
-
-        // The creator sees their own PPV posts unlocked, for free.
-        if ($creator_id === $viewer) {
-            $this->jsonSuccess(['assets' => $this->ppv_reveal_assets($post)]);
-        }
-        if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That post is not available.'); }
-        if ($this->seller_suspended($creator_id)) { $this->jsonError('That post is not available.'); }
-        if ($price <= 0) { $this->jsonError('This post is not for sale.'); }
-
-        // Optional discount code — applied to the credits charged; the creator's
-        // earning and the platform fee are computed off the discounted amount.
-        $promo  = null;
-        $charge = $price;
-        $promo_code = (string) ($this->post['code'] ?? '');
-        if ($promo_code !== '') {
-            $this->promo_guard();
-            $promo = (new CreatorPromoCodesModel())->get_redeemable($creator_id, $promo_code, 'ppv');
-            if (!$promo) {
-                $this->promo_miss();
-                $this->jsonError("That discount code isn't valid.");
-            }
-            $why = CreatorPromoCodesModel::rule_error($promo, $creator_id, $viewer, $price);   // minimum order, first purchase only
-            if ($why !== '') { $this->jsonError($why); }
-            $charge = CreatorPromoCodesModel::price_after($promo, $price);
-        }
-
-        $unlocks = new PpvUnlocksModel();
-        $credits = new CreditsModel();
-
-        if ($unlocks->has_unlocked($post_id, $viewer)) {
-            $this->jsonSuccess(['already' => true, 'assets' => $this->ppv_reveal_assets($post)]);
-        }
-        $balance = $credits->get_balance($viewer);
-        if ($balance < $charge) {
-            $this->jsonError('You need ' . Price::credits($charge - $balance) . ' more in your wallet to unlock this.', ['need_credits' => true, 'balance' => $balance, 'price' => $charge, 'shortfall' => $charge - $balance]);
-        }
-
-        // A code's last redemption goes to one buyer: take the slot first, give it back if the unlock doesn't happen.
-        $promos = new CreatorPromoCodesModel();
-        if ($promo && !$promos->redeem((int) $promo['id'])) {
-            $this->jsonError('That discount code has been fully used.');
-        }
-        // Record first: the UNIQUE(post_id, fan_id) key is the mutex that prevents a
-        // double charge from concurrent clicks. Then debit; roll the row back if it fails.
-        if (!$unlocks->record($post_id, $creator_id, $viewer, $charge)) {
-            if ($promo) { $promos->unredeem((int) $promo['id']); }
-            $this->jsonSuccess(['already' => true, 'assets' => $this->ppv_reveal_assets($post)]);
-        }
-        // Charge the fan and pay the creator their share (net of their plan's platform fee) in one transaction.
-        $net = $this->creator_net($creator_id, $charge);
-        if ($credits->pay($viewer, $charge, 'ppv_unlock', 'Unlocked a post', $creator_id, $net, 'ppv_earning', 'Pay-per-view unlock') === false) {
-            $unlocks->remove($post_id, $viewer);
-            if ($promo) { $promos->unredeem((int) $promo['id']); }
-            $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $charge]);
-        }
-        if ($net > 0) {
-            (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
-            $unlocks->set_net($post_id, $viewer, $net);
-        }
-        TrackingLinks::attribute($creator_id, 'ppv', $viewer, $charge, 'posts', $post_id);
-        $this->notify($creator_id, 'purchases', 'New pay-per-view sale',
-            'Someone unlocked your post for ' . Notify::credits($charge) . '.', '/dashboard', 'fa-coins');
-        $this->notify($viewer, 'purchases', 'Post unlocked',
-            Notify::credits($charge) . ' spent · ' . Notify::credits($credits->get_balance($viewer)) . ' left. It is in your Purchases.', '/purchases', 'fa-unlock');
-        InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'ppv' . $post_id);
-
-        $this->jsonSuccess(['assets' => $this->ppv_reveal_assets($post), 'balance' => $credits->get_balance($viewer)]);
-    }
-
-    /**
-     * Spend credits to unlock a content bundle. Charges once, then grants access to
-     * every post in the bundle by writing a ppv_unlocks row per post (so all existing
-     * entitlement checks unlock automatically), and pays the creator net of the fee.
-     */
-    public function bundle_unlockAction(){
-        $viewer = (int) Session::get('user_id');
-        if ($viewer <= 0) {
-            $this->jsonError('Sign in to unlock this bundle.', ['need_login' => true]);
-        }
-        $bundle_id = (int) ($this->post['bundle_id'] ?? 0);
-        $model     = new ContentBundlesModel();
-        $bundle    = $model->get_public($bundle_id);
-        if (!$bundle) { $this->jsonError('That bundle is not available.'); }
-
-        $creator_id = (int) $bundle['creator_id'];
-        $price      = (int) $bundle['price_credits'];
-        if ($model->live_item_count($bundle_id) <= 0) { $this->jsonError('This bundle has no content.'); }   // deleted or blocked files don't count
-
-        // The creator already owns everything in their own bundle.
-        if ($creator_id === $viewer) {
-            $this->jsonSuccess(['already' => true, 'message' => 'This is your own bundle.']);
-        }
-        if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That bundle is not available.'); }
-        if ($this->seller_suspended($creator_id)) { $this->jsonError('That bundle is not available.'); }
-        if ($price <= 0) { $this->jsonError('This bundle is not for sale.'); }
-        // Adult (or not yet scanned) media is only sold to fans who have adult content on.
-        $vrow = $this->userModel->get_user_by_id($viewer);
-        if (!(is_array($vrow) && count($vrow) === 1 && AgeVerification::adult_allowed($vrow[0]))) {
-            foreach ((array) $model->get_media_for_bundle($bundle_id) as $a) {
-                $st = (string) ($a['moderation_status'] ?? '');
-                if ($st !== 'n_a' && ($st !== 'approved' || !empty($a['is_adult']))) {
-                    $this->jsonError('This bundle has adult content. Turn on adult content in Settings to buy it.');
-                }
-            }
-        }
-
-        $credits = new CreditsModel();
-        if ($model->has_unlocked($bundle_id, $viewer)) {
-            $this->jsonSuccess(['already' => true, 'message' => 'You already own this bundle.']);
-        }
-        $balance = $credits->get_balance($viewer);
-        if ($balance < $price) {
-            $this->jsonError('You need ' . Price::credits($price - $balance) . ' more in your wallet to unlock this bundle.', ['need_credits' => true, 'balance' => $balance, 'price' => $price]);
-        }
-
-        // Record the bundle unlock first (UNIQUE(bundle_id,fan_id) is the mutex), then
-        // debit; roll the row back if the charge fails.
-        if (!$model->record_unlock($bundle_id, $creator_id, $viewer, $price)) {
-            $this->jsonSuccess(['already' => true, 'message' => 'You already own this bundle.']);
-        }
-        // Charge the fan and pay the creator net of the tiered platform fee, in one transaction.
-        $net = $this->creator_net($creator_id, $price);
-        if ($credits->pay($viewer, $price, 'bundle_unlock', 'Unlocked a content bundle', $creator_id, $net, 'bundle_earning', 'Content bundle purchase') === false) {
-            $model->remove_unlock($bundle_id, $viewer);
-            $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
-        }
-        // The bundle_unlocks row is the grant — the media now appears in the fan's
-        // Purchases (which reads bundle_unlocks). No post unlocking involved.
-        if ($net > 0) { $model->set_unlock_net($bundle_id, $viewer, $net); }
-        TrackingLinks::attribute($creator_id, 'purchase', $viewer, $price, 'content_bundles', $bundle_id);
-        $this->notify($creator_id, 'purchases', 'New bundle sale',
-            'Someone purchased your bundle for ' . Notify::credits($price) . '.', '/dashboard', 'fa-coins');
-        $this->notify($viewer, 'purchases', 'Bundle purchased',
-            Notify::credits($price) . ' spent · ' . Notify::credits($credits->get_balance($viewer)) . ' left. It is in your Purchases.', '/purchases', 'fa-box-open');
-        InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'bundle' . (int) ($this->post['bundle_id'] ?? 0));
-
-        $n = $model->live_item_count($bundle_id);
-        $this->jsonSuccess(['unlocked' => $n, 'balance' => $credits->get_balance($viewer), 'message' => 'Purchased — ' . $n . ' item' . ($n === 1 ? '' : 's') . ' added to your Purchases.']);
-    }
-
-    /** Join a free membership tier (auth required). Paid tiers go through checkout. */
-    public function join_free_planAction(){
-
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Sign in to join', ['need_login' => true]);
-        }
-
-        $user_id = (int) Session::get('user_id');
-        $plan    = (new CreatorPlansModel())->get_public((int) ($this->post['plan_id'] ?? 0));
-
-        if (!$plan) {
-            $this->jsonError('That plan is no longer available');
-        }
-        if ((int) $plan['price_cents'] !== 0) {
-            $this->jsonError('This is a paid plan');
-        }
-
-        if ((new BlocksModel())->either_blocked($user_id, (int) $plan['user_id'])) { $this->jsonError('That plan is no longer available'); }
-        if ($this->seller_suspended((int) $plan['user_id'])) { $this->jsonError('That plan is no longer available'); }
-        (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
-        TrackingLinks::attribute((int) $plan['user_id'], 'subscription', $user_id, 0, 'creator_plans', (int) $plan['id']);
-        $cname = Notify::name_of((int) $plan['user_id']); $chandle = Notify::handle_of((int) $plan['user_id']);
-        $this->notify($user_id, 'subscriptions', 'You joined ' . $plan['name'], ($cname !== '' ? $cname . '\'s ' : '') . 'free membership is active.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
-        $this->notify((int) $plan['user_id'], 'subscriptions', 'New member', (Notify::name_of($user_id) ?: 'Someone') . ' joined ' . $plan['name'] . '.', '/audience', 'fa-user-plus');
-        InboxAutomationService::trigger((int) $plan['user_id'], $user_id, 'new_subscriber');
-
-        $this->jsonSuccess(['message' => 'You joined ' . $plan['name'], 'plan_id' => (int) $plan['id']]);
-    }
-
-    /** Start Stripe Checkout for a paid membership on the creator's connected account. */
-    public function subscribe_planAction(){
-
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Sign in to subscribe', ['need_login' => true]);
-        }
-
-        $user_id    = (int) Session::get('user_id');
-        $plansModel = new CreatorPlansModel();
-        $plan       = $plansModel->get_public((int) ($this->post['plan_id'] ?? 0));
-
-        if (!$plan) {
-            $this->jsonError('That plan is no longer available');
-        }
-        if ((int) $plan['price_cents'] === 0) {
-            $this->jsonError('This is a free plan');
-        }
-
-        $creator_id = (int) $plan['user_id'];
-        if ((new BlocksModel())->either_blocked($user_id, $creator_id)) { $this->jsonError('That plan is no longer available'); }
-        if ($this->seller_suspended($creator_id)) { $this->jsonError('That plan is no longer available'); }
-        $subsModel = new CreatorSubscriptionsModel();
-        if ($subsModel->is_subscribed_to_plan($user_id, (int) $plan['id'])) {
-            $this->jsonError('You are already a member of this plan');
-        }
-        // One paid membership per creator — switching tiers is done from My Subscriptions.
-        if ($subsModel->has_active_paid_for_creator($user_id, $creator_id)) {
-            $this->jsonError('You already have a paid membership with this creator. Manage or switch it in My Subscriptions.');
-        }
-
-        // The creator must have a payments-enabled Connect account.
-        $creator    = $this->userModel->get_user_by_id($creator_id);
-        $creator    = (is_array($creator) && count($creator) === 1) ? $creator[0] : null;
-        $connect_id = $creator ? (string) ($creator['stripe_connect_account_id'] ?? '') : '';
-        if (!$creator || $connect_id === '' || empty(StripeService::connect_account_status($connect_id)['payouts_enabled'])) {
-            $this->jsonError("This creator isn't set up to accept payments yet");
-        }
-
-        // Create the Stripe price on first subscribe, then cache it on the plan.
-        $price_id = (string) ($plan['stripe_price_id'] ?? '');
-        if ($price_id === '') {
-            $created = StripeService::create_connect_price($connect_id, $plan);
-            if (empty($created['price_id'])) {
-                $this->jsonError('Could not start checkout. Please try again.');
-            }
-            $price_id = $created['price_id'];
-            $plansModel->set_stripe_ids((int) $plan['id'], $created['product_id'], $price_id);
-        }
-
-        // Optional discount code — validate for the subscription context, then apply a
-        // Stripe coupon on the creator's connected account (created once, cached on the
-        // promo row). The redemption is counted when the subscription is recorded.
-        $coupon_id = '';
-        $promo_id  = 0;
-        $code = trim((string) ($this->post['code'] ?? ''));
-        if ($code !== '') {
-            $this->promo_guard();
-            $promo = (new CreatorPromoCodesModel())->get_redeemable($creator_id, $code, 'subscription');
-            if (!$promo) {
-                $this->promo_miss();
-                $this->jsonError("That discount code isn't valid.");
-            }
-            $why = CreatorPromoCodesModel::rule_error($promo, $creator_id, $user_id, (int) round((int) $plan['price_cents'] / 10));   // plan price in credits
-            if ($why !== '') { $this->jsonError($why); }
-            $promo_id  = (int) $promo['id'];
-            $coupon_id = (string) ($promo['stripe_coupon_id'] ?? '');
-            if ($coupon_id === '') {
-                $coupon_id = StripeService::create_connect_coupon($connect_id, (int) $promo['percent_off'], (int) ($promo['amount_off_credits'] ?? 0) * 10);
-                if ($coupon_id !== '') { (new CreatorPromoCodesModel())->set_stripe_coupon($promo_id, $coupon_id); }
-            }
-        }
-
-        $back    = CustomDomains::profile_url_here((string) $creator['u_name']);   // their own domain when the fan is on it
-        $success = $back . '?sub=success&session_id={CHECKOUT_SESSION_ID}';
-        $cancel  = $back . '?sub=cancel';
-        $meta    = ['subscriber_id' => (string) $user_id, 'creator_id' => (string) $creator_id, 'plan_id' => (string) $plan['id']];
-        if ($promo_id > 0) { $meta['promo_id'] = (string) $promo_id; }
-        // the fan's /go tracking link for this creator, so the payment webhook can credit it when the fan never returns
-        $tl_link_id = TrackingLinks::current_link_id($creator_id, $user_id);
-        if ($tl_link_id > 0) { $meta['tl_link_id'] = (string) $tl_link_id; $meta['tl_user_id'] = (string) $user_id; }
-
-        // Free trial: compute the actual trial-end date from the plan's value + unit
-        // (e.g. "+2 week", "+1 month") and hand Stripe a trial_end timestamp — no day
-        // conversion. Only while enabled.
-        $trial_end = 0;
-        // One free trial per fan per creator: anyone who has had a paid membership with them before pays from day one.
-        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0 && !$subsModel->had_paid_with($user_id, $creator_id)) {
-            $tu = in_array(($plan['trial_unit'] ?? 'day'), ['day', 'week', 'month'], true) ? $plan['trial_unit'] : 'day';
-            $trial_end = strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu, time());
-        }
-        // One open checkout per fan per creator: close the last one first, so a second tab can't pay a second time.
-        $prev = $subsModel->open_checkout($user_id, $creator_id);
-        if ($prev !== '') {
-            $was = StripeService::expire_checkout_session($connect_id, $prev);
-            if ($was === 'complete') {   // paid, not recorded yet (the success page or webhook is still on its way)
-                $this->jsonError('Your membership with this creator is already paid and is being set up. Refresh the page in a moment.');
-            }
-            if ($was === '') { $this->jsonError('Could not start checkout. Please try again.'); }
-        }
-        $session = StripeService::create_subscription_checkout(
-            $connect_id, $price_id, Plan::fee_percent($creator), $success, $cancel, $meta, (string) Session::get('user_email'), $trial_end, $coupon_id
-        );
-        if (empty($session['url'])) {
-            $this->jsonError('Could not start checkout. Please try again.');
-        }
-        $subsModel->set_open_checkout($user_id, $creator_id, (string) $session['id']);
-
-        $this->jsonSuccess(['url' => $session['url']]);
-    }
-
-    /** Cancel a creator membership. Free → immediate; paid → at period end (via Stripe). */
-    public function cancel_creator_subscriptionAction(){
-        $response = ['success' => false, 'message' => 'Something went wrong'];
-
-        if (empty(Session::get('user_id'))) {
-            $response['message'] = 'Not authorized';
-            echo json_encode($response);
-            exit;
-        }
-
-        $user_id = (int) Session::get('user_id');
-        $subs    = new CreatorSubscriptionsModel();
-        $sub     = $subs->get_owned($user_id, (int) ($this->post['id'] ?? 0));
-
-        if (!$sub || $sub['status'] !== 'active') {
-            $response['message'] = 'Subscription not found';
-            echo json_encode($response);
-            exit;
-        }
-
-        if (!empty($sub['is_free'])) {
-            $subs->set_status($user_id, (int) $sub['id'], 'canceled');
-            $response['state']   = 'canceled';
-            $response['message'] = 'Membership canceled';
-        } else {
-            $creator = $this->userModel->get_user_by_id((int) $sub['creator_id']);
-            $creator = (is_array($creator) && count($creator) === 1) ? $creator[0] : null;
-            $connect = $creator ? (string) ($creator['stripe_connect_account_id'] ?? '') : '';
-            if ($connect === '' || empty($sub['stripe_subscription_id'])
-                || !StripeService::set_subscription_cancel_at_period_end($connect, $sub['stripe_subscription_id'], true)) {
-                $response['message'] = 'Could not cancel. Please try again.';
-                echo json_encode($response);
-                exit;
-            }
-            $subs->set_cancel_at_period_end($user_id, (int) $sub['id'], true);
-            $this->notify($user_id, 'subscriptions', 'Membership ending', 'Your membership to ' . (Notify::name_of((int) $sub['creator_id']) ?: 'this creator') . ' ends at the current billing period. Resume anytime before then.', '/account/settings?section=subscriptions', 'fa-heart-crack');
-            $response['state']   = 'canceling';
-            $response['message'] = 'Your membership will end at the current billing period';
-        }
-
-        $response['success'] = true;
-        echo json_encode($response);
-        exit;
-    }
-
-    /** Resume a creator membership: free → reactivate; paid → undo the scheduled cancellation. */
-    public function reactivate_creator_subscriptionAction(){
-
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Not authorized');
-        }
-
-        $user_id = (int) Session::get('user_id');
-        $subs    = new CreatorSubscriptionsModel();
-        $sub     = $subs->get_owned($user_id, (int) ($this->post['id'] ?? 0));
-
-        if (!$sub) {
-            $this->jsonError('Subscription not found');
-        }
-
-        if (!empty($sub['is_free'])) {
-            $plan = (new CreatorPlansModel())->get_public((int) $sub['plan_id']);
-            if (!$plan || (int) $plan['price_cents'] !== 0) {
-                $this->jsonError('This plan is no longer available');
-            }
-            $subs->set_status($user_id, (int) $sub['id'], 'active');
-        } else {
-            if ($sub['status'] !== 'active') {
-                $this->jsonError('This membership has ended — subscribe again from the profile');
-            }
-            $creator = $this->userModel->get_user_by_id((int) $sub['creator_id']);
-            $creator = (is_array($creator) && count($creator) === 1) ? $creator[0] : null;
-            $connect = $creator ? (string) ($creator['stripe_connect_account_id'] ?? '') : '';
-            if ($connect === '' || empty($sub['stripe_subscription_id'])
-                || !StripeService::set_subscription_cancel_at_period_end($connect, $sub['stripe_subscription_id'], false)) {
-                $this->jsonError('Could not resume. Please try again.');
-            }
-            $subs->set_cancel_at_period_end($user_id, (int) $sub['id'], false);
-            $this->notify($user_id, 'subscriptions', 'Membership resumed', 'Your membership to ' . (Notify::name_of((int) $sub['creator_id']) ?: 'this creator') . ' will renew as usual.', '/account/settings?section=subscriptions', 'fa-heart');
-        }
-
-        $this->jsonSuccess(['state' => 'active', 'message' => 'Membership resumed']);
-    }
-
     // ---------- Public post engagement (likes / comments / views) ----------
 
     /** Whether this viewer is allowed to see — and thus engage with — the post. */
@@ -693,24 +254,12 @@ class ApiPostsController extends BaseApiController {
         $creator_id = (int) $post['creator_id'];
         // same visibility gates as post_detail: socials-only, suspended/Free seller, moderation (no owner exemption).
         if (empty($post['on_cls'])) { return false; }
+        if (($post['audience'] ?? 'free') !== 'free') { return false; }   // legacy subscriber/pay-per-view rows are never made public
         if ($this->seller_suspended($creator_id)) { return false; }
         if (!$this->moderation_ok((int) $post['id'], $viewer_id)) { return false; }
         if ($owner_counts && $viewer_id === $creator_id) { return true; }
         if ($viewer_id > 0 && $viewer_id !== $creator_id && (new BlocksModel())->either_blocked($viewer_id, $creator_id)) { return false; }
-        if (($post['audience'] ?? 'free') === 'free') { return true; }
-        if ($viewer_id <= 0) { return false; }
-        // PPV is locked for everyone (subscribers included) until purchased — never fall through to tiers.
-        if (($post['audience'] ?? '') === 'ppv') { return (new PpvUnlocksModel())->has_unlocked((int) $post['id'], $viewer_id); }
-        $subs     = new CreatorSubscriptionsModel();
-        $plan_ids = (array) $subs->active_plan_ids($viewer_id, $creator_id);
-        $tiers    = (new PostsModel())->tiers_for_posts(array((int) $post['id']))[(int) $post['id']] ?? array();
-        $prices   = array();
-        $tier_id  = (int) ($post['tier_id'] ?? 0);
-        if (empty($tiers) && $tier_id > 0) {
-            $plan = (new CreatorPlansModel())->get_public($tier_id);
-            $prices[$tier_id] = (int) ($plan['price_cents'] ?? 0);
-        }
-        return PostsModel::tier_entitled($post, $tiers, $plan_ids, $subs->max_active_tier_price($viewer_id, $creator_id), $prices);
+        return true;
     }
 
     private function time_ago(string $dt): string{
@@ -728,35 +277,25 @@ class ApiPostsController extends BaseApiController {
         return ($name === '') ? ('@' . (string) ($row['u_name'] ?? 'user')) : $name;
     }
 
-    /** Signed, ready asset URLs for a post — returned to a viewer who is entitled to see it.
-     *  PPV is sold per-post, so an entitled viewer here bought it (or owns it): serve images
-     *  UNWATERMARKED. Free/subscriber posts keep the watermarked display variant. */
-    /** Feed moderation gate for one post: false when blocked, unscanned, or adult for a viewer who opted out. */
+    /** Feed moderation gate for one post: false when blocked, flagged or unscanned. */
     private function moderation_ok(int $post_id, int $viewer): bool{
         $mod = (new PostsModel())->moderation_map([$post_id])[$post_id] ?? '';
-        if ($mod === 'blocked' || $mod === 'pending') { return false; }
-        if ($mod === 'adult') {
-            if ($viewer <= 0) { return false; }
-            $rows = (new UsersModel())->get_user_by_id($viewer);
-            $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            return AgeVerification::adult_allowed($row);   // toggle on AND age verified
-        }
-        return true;
+        return !in_array($mod, ['blocked', 'flagged', 'pending'], true);
     }
 
-    private function ppv_reveal_assets(array $post): array{
-        $img_variant = (($post['audience'] ?? '') === 'ppv') ? 'original' : 'display';
+    /** Signed, ready asset URLs for a visible post (images use the watermarked display variant). */
+    private function post_assets(array $post): array{
         $out = [];
         foreach ((new PostsModel())->get_assets((int) $post['id']) as $a) {
             if (!empty($a['deleted_at']) || $a['status'] !== 'ready') { continue; }
-            if (($a['moderation_status'] ?? '') === 'blocked') { continue; }   // quarantined after sale: never re-served
+            if (($a['moderation_status'] ?? '') === 'blocked') { continue; }   // quarantined: never re-served
             if ($a['type'] === 'video') {
                 $out[] = ['type' => 'video',
                     'url'    => MediaService::signed_variant($a, 'original', 900),
                     'poster' => MediaService::signed_variant($a, 'poster', 900)];
             } else {
                 $out[] = ['type' => 'image',
-                    'url' => MediaService::signed_variant($a, $img_variant, 900), 'poster' => ''];
+                    'url' => MediaService::signed_variant($a, 'display', 900), 'poster' => ''];
             }
         }
         return $out;

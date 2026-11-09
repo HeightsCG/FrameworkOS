@@ -5,19 +5,17 @@
  * code; NOTHING is read from Stripe metadata. A Stripe plan is matched to a tier
  * purely by its product NAME (see match()), so Stripe only owns pricing.
  *
- * Six things differ between tiers (ROWS); everything else the platform does is
+ * Five things differ between tiers (ROWS); everything else the platform does is
  * included on every plan (INCLUDED). Enforcement reads these via Plan::limit(),
  * Plan::check_count() and the AI-credit charge in InfluencerJobService.
  *
  *   limits.*: 0 means "unlimited"; below 0 means "not included" (shown as 0).
- *   limits.fee_percent: the platform's take rate for this tier.
  *   limits.ai_credits: AI credits added to the account every billing date.
  */
 class PlanTiers {
 
     /** The comparison rows, in billing-page order. kind drives formatting + usage source. */
     const ROWS = array(
-        array('key' => 'fee_percent', 'label' => 'Platform take rate',    'noun' => '',                 'kind' => 'percent'),
         array('key' => 'seats',       'label' => 'Team seats',            'noun' => 'team seats',       'kind' => 'count'),
         array('key' => 'influencers', 'label' => 'AI influencers',        'noun' => 'AI influencers',   'kind' => 'count'),
         array('key' => 'ai_credits',  'label' => 'AI credits',            'noun' => 'AI credits',       'kind' => 'credits'),
@@ -27,8 +25,8 @@ class PlanTiers {
 
     /** Shown under the plan grid: on every plan, no limits. Per-plan switches are FEATURES. */
     const INCLUDED = array(
-        'Unlimited social connections', 'Unlimited membership tiers', 'AI captions',
-        'Bundles, promo codes &amp; free trials', 'Analytics &amp; exports', 'Claude connector',
+        'Unlimited social connections', 'Scheduling &amp; cross-posting', 'AI captions',
+        'Link in bio page', 'Analytics &amp; exports', 'Claude connector',
     );
 
     /** Switches that differ by plan (TIERS 'features'), with the label shown on plan cards. */
@@ -78,18 +76,18 @@ class PlanTiers {
      *   retired: closed to new subscribers; existing subscribers keep it.
      */
     const TIERS = array(
-        'free'    => array('key' => 'free',    'rank' => 0, 'name' => 'Free',    'tagline' => 'Discover and follow your favorite creators.', 'price' => 0,   'stripe_price_id' => '', 'match' => array(),          'recommended' => false,
+        'free'    => array('key' => 'free',    'rank' => 0, 'name' => 'Free',    'tagline' => 'Build your page and follow creators.', 'price' => 0,   'stripe_price_id' => '', 'match' => array(),          'recommended' => false,
             'ai_credits_grant' => 'once', 'features' => array('inbox_ai' => false),
-            'limits' => array('fee_percent' => 20, 'seats' => 1,  'influencers' => -1, 'ai_credits' => 0, 'automations' => -1,  'storage_gb' => 5,   'socials' => 0, 'sub_tiers' => 0)),   // Free includes no AI credits (AI tools need a plan)
-        'creator' => array('key' => 'creator', 'rank' => 1, 'name' => 'Creator', 'tagline' => 'Go solo, get paid.',             'price' => 49,  'stripe_price_id' => '', 'match' => array('creator'), 'recommended' => true,
+            'limits' => array('seats' => 1,  'influencers' => -1, 'ai_credits' => 0, 'automations' => -1,  'storage_gb' => 5,   'socials' => 0)),   // Free includes no AI credits (AI tools need a plan)
+        'creator' => array('key' => 'creator', 'rank' => 1, 'name' => 'Creator', 'tagline' => 'Create and post on autopilot.', 'price' => 49,  'stripe_price_id' => '', 'match' => array('creator'), 'recommended' => true,
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
-            'limits' => array('fee_percent' => 10, 'seats' => 1,  'influencers' => 1,  'ai_credits' => 500, 'automations' => 5,  'storage_gb' => 25,  'socials' => 0, 'sub_tiers' => 0)),
+            'limits' => array('seats' => 1,  'influencers' => 1,  'ai_credits' => 500, 'automations' => 5,  'storage_gb' => 25,  'socials' => 0)),
         'pro'     => array('key' => 'pro',     'rank' => 2, 'name' => 'Pro',     'tagline' => 'Scale your solo brand.',         'price' => 149, 'stripe_price_id' => '', 'match' => array('pro'),     'recommended' => false, 'retired' => true,
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
-            'limits' => array('fee_percent' => 5,  'seats' => 3,  'influencers' => 3,  'ai_credits' => 1500, 'automations' => 20, 'storage_gb' => 100, 'socials' => 0, 'sub_tiers' => 0)),
+            'limits' => array('seats' => 3,  'influencers' => 3,  'ai_credits' => 1500, 'automations' => 20, 'storage_gb' => 100, 'socials' => 0)),
         'studio'  => array('key' => 'studio',  'rank' => 3, 'name' => 'Studio',  'tagline' => 'Run a team or agency.',          'price' => 199, 'stripe_price_id' => '', 'match' => array('studio'),  'recommended' => false,
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true, 'custom_domain' => true),
-            'limits' => array('fee_percent' => 3,  'seats' => 10, 'influencers' => 10, 'ai_credits' => 3000, 'automations' => 0,  'storage_gb' => 500, 'socials' => 0, 'sub_tiers' => 0)),
+            'limits' => array('seats' => 10, 'influencers' => 10, 'ai_credits' => 3000, 'automations' => 0,  'storage_gb' => 500, 'socials' => 0)),
     );
 
     /** Add-ons: extra capacity billed as a quantity line item on a plan's subscription. 'max' = most slots per account. */
@@ -102,22 +100,18 @@ class PlanTiers {
     const FREE_KEY = 'free';
 
     /**
-     * What the Free account includes. Everyone signs up on Free; it follows, subscribes and buys but has no creator
-     * tools (Plan::can_use_creator_features needs a paid plan), so its plan card lists these instead of fees and limits.
+     * What the Free account includes. Everyone signs up on Free; it follows and messages creators but has no creator
+     * tools (Plan::can_use_creator_features needs a paid plan), so its plan card lists these instead of limits.
      */
-    /** What a creator builds on Free before paying (Plan::can_build): the page and the drafts; nothing with a price switches on until Creator or Studio (Plan::can_sell). */
+    /** What a creator builds on Free before paying (Plan::can_build): the page and the drafts; the page goes public on Creator or Studio (Plan::can_use_creator_features). */
     const FREE_BUILDS = array(
         'Build your page, published when you upgrade',   // Free never has a public profile (ProfileController): the page goes live with a paid plan
-        'Draft posts, tiers and offers, ready to switch on when you upgrade',
+        'Draft posts, ready to publish when you upgrade',
     );
 
     const FREE_INCLUDES = array(
         'Follow creators and get their updates',
-        'Join memberships and unlock posts',
-        'Buy bundles, event tickets and bookings',
         'Message creators',
-        'A wallet with automatic top-ups',
-        'Everything you buy in one place',
     );
 
     /** TIERS with this environment's Stripe price ids from app.ini (cached per request). */

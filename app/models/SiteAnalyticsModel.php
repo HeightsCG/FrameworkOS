@@ -47,15 +47,14 @@ class SiteAnalyticsModel extends Model {
                         SUM(kind = 'event' AND name = 'plan_paid' AND COALESCE(value_cents, 0) = 0) AS trials,
                         SUM(kind = 'event' AND name = 'plan_paid' AND COALESCE(value_cents, 0) = 0) AS trials,
                     SUM(kind = 'event' AND name = 'plan_paid' AND value_cents > 0) AS plans_paid,
-                        SUM(kind = 'event' AND name IN ('purchase', 'membership_paid')) AS sales,
-                        COALESCE(SUM(CASE WHEN kind = 'event' AND name IN ('purchase', 'membership_paid', 'plan_paid', 'credits_bought') THEN value_cents END), 0) AS value_cents
+                        COALESCE(SUM(CASE WHEN kind = 'event' AND name = 'plan_paid' THEN value_cents END), 0) AS value_cents
                  FROM analytics_events WHERE $w$c");
             $out[$k] = array_map('intval', (array) ($r[0] ?? array()));
         }
         return $out;
     }
 
-    /** Per day, oldest first, every day present: visitors, sessions, page views, signups, free trials started, paid plans, sales. */
+    /** Per day, oldest first, every day present: visitors, sessions, page views, signups, free trials started, paid plans. */
     public function daily($days, $creator_id = 0){
         $days = max(1, min(366, (int) $days)); $c = $creator_id > 0 ? ' AND creator_id = ' . (int) $creator_id : '';
         $rows = parent::select(
@@ -65,12 +64,11 @@ class SiteAnalyticsModel extends Model {
                     SUM(kind = 'pageview') AS pageviews,
                     SUM(kind = 'event' AND name = 'signup') AS signups,
                     SUM(kind = 'event' AND name = 'plan_paid' AND COALESCE(value_cents, 0) = 0) AS trials,
-                    SUM(kind = 'event' AND name = 'plan_paid' AND value_cents > 0) AS plans_paid,
-                    SUM(kind = 'event' AND name IN ('purchase', 'membership_paid')) AS sales
+                    SUM(kind = 'event' AND name = 'plan_paid' AND value_cents > 0) AS plans_paid
              FROM analytics_events WHERE " . $this->window($days) . "$c GROUP BY DATE(ts)");
         $by = array(); foreach ($rows as $r) { $day = (string) $r['day']; $by[$day] = array_map('intval', $r); $by[$day]['day'] = $day; }
         $out = array();
-        for ($i = $days - 1; $i >= 0; $i--) { $d = gmdate('Y-m-d', strtotime("-$i day")); $out[] = $by[$d] ?? array('day' => $d, 'visitors' => 0, 'sessions' => 0, 'pageviews' => 0, 'signups' => 0, 'trials' => 0, 'plans_paid' => 0, 'sales' => 0); }
+        for ($i = $days - 1; $i >= 0; $i--) { $d = gmdate('Y-m-d', strtotime("-$i day")); $out[] = $by[$d] ?? array('day' => $d, 'visitors' => 0, 'sessions' => 0, 'pageviews' => 0, 'signups' => 0, 'trials' => 0, 'plans_paid' => 0); }
         return $out;
     }
 
@@ -180,15 +178,12 @@ class SiteAnalyticsModel extends Model {
              WHERE e.kind = 'event' AND e." . $this->window($days) . " ORDER BY e.id DESC LIMIT " . max(1, min(1000, (int) $limit)));
     }
 
-    /** Creator pages by traffic: views, visitors, the events their pages produced (signups, memberships, purchases). */
+    /** Creator pages by traffic: views, visitors and entrances. */
     public function creators_top($days, $limit = 200){
         return parent::select(
             "SELECT e.creator_id, u.u_name, u.first_name, u.last_name,
                     SUM(e.kind = 'pageview') AS views, COUNT(DISTINCT CASE WHEN e.kind = 'pageview' THEN e.visitor END) AS visitors,
-                    SUM(e.kind = 'pageview' AND e.is_landing = 1) AS entrances,
-                    SUM(e.kind = 'event' AND e.name IN ('membership_free', 'membership_paid')) AS memberships,
-                    SUM(e.kind = 'event' AND e.name = 'purchase') AS purchases,
-                    COALESCE(SUM(CASE WHEN e.kind = 'event' AND e.name IN ('purchase', 'membership_paid') THEN e.value_cents END), 0) AS value_cents
+                    SUM(e.kind = 'pageview' AND e.is_landing = 1) AS entrances
              FROM analytics_events e JOIN user_accounts u ON u.user_id = e.creator_id
              WHERE e.creator_id > 0 AND e." . $this->window($days) . "
              GROUP BY e.creator_id ORDER BY views DESC LIMIT " . max(1, min(1000, (int) $limit)));

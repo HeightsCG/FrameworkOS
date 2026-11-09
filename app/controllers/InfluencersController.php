@@ -39,8 +39,6 @@ class InfluencersController extends Controller {
         foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
             $accounts[] = array('id' => (string) $a['post_for_me_social_account_id'], 'platform' => (string) $a['platform'], 'username' => (string) ($a['username'] ?? ''));
         }
-        $fv = (new FanvueAccountsModel())->get_connected_for_user((int) $user['user_id']);
-        if ($fv) { array_unshift($accounts, array('id' => FanvueShareService::ACCOUNT_ID, 'platform' => 'fanvue', 'username' => (string) (($fv['handle'] ?? '') !== '' ? $fv['handle'] : 'Fanvue'))); }
         $this->view->social = array('accounts' => $accounts, 'can_post' => Plan::can_social_post($user));
         // What the plan allows: create another, add a paid slot (Creator), or upgrade (Free has none).
         $cap = Plan::check_count($user, 'influencers', (new InfluencersModel())->count_for_creator($creator_id));

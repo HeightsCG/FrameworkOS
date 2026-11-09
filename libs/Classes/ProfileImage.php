@@ -2,7 +2,7 @@
 /**
  * Profile photos and cover images, before they go to S3: re-encoded so no EXIF/GPS metadata leaves the upload
  * (JPEGs are turned upright first), then checked by moderation. They show everywhere, including safe-for-work
- * surfaces, so an adult image is refused. If moderation itself is unavailable the upload is allowed (logged).
+ * surfaces, so an image the content check flags is refused. If moderation itself is unavailable the upload is allowed (logged).
  * GIFs are kept as uploaded (re-encoding would drop animation; GIF carries no EXIF).
  */
 class ProfileImage {

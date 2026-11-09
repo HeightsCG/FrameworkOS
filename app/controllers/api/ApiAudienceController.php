@@ -42,9 +42,8 @@ class ApiAudienceController extends BaseApiController {
                 $accounts[] = array('id' => (string) $a['post_for_me_social_account_id'], 'platform' => (string) $a['platform'], 'name' => (string) ($a['username'] ?: $a['platform']));
             }
         }
-        $fv = (new FanvueAccountsModel())->get_connected_for_user($cid);
         $bm = new BroadcastsModel();
-        $this->jsonSuccess(['influencers' => $infl, 'accounts' => $accounts, 'fanvue' => $fv ? true : false,
+        $this->jsonSuccess(['influencers' => $infl, 'accounts' => $accounts,
             'counts' => $bm->counts($cid), 'labels' => BroadcastsModel::segment_labels(), 'timezone' => $tz,
             'launch_at' => LaunchCampaign::local(strtotime('+3 days', time()) - (time() % 3600) + 3600, $tz), 'max_days' => LaunchCampaign::MAX_DAYS]);
     }
@@ -54,15 +53,15 @@ class ApiAudienceController extends BaseApiController {
         $user = $this->require_creator('content');
         $this->answer_campaign(LaunchCampaign::draft((int) $user['user_id'], $user, [
             'what' => html_entity_decode((string) ($this->post['what'] ?? ''), ENT_QUOTES, 'UTF-8'), 'launch_at' => (string) ($this->post['launch_at'] ?? ''),
-            'days' => (int) ($this->post['days'] ?? 3), 'influencer_id' => (int) ($this->post['influencer_id'] ?? 0), 'promo_code' => (string) ($this->post['promo_code'] ?? '')]));
+            'days' => (int) ($this->post['days'] ?? 3), 'influencer_id' => (int) ($this->post['influencer_id'] ?? 0)]));
     }
 
     /** Create every post and message of the campaign from the edited drafts. */
     public function launch_campaign_confirmAction(){
         $user = $this->require_creator('content');
         $in = [];
-        foreach (['launch_at', 'destination', 'promo_code'] as $k) { $in[$k] = (string) ($this->post[$k] ?? ''); }
-        foreach (['days', 'influencer_id', 'asset_id', 'promo_percent', 'promo_days'] as $k) { $in[$k] = (int) ($this->post[$k] ?? 0); }
+        $in['launch_at'] = (string) ($this->post['launch_at'] ?? '');
+        foreach (['days', 'influencer_id', 'asset_id'] as $k) { $in[$k] = (int) ($this->post[$k] ?? 0); }
         $in['items']          = is_array($this->post['items'] ?? null) ? array_values($this->post['items']) : [];
         foreach ($in['items'] as &$it) {   // the edited texts are POST input: decode entities here, as the other actions do
             if (is_array($it) && isset($it['text'])) { $it['text'] = html_entity_decode((string) $it['text'], ENT_QUOTES, 'UTF-8'); }
@@ -70,7 +69,6 @@ class ApiAudienceController extends BaseApiController {
         unset($it);
         $in['share_accounts'] = is_array($this->post['share_accounts'] ?? null) ? $this->post['share_accounts'] : [];
         $in['segments']       = is_array($this->post['segments'] ?? null) ? $this->post['segments'] : ['followers'];
-        $in['also_cls']       = true;
         $this->answer_campaign(LaunchCampaign::confirm((int) $user['user_id'], $user, $in));
     }
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Internal direct messages: text, library media, and paid unlocks. Routed from
+ * Internal direct messages: text and library media. Routed from
  * /api/<action> by ApiRoutes; extends BaseApiController.
  */
 class ApiMessagesController extends BaseApiController {
@@ -17,18 +17,14 @@ class ApiMessagesController extends BaseApiController {
         $body = trim(html_entity_decode((string) ($this->post['body'] ?? ''), ENT_QUOTES, 'UTF-8'));
         if (mb_strlen($body) > 2000) { $body = mb_substr($body, 0, 2000); }
 
-        // Media and a price: creators only, from their own library.
-        $asset_ids = []; $price = 0;
+        // Media: creators only, from their own library.
+        $asset_ids = [];
         $wanted = (array) ($this->post['asset_ids'] ?? []);
-        if (!empty($wanted) || !empty($this->post['price'])) {
+        if (!empty($wanted)) {
             if (!Permissions::has_role('Creator')) { $this->jsonError('Only creators can attach media.'); }
             $assets = (new MediaAssetsModel())->get_owned_ready($me, array_slice(array_map('intval', $wanted), 0, self::MAX_ATTACH));
             foreach ($assets as $a) { $asset_ids[] = (int) $a['id']; }
-            if (!empty($wanted) && empty($asset_ids)) { $this->jsonError('Those files are not ready to send.'); }
-            if ($this->price_given($this->post['price'] ?? '')) {
-                $this->require_creator('content');   // a price is selling: needs a paid plan (a Free creator can still reply and share free)
-                $price = $this->price_credits($this->post['price']);
-            }
+            if (empty($asset_ids)) { $this->jsonError('Those files are not ready to send.'); }
         }
         if ($body === '' && empty($asset_ids)) { $this->jsonError('Type a message.'); }
 
@@ -45,7 +41,7 @@ class ApiMessagesController extends BaseApiController {
             if ($to <= 0 || $to === $me) { $this->jsonError('Invalid recipient'); }
             $conv_id = $model->open_between($me, $to);
             if ($conv_id <= 0) {
-                $this->jsonError('You can only message people you follow, subscribe to, or who follow you.');
+                $this->jsonError('You can only message people you follow or who follow you.');
             }
         }
         $conv = $model->get($conv_id);
@@ -55,14 +51,14 @@ class ApiMessagesController extends BaseApiController {
         if (!empty($asset_ids) && (int) $conv['creator_id'] !== $me) { $this->jsonError('Only creators can attach media.'); }
 
         $this->loginAttemptsModel->record($ip, (string) $me, 'message');
-        $mid = $model->send($conv_id, $me, $body, null, $asset_ids, $price);
+        $mid = $model->send($conv_id, $me, $body, null, $asset_ids);
 
         // Notify the recipient in-platform (email only if they are offline).
         $recipient = ((int) $conv['creator_id'] === $me) ? (int) $conv['user_id'] : (int) $conv['creator_id'];
         $sender = $model->identity_map([$me])[$me] ?? ['name' => 'Someone'];
         if (PlatformAccount::is($recipient)) {
             // A reply to the Creator Link Studio team: every admin is told, it's answered at /admin/messages (no inbox automation).
-            $preview = MessagesModel::preview_text($body, count($asset_ids), $price);
+            $preview = MessagesModel::preview_text($body, count($asset_ids));
             foreach ($this->userModel->admin_ids() as $aid) {
                 $this->notify((int) $aid, 'messages', $sender['name'] . ' replied to Creator Link Studio', $preview, '/admin/messages?c=' . $conv_id, 'fa-comment-dots', true, true);   // always emailed: a reply to the team must never go unseen
             }
@@ -70,7 +66,7 @@ class ApiMessagesController extends BaseApiController {
             echo json_encode(['success' => true, 'conversation_id' => $conv_id, 'sent' => $sent[0] ?? null]); exit;
         }
         $this->notify($recipient, 'messages', 'New message from ' . $sender['name'],
-            MessagesModel::preview_text($body, count($asset_ids), $price), '/inbox/thread/' . $conv_id, 'fa-comment-dots', true);
+            MessagesModel::preview_text($body, count($asset_ids)), '/inbox/thread/' . $conv_id, 'fa-comment-dots', true);
 
         $sent = $this->shape([$model->get_message($mid)], $me, $conv);
         $payload = json_encode(['success' => true, 'conversation_id' => $conv_id, 'sent' => $sent[0] ?? null]);
@@ -163,11 +159,11 @@ class ApiMessagesController extends BaseApiController {
         if ($to <= 0 || $to === $me) { $this->jsonError('Invalid recipient'); }
         $model   = new MessagesModel();
         $conv_id = $model->open_between($me, $to);
-        if ($conv_id <= 0) { $this->jsonError('You can only message people you follow, subscribe to, or who follow you.'); }
+        if ($conv_id <= 0) { $this->jsonError('You can only message people you follow or who follow you.'); }
         $this->respond_thread($model, $model->get($conv_id), $me);
     }
 
-    /** Delete a message you sent, for both people. A paid message someone already unlocked stays: they paid for it. */
+    /** Delete a message you sent, for both people. */
     public function message_deleteAction(){
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
@@ -175,9 +171,6 @@ class ApiMessagesController extends BaseApiController {
         $m = $model->get_message((int) ($this->post['message_id'] ?? 0));
         if (!$m || !$model->is_participant((int) $m['conversation_id'], $me)) { $this->jsonError('Message not found'); }
         if ((int) $m['sender_id'] !== $me) { $this->jsonError('You can only delete messages you sent'); }
-        if ((int) $m['price_credits'] > 0 && (($model->unlock_counts([(int) $m['id']])[(int) $m['id']] ?? 0) > 0)) {
-            $this->jsonError('A fan has already unlocked this message, so it can\'t be deleted.');
-        }
         $model->delete_message((int) $m['id']);
         $this->jsonSuccess(['message' => 'Message deleted']);
     }
@@ -199,59 +192,7 @@ class ApiMessagesController extends BaseApiController {
         $this->jsonSuccess(['count' => $me > 0 ? (new MessagesModel())->total_unread($me) : 0]);
     }
 
-    /** Spend credits to unlock a priced message. Records the unlock and pays the creator. */
-    public function message_unlockAction(){
-        $viewer = (int) Session::get('user_id');
-        if ($viewer <= 0) { $this->jsonError('Sign in to unlock this.', ['need_login' => true]); }
-        $mid   = (int) ($this->post['message_id'] ?? 0);
-        $model = new MessagesModel();
-        $msg   = $model->get_message($mid);
-        $conv  = $msg ? $model->get((int) $msg['conversation_id']) : null;
-        if (!$msg || !$conv || !$model->is_participant((int) $conv['id'], $viewer)) { $this->jsonError('That message is not available.'); }
-        $creator_id = (int) $msg['sender_id'];
-        $price      = (int) $msg['price_credits'];
-        if ($creator_id === $viewer) { $this->jsonSuccess(['message' => $this->shape([$msg], $viewer, $conv)[0]]); }
-        if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That message is not available.'); }
-        if ($this->seller_suspended($creator_id)) { $this->jsonError('That message is not available.'); }
-        if ($price <= 0) { $this->jsonError('This message is not for sale.'); }
-        if (!$this->viewer_shows_adult($viewer)) {
-            foreach ((array) ($model->assets_for_messages([$mid])[$mid] ?? []) as $a) {
-                if (self::adult_or_unscanned($a)) { $this->jsonError('This message has adult content. Turn on adult content in Settings to unlock it.'); }
-            }
-        }
-
-        $unlocks = new MessageUnlocksModel();
-        $credits = new CreditsModel();
-        if ($unlocks->has_unlocked($mid, $viewer)) {
-            $this->jsonSuccess(['already' => true, 'message' => $this->shape([$msg], $viewer, $conv)[0], 'balance' => $credits->get_balance($viewer)]);
-        }
-        $balance = $credits->get_balance($viewer);
-        if ($balance < $price) {
-            $this->jsonError('You need ' . Price::credits($price - $balance) . ' more in your wallet to unlock this.',
-                ['need_credits' => true, 'balance' => $balance, 'price' => $price, 'shortfall' => $price - $balance]);
-        }
-        // Record first: UNIQUE(message_id, fan_id) is the mutex against a double charge. Then debit.
-        if (!$unlocks->record($mid, $creator_id, $viewer, $price)) {
-            $this->jsonSuccess(['already' => true, 'message' => $this->shape([$msg], $viewer, $conv)[0], 'balance' => $balance]);
-        }
-        $net = $this->creator_net($creator_id, $price);   // charged and paid in one transaction
-        if ($credits->pay($viewer, $price, 'message_unlock', 'Unlocked a message', $creator_id, $net, 'message_earning', 'Message unlock') === false) {
-            $unlocks->remove($mid, $viewer);
-            $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
-        }
-        if ($net > 0) { $unlocks->set_net($mid, $viewer, $net); }
-        TrackingLinks::attribute($creator_id, 'ppv', $viewer, $price, 'messages', $mid);
-        $who = $model->identity_map([$viewer])[$viewer] ?? ['name' => 'A fan'];
-        $this->notify($creator_id, 'purchases', 'New message unlock',
-            $who['name'] . ' unlocked your message for ' . Notify::credits($price) . '.', '/inbox/thread/' . (int) $conv['id'], 'fa-coins');
-        $this->notify($viewer, 'purchases', 'Message unlocked',
-            Notify::credits($price) . ' spent · ' . Notify::credits($credits->get_balance($viewer)) . ' left. It is in your Purchases.', '/purchases', 'fa-unlock');
-        InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'msg' . $mid);
-
-        $this->jsonSuccess(['message' => $this->shape([$msg], $viewer, $conv)[0], 'balance' => $credits->get_balance($viewer)]);
-    }
-
-    /** What the creator knows about the fan in a conversation: relationship + spend (creator side only). */
+    /** What the creator knows about the fan in a conversation: relationship (creator side only). */
     public function message_peer_infoAction(){
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
@@ -294,7 +235,7 @@ class ApiMessagesController extends BaseApiController {
         $id      = $model->identity_map([$other])[$other] ?? ['handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false];
         $id['id'] = $other;
         // The newest THREAD_PAGE messages; before_id loads the page before it ("Load Earlier"); after_id (the poll) only
-        // the ones newer than what the page has, plus the unlock counts of the priced messages it shows (watch).
+        // the ones newer than what the page has.
         $cleared = MessagesModel::cleared_id($c, $me);
         $after   = (int) ($this->post['after_id'] ?? 0);
         $more    = false;
@@ -307,72 +248,48 @@ class ApiMessagesController extends BaseApiController {
         }
         $msgs    = $this->shape($rows, $me, $c);
         $model->mark_read($conv_id, $me);
-        $extra = [];
-        if ($after > 0) {
-            $watch = array_slice(array_values(array_filter(array_map('intval', explode(',', (string) ($this->post['watch'] ?? ''))))), 0, 100);
-            $extra['unlocks'] = (object) (($watch && (int) $c['creator_id'] === $me) ? $model->unlock_counts_in($conv_id, $watch) : []);   // counts are the creator's to see
-        }
         $this->jsonSuccess(['conversation_id' => $conv_id, 'other' => $id, 'messages' => $msgs, 'has_more' => $more, 'partial' => $after > 0,
-            'viewer_credits' => (new CreditsModel())->get_balance($me), 'i_am_creator' => ((int) $c['creator_id'] === $me)] + $extra);
+            'i_am_creator' => ((int) $c['creator_id'] === $me)]);
     }
 
-    /**
-     * Shape message rows for one viewer. A priced message the viewer has not paid for is
-     * `locked`: it carries only blurred covers. Otherwise every asset gets a signed url
-     * (originals once paid, display renditions when free) plus a thumb for the grid.
-     */
-    private function viewer_shows_adult(int $user_id): bool{
-        $rows = $this->userModel->get_user_by_id($user_id);
-        return is_array($rows) && count($rows) === 1 && AgeVerification::adult_allowed($rows[0]);   // toggle on AND age verified
-    }
-
-    private static function adult_or_unscanned(array $a): bool{
+    /** Media not cleared by the content check (flagged, blocked or not yet scanned). */
+    private static function not_cleared(array $a): bool{
         $st = (string) ($a['moderation_status'] ?? '');
         if ($st === 'n_a') { return false; }   // video from before videos were moderated
-        return $st !== 'approved' || !empty($a['is_adult']);
+        return $st !== 'approved';
     }
 
+    /** Shape message rows for one viewer: every asset gets a signed display url (original for video) plus a thumb for the grid. */
     private function shape(array $rows, int $me, array $conv): array{
         $model = new MessagesModel();
-        $with_media = []; $priced = [];
+        $with_media = [];
         foreach ($rows as $m) {
             if ((int) ($m['media_count'] ?? 0) > 0) { $with_media[] = (int) $m['id']; }
-            if ((int) ($m['price_credits'] ?? 0) > 0) { $priced[] = (int) $m['id']; }
         }
         $assets   = $with_media ? $model->assets_for_messages($with_media) : [];
-        $unlocked = $priced ? (new MessageUnlocksModel())->unlocked_map($me, $priced) : [];
-        $counts   = ($priced && (int) $conv['creator_id'] === $me) ? $model->unlock_counts($priced) : [];
-        $show_adult = $this->viewer_shows_adult($me);
         $out = [];
         foreach ($rows as $m) {
             $mid   = (int) $m['id'];
             $mine  = ((int) $m['sender_id'] === $me);
-            $price = (int) ($m['price_credits'] ?? 0);
-            $locked = ($price > 0 && !$mine && empty($unlocked[$mid]));
             $items = [];
             foreach ((array) ($assets[$mid] ?? []) as $a) {
                 $is_video = ($a['type'] === 'video');
-                if ($locked) {
-                    $items[] = ['type' => $a['type'], 'locked_url' => MediaService::signed_variant($a, 'blurred', 900)];
-                } elseif (!$mine && !$show_adult && self::adult_or_unscanned($a)) {
-                    // Adult (or not yet scanned) media never reaches a fan who has adult content off: blurred still only.
-                    $items[] = ['type' => $a['type'], 'thumb' => MediaService::signed_variant($a, 'blurred', 900), 'adult_hidden' => true];
+                if (!$mine && self::not_cleared($a)) {
+                    // Media the content check has not cleared never reaches the other side: a blurred still only.
+                    $items[] = ['type' => $a['type'], 'thumb' => MediaService::signed_variant($a, 'blurred', 900), 'held' => true];
                 } else {
                     $items[] = [
                         'type'    => $a['type'],
-                        'url'     => MediaService::signed_variant($a, ($is_video || $price > 0) ? 'original' : 'display', 900),
+                        'url'     => MediaService::signed_variant($a, $is_video ? 'original' : 'display', 900),
                         'poster'  => $is_video ? MediaService::signed_variant($a, 'poster', 900) : '',
                         'thumb'   => MediaService::signed_variant($a, $is_video ? 'poster' : 'thumb', 900),
-                        'blurred' => $price > 0 ? MediaService::signed_variant($a, 'blurred', 900) : '',
                     ];
                 }
             }
             $out[] = [
                 'id' => $mid, 'mine' => $mine, 'body' => (string) $m['body'], 'created_at' => (string) $m['created_at'],
-                'price_credits' => $price,
-                'locked' => $locked, 'unlocked' => ($price > 0 && !$mine && !empty($unlocked[$mid])),
                 'media_count' => (int) ($m['media_count'] ?? 0), 'assets' => $items,
-                'unlocks' => (int) ($counts[$mid] ?? 0), 'auto' => !empty($m['trigger_key']),
+                'auto' => !empty($m['trigger_key']),
             ];
         }
         return $out;

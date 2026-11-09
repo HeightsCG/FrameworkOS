@@ -1,7 +1,7 @@
 <?php
 /**
- * Public, indexable product pages: /features, /pricing, /compare/<competitor>,
- * /best-creator-monetization-platforms, /monetize-your-content. Routed from Bootstrap via
+ * Public, indexable product pages: /features, /pricing, /about, /press, /integrations and the
+ * feature and niche pages. Routed from Bootstrap via
  * ROUTES (the URLs don't fit /controller/action). Rendered with View::public_page().
  */
 class PagesController extends Controller {
@@ -17,16 +17,8 @@ class PagesController extends Controller {
         'features'                            => 'features',
         'lora-character-training'             => 'rootFeature',   // keyword pages on the feature template (FeaturePages::ROOT)
         'consistent-ai-model-face'            => 'rootFeature',
-        'ai-ofm-tools'                        => 'rootFeature',
         'for'                                 => 'forNiche',   // /for/<niche> landing pages (NichePages) on the feature template
         'pricing'                             => 'pricing',
-        'compare'                              => 'compare',
-        'best-creator-monetization-platforms' => 'bestPlatforms',
-        'monetize-your-content'               => 'monetize',
-        'onlyfans-alternatives'               => 'alternatives',
-        'fanvue-alternatives'                 => 'alternatives',
-        'patreon-alternatives'                => 'alternatives',
-        'linktree-alternatives'               => 'alternatives',
         'creators'                           => 'creators',
         'terms'                               => 'terms',
         'privacy'                             => 'privacy',
@@ -36,21 +28,13 @@ class PagesController extends Controller {
         'founding'                            => 'founding',
         'integrations'                        => 'integrations',   // /integrations and /integrations/<platform> (IntegrationPages)
         'press'                               => 'press',
-        'alternatives'                        => 'alternativesHub',   // the AI influencer tool categories page; the <x>-alternatives pages are alternativesAction
+        'alternatives'                        => 'alternativesHub',   // the AI influencer tool categories page
         'affiliates'                          => 'affiliates',   // /affiliates (public); /affiliates/apply and /affiliates/dashboard go on to AffiliatesController
         'start'                               => 'start',   // the TikTok ads landing page (StartPage), noindex, its own document
         'signup'                              => 'authRedirect',   // guessed / ad URLs: 301 to the sign-in dialog on the home page
         'register'                            => 'authRedirect',
         'login'                               => 'authRedirect',
     );
-
-    /** The fee wedge in one line, from config: what each selling plan keeps, against OnlyFans' sourced rate ("Keep 90% of every sale on Creator, 97% on Studio. OnlyFans keeps 20%."). */
-    public static function fee_wedge_sentence(): string {
-        $tiers = self::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
-        $parts = array(); foreach ($tiers as $i => $t) { $parts[] = (100 - (int) $t['limits']['fee_percent']) . '% ' . ($i === 0 ? 'of every sale ' : '') . 'on ' . $t['name']; }
-        $of = self::COMPETITORS['onlyfans'] ?? null; $pct = $of ? (int) preg_replace('/[^0-9]/', '', (string) ($of['fee_short'] ?? '')) : 0;
-        return 'Keep ' . implode(', ', $parts) . '.' . ($pct > 0 ? ' OnlyFans keeps ' . $pct . '%.' : '');
-    }
 
     /** "Why we built this" on /about (D3.3): two paragraphs for Daniel to write in his own words. The section is hidden until both are filled. */
     const WHY_WE_BUILT_THIS = array(
@@ -65,347 +49,10 @@ class PagesController extends Controller {
     const PRESS_CONTACT = self::LEGAL_CONTACT;
 
     /** Topics on the /contact form (value => label); the contact_send API accepts only these. */
-    const CONTACT_TOPICS = array('billing' => 'Billing', 'payouts' => 'Payouts', 'account' => 'Account', 'bug' => 'Bug', 'other' => 'Other');
+    const CONTACT_TOPICS = array('billing' => 'Billing', 'account' => 'Account', 'bug' => 'Bug', 'other' => 'Other');
 
     /** Below this many listed creators the directory copy doesn't quote the number. */
     const DIRECTORY_COUNT_MIN = 10;
-
-    /** Competitor facts used by /compare/* and the best-of page. Every row has a source + checked date.
-     *  Fact-checked 2026-09-21 against the source URLs below; see task-7-report.md for the exact
-     *  sentence relied on per row. Rows OnlyFans could not verify directly (its site is behind a
-     *  Cloudflare bot check that blocked every fetch attempt) are 'Not published' rather than guessed. */
-    const COMPETITORS = array(
-        'fanvue' => array(
-            'name' => 'Fanvue', 'sells' => 'subscriptions, tips and paid messages', 'url' => 'https://www.fanvue.com', 'checked' => '2026-09-21', 'type' => 'fan',
-            'fee_short' => '20% of gross revenue',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Fanvue', 'percent' => 20, 'monthly' => 0, 'source' => 'https://legal.fanvue.com/creator-earnings-payouts')),   // checked 2026-10-11: "the remaining 20% retained by Fanvue as Platform Fees"
-            'summary' => 'Fanvue is a subscription platform for creators with a focus on AI tools for chat and voice. It does not publish to your social accounts or give you a link-in-bio style page with services and events.',
-            'fee'       => array('value' => '20% platform fee (creators keep 80% of gross revenue)', 'source' => 'https://legal.fanvue.com/creator-earnings-payouts'),
-            'payout'    => array('value' => 'Bank transfer, crypto or third-party wallets; 7-day pending period (up to 28 days)', 'source' => 'https://legal.fanvue.com/creator-earnings-payouts'),
-            'content'   => array('value' => 'Posts, subscriptions, tips, paid messages', 'source' => 'https://try.fanvue.com/fanvue'),
-            'socials'   => array('value' => 'Not published', 'source' => 'https://www.fanvue.com'),
-            'ai'        => array('value' => 'AI voice calls, AI voice notes, AI analytics', 'source' => 'https://www.fanvue.com'),
-            'ownership' => array('value' => 'Not published', 'source' => 'https://help.fanvue.com'),
-            'best_for'  => 'Subscription creators, including AI-generated creator accounts, who want built-in AI voice and analytics tools.',
-            'strengths' => array('Built-in AI voice calls, AI voice notes and AI analytics', 'Open API and app store for third-party tools', 'Creators keep 80% of gross revenue'),
-            'faq'       => array(
-                array('q' => 'How much does Fanvue take?', 'a' => 'Fanvue\'s standard rate keeps 20% of gross revenue from paid services, and creators receive 80%.'),
-                array('q' => 'How do Fanvue payouts work?', 'a' => 'Fanvue pays out by bank transfer, crypto or third-party wallets. The standard pending period is 7 days and can be extended up to 28 days.'),
-                array('q' => 'Does Fanvue have AI tools?', 'a' => 'Yes. Fanvue lists AI voice calls, AI voice notes and AI analytics among its creator features.'),
-            ),
-        ),
-        'onlyfans' => array(
-            'name' => 'OnlyFans', 'sells' => 'subscriptions, tips and pay-per-view', 'url' => 'https://onlyfans.com', 'checked' => '2026-09-21', 'type' => 'fan',
-            'fee_short' => '20% of each Fan Payment',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'OnlyFans', 'percent' => 20, 'monthly' => 0, 'source' => 'https://onlyfans.com/terms')),
-            'summary' => 'OnlyFans is the largest subscription platform for creators. It has the biggest audience and depends entirely on its own app, with no cross-posting and no services or events for sale.',
-            // checked 2026-10-11 on the terms page itself: "Our Fee is calculated as 20% of the total Fan Payment and will be deducted from each Fan Payment."
-            'fee'       => array('value' => '20% of each Fan Payment, deducted before Creator Earnings are credited', 'source' => 'https://onlyfans.com/terms'),
-            'payout'    => array('value' => 'Bank transfer and e-wallets, after a holding period (about 7 days)', 'source' => 'https://www.supercreator.app/guides/how-long-do-onlyfans-payouts-take', 'reported' => true),
-            'content'   => array('value' => 'Subscriptions, tips, pay-per-view', 'source' => 'https://en.wikipedia.org/wiki/OnlyFans', 'reported' => true),
-            'socials'   => array('value' => 'Not published', 'source' => 'https://onlyfans.com/help'),
-            'ai'        => array('value' => 'Not published', 'source' => 'https://onlyfans.com/help'),
-            'ownership' => array('value' => 'Not published', 'source' => 'https://onlyfans.com/help'),
-            'best_for'  => 'Subscription creators who want to sell to fans inside one large, established platform using subscriptions, tips and pay-per-view.',
-            'strengths' => array('Reported to have more than 370 million registered users and 4 million creators (2024)', 'Subscriptions, tips and pay-per-view in one place', 'Used by a wide range of creators, including athletes, musicians and comedians, as well as adult creators'),
-            'faq'       => array(
-                array('q' => 'How much does OnlyFans take from creators?', 'a' => 'OnlyFans takes 20% of each Fan Payment, deducted before the creator\'s earnings are credited, under its own terms of service.'),
-                array('q' => 'How do OnlyFans payouts work?', 'a' => 'Creators are reported to be paid by bank transfer or e-wallet after a holding period of about 7 days.'),
-                array('q' => 'Can I export my OnlyFans subscriber list?', 'a' => 'OnlyFans does not publish whether creators can export their subscriber list.'),
-            ),
-        ),
-        'patreon' => array(
-            'name' => 'Patreon', 'sells' => 'memberships and digital products', 'url' => 'https://www.patreon.com', 'checked' => '2026-09-25', 'type' => 'membership',
-            'fee_short' => '10% platform fee, plus processing',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Patreon (pages published after August 4, 2025)', 'percent' => 10, 'monthly' => 0, 'source' => 'https://support.patreon.com/hc/en-us/articles/11111747095181-Creator-fees-overview')),
-            'summary' => 'Patreon is a membership platform where creators offer monthly or annual paid tiers, sell digital products and run community chats for their fans. It is used by video creators, podcasters, writers and artists who want recurring income from their audience.',
-            'fee'       => array('value' => '10% platform fee for pages published after August 4, 2025. Payment processing (from 2.9% + $0.30 in USD), currency conversion and payout fees are charged on top. Older legacy plans are 5%, 8% or 11%', 'source' => 'https://support.patreon.com/hc/en-us/articles/11111747095181-Creator-fees-overview'),
-            'payout'    => array('value' => 'Creator-initiated withdrawal by bank transfer or online wallet. A 5-day hold applies after adding a payout method. One-time purchase funds are pending up to 7 days, or up to 75 days for iOS in-app purchases', 'source' => 'https://support.patreon.com/hc/en-us/articles/208656246-How-payouts-work'),
-            'content'   => array('value' => 'Monthly and annual memberships, digital products (one-time purchases), video hosting, community chats and polls', 'source' => 'https://support.patreon.com/hc/en-us/articles/11111747095181-Creator-fees-overview'),
-            'socials'   => array('value' => 'A share menu lets creators copy their page link or share it on social media themselves; automatic posting to social accounts is not published', 'source' => 'https://support.patreon.com/hc/en-us/articles/8641994390413-How-to-get-traffic-to-your-Creator-page'),
-            'ai'        => array('value' => 'Clips: AI suggests shareable clips from Patreon videos (iOS, English audio, videos of 8+ minutes)', 'source' => 'https://support.patreon.com/hc/en-us/articles/47461310686349-Clips'),
-            'ownership' => array('value' => 'Yes, the member list including emails can be downloaded as a CSV from the Relationship manager', 'source' => 'https://support.patreon.com/hc/en-us/articles/34784011795469-Exporting-your-audience-s-emails-from-Patreon'),
-            'best_for'  => 'Creators who publish regularly, such as video makers, podcasters and writers, and want paid membership tiers with digital products and community chats in one place.',
-            'strengths' => array('Monthly and annual memberships with multiple tiers', 'Built-in video hosting and community chats', 'Member list including emails can be exported as a CSV'),
-            'faq'       => array(
-                array('q' => 'How much does Patreon take from creators?', 'a' => 'Creators who published their page after August 4, 2025 pay a 10% platform fee. Payment processing, currency conversion and payout fees are charged on top, and older legacy plans range from 5% to 11%.'),
-                array('q' => 'Can I export my Patreon members?', 'a' => 'Yes. Patreon lets creators download their member list, including emails, as a CSV file from the Relationship manager.'),
-                array('q' => 'Does Patreon post to my social media accounts?', 'a' => 'Patreon provides a share menu for copying your page link or sharing it on social media yourself. It does not publish information about posting automatically to connected social accounts.'),
-            ),
-        ),
-        'fansly' => array(
-            'name' => 'Fansly', 'sells' => 'subscriptions, pay-per-view and livestreams', 'url' => 'https://fansly.com', 'checked' => '2026-09-25', 'type' => 'fan',
-            'fee_short' => '20% platform fee',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Fansly', 'percent' => 20, 'monthly' => 0, 'source' => 'https://fansly.com/application')),
-            'summary' => 'Fansly is a subscription platform where creators, including adult creators, sell subscriptions, pay-per-view posts, livestreams and paid messages. It includes an internal For You discovery feed that shows creators\' content to new viewers on Fansly.',
-            'fee'       => array('value' => '20% platform fee; creators keep 80% of subscription and direct sales earnings', 'source' => 'https://fansly.com/application'),
-            'payout'    => array('value' => 'Bank transfer (ACH/SEPA) or e-wallet; once verified, payouts above $20 as often as you like, typically sent within 3 business days by bank transfer', 'source' => 'https://fansly.com/application'),
-            'content'   => array('value' => 'Subscriptions, pay-per-view posts, bundles, livestreams (public, ticketed, 1:1), paid messages and custom content', 'source' => 'https://creatorhub.fansly.com/clip-store-migration-guide/'),
-            'socials'   => array('value' => 'Not published', 'source' => 'https://fansly.com/help'),
-            'ai'        => array('value' => 'Not published', 'source' => 'https://fansly.com/help'),
-            'ownership' => array('value' => 'Not published', 'source' => 'https://fansly.com/help'),
-            'best_for'  => 'Subscription creators, including adult creators, who want an 80/20 split and in-platform discovery through a For You feed.',
-            'strengths' => array('Built-in For You discovery feed for reaching new viewers', 'Automated and keyword-triggered messages', 'Livestream options including ticketed and 1:1 streams'),
-            'faq'       => array(
-                array('q' => 'How much does Fansly take?', 'a' => 'Fansly takes a 20% fee, so creators keep 80% of their subscription and direct sales earnings.'),
-                array('q' => 'How do Fansly payouts work?', 'a' => 'Fansly pays out by bank transfer (ACH/SEPA) or e-wallet. Once verified, creators can withdraw amounts above $20 as often as they like, and bank transfers typically arrive within 3 business days.'),
-                array('q' => 'What can I sell on Fansly?', 'a' => 'Fansly supports subscriptions, pay-per-view posts, bundles, livestreams (public, ticketed or 1:1), paid messages and custom content.'),
-            ),
-        ),
-        'kofi' => array(
-            'name' => 'Ko-fi', 'sells' => 'tips, memberships and a shop', 'url' => 'https://ko-fi.com', 'checked' => '2026-09-25', 'type' => 'membership',
-            'fee_short' => '0% on one-time tips, 5% on the rest',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Ko-fi Free (memberships, shop, commissions)', 'percent' => 5, 'monthly' => 0, 'source' => 'https://help.ko-fi.com/hc/en-us/articles/360002506494-Does-Ko-fi-take-a-fee')),
-            'summary' => 'Ko-fi is a creator support platform for tips, memberships, a shop and commissions, used by artists, writers, musicians and streamers. It does not hold earnings for a payout schedule; payments go directly into the creator\'s own connected payment account.',
-            'fee'       => array('value' => 'Ko-fi Free: 0% on one-time tips and goals, 5% on memberships, monthly tips, shop and commissions. Standard mode: 5% on everything. Payment processing fees apply on top', 'source' => 'https://help.ko-fi.com/hc/en-us/articles/360002506494-Does-Ko-fi-take-a-fee'),
-            'payout'    => array('value' => 'Paid immediately and directly into the creator\'s own connected payment account; no payout schedule or minimum balance', 'source' => 'https://help.ko-fi.com/hc/en-us/articles/115003980093-How-do-I-get-paid'),
-            'content'   => array('value' => 'One-time and recurring tips, membership tiers, physical and digital shop items, commissions and services, stream alerts', 'source' => 'https://help.ko-fi.com/hc/en-us/articles/115004000994-What-is-Ko-fi'),
-            'socials'   => array('value' => 'Not published', 'source' => 'https://help.ko-fi.com/hc/en-us'),
-            'ai'        => array('value' => 'Not published', 'source' => 'https://help.ko-fi.com/hc/en-us'),
-            'ownership' => array('value' => 'Yes, supporter and member lists (including supporter emails) can be downloaded as CSV files', 'source' => 'https://help.ko-fi.com/hc/en-us/articles/360016956178-Direct-messages-on-Ko-fi'),
-            'best_for'  => 'Artists, writers, musicians and streamers who want to take tips, commissions and shop sales with low fees and instant payment to their own account.',
-            'strengths' => array('No service fee on one-time tips with Ko-fi Free', 'Payments go straight to the creator\'s own account with no payout schedule or minimum', 'Supporter and member lists can be downloaded as CSV files'),
-            'faq'       => array(
-                array('q' => 'Does Ko-fi take a fee?', 'a' => 'On Ko-fi Free, one-time tips have no service fee and memberships, monthly tips, shop sales and commissions have a 5% fee. Standard mode charges 5% on everything, and payment processing fees apply on top in both cases.'),
-                array('q' => 'When do I get paid on Ko-fi?', 'a' => 'Payments go immediately and directly into the creator\'s own connected payment account, with no payout schedule or minimum balance.'),
-                array('q' => 'Can I export my Ko-fi supporters?', 'a' => 'Yes. Ko-fi lets creators download supporter and member lists, including supporter emails, as CSV files.'),
-            ),
-        ),
-        'linktree' => array(
-            'name' => 'Linktree', 'sells' => 'a link page with digital products', 'url' => 'https://linktr.ee', 'checked' => '2026-09-25', 'type' => 'bio',
-            'fee_short' => '0% to 12% of sales (plans $0 to $35/mo)',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Linktree Free (12% on sales)', 'percent' => 12, 'monthly' => 0, 'source' => 'https://linktr.ee/help/en/articles/11410206-understanding-transaction-and-processing-fees-on-linktree'),
-                                array('label' => 'Linktree Premium ($35/mo, 0% on sales)', 'percent' => 0, 'monthly' => 35, 'source' => 'https://linktr.ee/s/pricing')),
-            'summary' => 'Linktree is a link-in-bio page that lets creators share links, collect contacts and sell digital products and courses from one URL. Selling digital products and courses through Linktree is only available in selected countries.',
-            'fee'       => array('value' => 'Free $0; Starter $8/mo ($6/mo billed annually); Pro $15/mo ($12/mo annually); Premium $35/mo ($30/mo annually). Linktree\'s fee on digital product and course sales is 12% on Free, 9% on Starter and Pro, and 0% on Premium. Card processing fees apply on all plans, plus $0.25 per payout.', 'source' => 'https://linktr.ee/help/en/articles/11410206-understanding-transaction-and-processing-fees-on-linktree'),
-            'payout'    => array('value' => 'Product and course sales settle to the bank account connected to the creator\'s payment account, on a daily, weekly or monthly schedule the creator chooses. Affiliate commissions (US only) are usually paid monthly once they reach $10.', 'source' => 'https://linktr.ee/help/en/articles/11195009-how-to-track-your-earnings-and-set-up-a-payout-account'),
-            'content'   => array('value' => 'One-time digital products such as eBooks, guides, templates and courses, affiliate links and sponsored links. Pricing page also lists paid access to private communities (US only). Recurring memberships and bookings are not listed in the selling guide.', 'source' => 'https://linktr.ee/help/en/articles/10518645-guide-to-selling-digital-products-on-linktree'),
-            'socials'   => array('value' => 'Yes. Social Planner auto-posts to Instagram, TikTok, Facebook, LinkedIn, Pinterest and YouTube Shorts; the pricing page lists social media scheduling on Premium.', 'source' => 'https://linktr.ee/help/en/articles/9885339-plan-and-schedule-social-media-posts-using-social-planner'),
-            'ai'        => array('value' => 'An AI idea generator and caption writer for social posts, plus Instagram comment and DM auto-replies (unlimited on Premium).', 'source' => 'https://linktr.ee/s/pricing'),
-            'ownership' => array('value' => 'Yes. Audience contacts can be exported as a CSV from the Audience tab on all plans.', 'source' => 'https://linktr.ee/help/en/articles/11069074-setting-up-third-party-audience-integrations'),
-            'best_for'  => 'Creators who mainly need a simple, widely recognized link page with optional digital product sales and social scheduling.',
-            'strengths' => array('Free plan with unlimited basic links', 'Built-in social scheduling to six networks', 'Contact CSV export on every plan'),
-            'faq'       => array(
-                array('q' => 'Does Linktree take a cut of sales?', 'a' => 'Yes, on lower plans. Linktree charges 12% on Free and 9% on Starter and Pro for digital product and course sales, and 0% on Premium. Processing fees and a $0.25 payout fee apply on all plans.'),
-                array('q' => 'Can Linktree post to my social accounts?', 'a' => 'Yes. Its Social Planner auto-posts to Instagram, TikTok, Facebook, LinkedIn, Pinterest and YouTube Shorts, and social scheduling is listed on the Premium plan.'),
-                array('q' => 'Can I export my Linktree audience?', 'a' => 'Yes. Linktree lets you export audience contacts as a CSV file from the Audience tab on all plans.'),
-            ),
-        ),
-        'beacons' => array(
-            'name' => 'Beacons', 'sells' => 'a link page, a store and email marketing', 'url' => 'https://beacons.ai', 'checked' => '2026-09-25', 'type' => 'bio',
-            'fee_short' => '0% or 9% of sales (plans $0 to $100/mo)',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Beacons Free (9% seller fee)', 'percent' => 9, 'monthly' => 0, 'source' => 'https://beacons.ai/i/pricing'),
-                                array('label' => 'Beacons Creator Plus ($30/mo, 0% seller fee)', 'percent' => 0, 'monthly' => 30, 'source' => 'https://beacons.ai/i/pricing')),   // checked 2026-10-11
-            'summary' => 'Beacons is a creator business platform that combines a link-in-bio page, website, store, email marketing and media kit. Its social features track and analyze posts but do not publish them to your social accounts.',
-            'fee'       => array('value' => 'Free $0 with 9% seller fees, and Creator $10/mo ($100/yr) with 9% seller fees. Creator Plus $30/mo ($300/yr) and Creator Max $100/mo ($1,000/yr) with 0% seller fees.', 'source' => 'https://beacons.ai/i/pricing'),   // checked 2026-10-11: Max is $83.3/mo billed annually
-            'payout'    => array('value' => 'Store sale funds go straight to the seller\'s connected payment account, from which they transfer to their bank on a daily, weekly or custom schedule. Affiliate commissions are cashed out from the Payouts tab.', 'source' => 'https://help.beacons.ai/en/articles/4700481'),
-            'content'   => array('value' => 'Digital products, appointments and imported physical products on all plans. Weekly, monthly or yearly memberships and unlimited courses with video hosting on Creator Plus and above. Affiliate links and brand deals.', 'source' => 'https://beacons.ai/i/pricing'),
-            'socials'   => array('value' => 'No post publishing is listed. Post Activity tracks and analyzes posts across connected accounts, and Instagram DM automations reply to comments and messages.', 'source' => 'https://help.beacons.ai/en/articles/4704961'),
-            'ai'        => array('value' => 'An AI assistant (Beam) plus AI text, image, email and page generation, trending content search and brand outreach emails. Daily credits limit them: 30 on Free, 300 on Creator, unlimited on Creator Plus and Max.', 'source' => 'https://beacons.ai/i/pricing'),
-            'ownership' => array('value' => 'Yes. Audience contacts can be downloaded as a CSV from Audience Manager; automatic export to email tools is a paid feature.', 'source' => 'https://help.beacons.ai/en/articles/4703745'),
-            'best_for'  => 'Creators who want a store, email marketing and a brand-deal media kit in one tool, and who do brand partnerships.',
-            'strengths' => array('Free plan that includes digital product sales', 'Built-in email marketing and audience manager', 'Auto-updating media kit for brand deals'),
-            'faq'       => array(
-                array('q' => 'How much does Beacons charge on sales?', 'a' => 'Beacons charges a 9% seller fee on the Free and Creator plans and 0% on Creator Plus ($30/mo) and Creator Max ($100/mo).'),
-                array('q' => 'Can I sell memberships on Beacons?', 'a' => 'Yes. Memberships are listed on Creator Plus and above, with weekly, monthly or yearly billing.'),
-                array('q' => 'Does Beacons schedule posts to my social accounts?', 'a' => 'Beacons does not list post publishing. Its Post Activity feature tracks and analyzes posts across connected accounts.'),
-            ),
-        ),
-        'stan' => array(
-            'name' => 'Stan Store', 'sells' => 'courses, bookings and digital products', 'url' => 'https://stan.store', 'checked' => '2026-09-25', 'type' => 'bio',
-            'fee_short' => '$29 or $99/mo, no transaction fee',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Stan Store Creator ($29/mo, no transaction fee)', 'percent' => 0, 'monthly' => 29, 'source' => 'https://stan.store/blog/stan-store-pricing/')),   // checked 2026-10-11: "plans start at $29/month with zero transaction fees"
-            'summary' => 'Stan Store is a creator storefront for selling courses, digital products, bookings, subscriptions and communities from a link-in-bio page. It offers two paid plans and no free plan.',
-            'fee'       => array('value' => 'Creator $29/mo or $300/yr; Creator Pro $99/mo or $948/yr. Stan Store charges no transaction fee on sales; card processing fees still apply.', 'source' => 'https://stan.store/blog/stan-store-pricing/'),
-            'payout'    => array('value' => 'Creators cash out their full available balance (minimum $10) from the Income tab to their connected bank account. Funds arrive in 24-48 hours after cashing out, once sales have finished processing (2-7 business days in the US).', 'source' => 'https://help.stan.store/article/75-how-do-i-cash-out-inside-stan'),   // checked 2026-10-11
-            'content'   => array('value' => 'Digital products, courses, bookings, recurring subscriptions, communities and lead magnets on Creator; payment plans, upsells, discount codes, affiliates and email broadcasts on Creator Pro. An AI Twin subscription product is in beta.', 'source' => 'https://stan.store/blog/stan-store-pricing/'),
-            'socials'   => array('value' => 'Stan Store plans do not list post publishing. Stanley, a separately priced Stan Store product, helps create and repurpose content for LinkedIn, Instagram, X, Threads and Substack.', 'source' => 'https://help.stan.store/article/438-stan-store-vs-stanley'),
-            'ai'        => array('value' => 'AI Twin (beta), a subscribable AI version of the creator trained on their content. Stan AutoDM automates Instagram replies, and Stanley is a separate AI content product.', 'source' => 'https://help.stan.store/article/424-ai-twin-product-type-beta'),
-            'ownership' => array('value' => 'Yes. Customer and order data can be downloaded as a CSV from the Income tab.', 'source' => 'https://help.stan.store/article/219-i-added-additional-fields-to-my-checkout-how-do-i-access-this-information'),
-            'best_for'  => 'Coaches and educators who sell courses, bookings and digital products and prefer a flat monthly fee with no transaction fee.',
-            'strengths' => array('No transaction fee on either plan', 'Courses, bookings and subscriptions included on the base plan', 'Built-in Instagram auto-DMs'),
-            'faq'       => array(
-                array('q' => 'Does Stan Store take a percentage of sales?', 'a' => 'No. Stan Store charges no transaction fee on either plan; you pay $29 or $99 a month, and card processing fees still apply.'),
-                array('q' => 'How do I get paid on Stan Store?', 'a' => 'You cash out your full available balance (minimum $10) from the Income tab to your bank account, and it arrives within 24-48 hours.'),
-                array('q' => 'Does Stan Store post to my social accounts?', 'a' => 'Stan Store plans do not list post publishing. Stanley, a separately priced Stan Store product, helps create and repurpose social content.'),
-            ),
-        ),
-        'eromify' => array(   // type 'ai': an AI generation studio, not a selling platform, so it stays off the best-of groups
-            'name' => 'Eromify', 'sells' => 'AI images and video you sell somewhere else', 'url' => 'https://www.eromify.com', 'checked' => '2026-10-08', 'type' => 'ai',
-            'fee_short' => 'No fan sales listed; monthly plans with generation credits',   // hero panel only
-            'summary' => 'Eromify is an AI influencer generator. You train a persona, then generate images and videos of it with a wide choice of models, and post and sell that content somewhere else.',
-            'fee'       => array('value' => 'Monthly plans with a monthly credit allowance (Builder, Launch, Growth and Creator, from 500 to 6,000 credits a month). Each image or video model costs a set number of credits. No fan sales or selling fee are listed.', 'source' => 'https://www.eromify.com/pricing'),
-            'payout'    => array('value' => 'Not published; fan payments and payouts are not listed (an affiliate program pays on referrals)', 'source' => 'https://www.eromify.com'),
-            'content'   => array('value' => 'AI images and videos of a trained persona, for monetizing through social media, brand promotions and private media on other platforms', 'source' => 'https://www.eromify.com'),
-            'socials'   => array('value' => 'Not published; content is made to grow on Instagram, TikTok and YouTube, automatic posting is not listed', 'source' => 'https://www.eromify.com/pricing'),
-            'ai'        => array('value' => 'Influencer training (Flux LoRA) and image and video generation across many third-party models. Also motion control, image and video upscale, a workflow canvas, an AI agent and a Claude connector', 'source' => 'https://www.eromify.com/pricing'),
-            'ownership' => array('value' => 'Not published; no fan, subscriber or customer list is listed', 'source' => 'https://www.eromify.com/pricing'),
-            'best_for'  => 'Creators who only need to generate AI influencer images and video, with a wide choice of generation models, and already sell somewhere else.',
-            'strengths' => array('A wide choice of image and video models in one studio', 'Workflow canvas and an AI agent for batch generation', 'Outputs are not watermarked'),
-            'us_points' => array(
-                'You want to generate your AI influencer and sell the content on the same page',
-                'You want memberships, pay-per-view and paid messages without a second platform',
-                'You want posts published to ten platforms from the same studio',
-                'You want a DM agent that answers fans in your voice, with your approval',
-            ),
-            'faq'       => array(
-                array('q' => 'What is Eromify?', 'a' => 'An AI influencer generator. You train a persona, then generate images and videos of it with a choice of image and video models.'),
-                array('q' => 'Can I sell content to fans on Eromify?', 'a' => 'Eromify does not list fan payments or payouts. It describes monetizing through social media, brand promotions and private media, which means selling on another platform.'),
-                array('q' => 'How is Eromify priced?', 'a' => 'Monthly plans, each with a monthly credit allowance, and each model costs a set number of credits per image or clip. Prices are on its pricing page.'),
-            ),
-        ),
-
-        // ------------------------------------------------------------------ photographer comparisons (type 'photo', 2026-10-31)
-        // Pages for photographers choosing between a photo tool and us (linked from /for/photographers). Every competitor row
-        // is taken from the competitor's own site and checked on the 'checked' date; each row names its source, and rows with
-        // more than one source list the others in a comment. Nothing their site doesn't say is claimed, and a row with no
-        // confirmed fact is left out of the table (compare.php). Our side: PagesController::photo_facts(). Placeholders
-        // ({site}, {fee_sentence}, {payout_min}) are filled in compareAction.
-        // Pixieset: pixieset.com pages plus its official help center at website-help.pixieset.com (help.pixieset.com blocks automated reads).
-        'pixieset' => array(
-            'name' => 'Pixieset', 'sells' => 'client galleries, prints, downloads and bookings', 'url' => 'https://pixieset.com', 'checked' => '2026-10-31', 'type' => 'photo',
-            'meta_title' => '{site} vs Pixieset for Photographers',
-            'meta_desc'  => 'Pixieset or {site}? Client galleries, prints, bookings, memberships and payouts compared for photographers, with Pixieset facts from its own pages.',
-            'fee_short' => 'Client Gallery plans $0 to $50/mo; 15% store commission on Free only',   // https://pixieset.com/pricing/
-            'summary' => 'Pixieset is a platform for client photographers: galleries, a print and download store, a website, and booking, contracts and invoices in its separately priced Studio Manager.',
-            // "Free accounts are subject to a 15% commission fee on store sales." / "There are no commission fees for all upgraded accounts." ($8/mo billed annually or $10/month, and so on)
-            // Studio Manager prices: https://pixieset.com/pricing-studio-manager/ ; card fees 2.9% + 30 cents: website-help.pixieset.com/en/articles/10041458-pixieset-payments-processing-times-and-fees
-            'fee'       => array('value' => 'Client Gallery plans: Free, then Basic $10, Plus $20, Pro $30 and Ultimate $50 a month, less when billed yearly. Free accounts pay a 15% commission on store sales; paid plans pay none. Studio Manager for booking, contracts and invoices is priced separately', 'source' => 'https://pixieset.com/pricing/'),
-            // also https://pixieset.com/studio-manager/ ("book their own sessions and pay online—all during booking"; contracts and questionnaires)
-            'content'   => array('value' => 'Prints and print products, digital downloads delivered automatically, packages of prints and downloads at one price, gift cards, and booked sessions with payment taken at booking', 'source' => 'https://pixieset.com/online-store/'),
-            'prints'    => array('value' => 'Yes. Partner labs print and ship orders automatically, or you can fulfil them yourself with your own lab', 'source' => 'https://pixieset.com/online-store/'),   // self-fulfilment also in website-help.pixieset.com/en/articles/4064186-introduction-to-pixieset-store
-            'delivery'  => array('value' => 'Branded email invites lead clients to their gallery, where they download the whole gallery or single photos in sizes from web-ready to high-res. Passwords, download PINs and favourites for proofing', 'source' => 'https://pixieset.com/client-gallery/'),
-            'watermark' => array('value' => 'Custom watermarks on every image clients view in a gallery', 'source' => 'https://pixieset.com/client-gallery/'),
-            'payout'    => array('value' => 'Store sales are paid through Stripe or PayPal, or offline. With Stripe, US payouts typically arrive two business days after the order payment; PayPal deposits right away', 'source' => 'https://website-help.pixieset.com/en/articles/4064189-getting-paid-for-your-store-orders'),
-            'best_for'  => 'Client photographers who deliver galleries, sell prints and downloads through a lab, and want booking, contracts and invoices from the same company.',
-            'strengths' => array(
-                'Client galleries with downloads in several sizes, proofing, passwords and download PINs',   // /client-gallery/
-                'Partner labs print and ship orders, with no store commission on paid plans',   // /online-store/, /pricing/
-                'Booking with payment at the time of booking, contracts and invoices in Studio Manager',   // /studio-manager/
-            ),
-            'us_text'   => 'You sell to fans as well as clients: memberships, single shots and sets, from one page your followers keep coming back to.',
-            'us_points' => array(
-                'You want memberships with tiers and free trials for your regulars',
-                'You want pay-per-view posts and paid messages for single shots',
-                'You want a watermark you switch on for each image',
-                'You want one post sent to your page and all ten platforms you connect',
-            ),
-            'faq'       => array(
-                array('q' => 'Can I sell prints on {site}?', 'a' => 'No. Sales on {site} are digital: images, video, sessions and memberships. If prints are a big part of your income, Pixieset is the better fit for that part: partner labs print and ship each order, or you use your own lab.'),
-                array('q' => 'Does Pixieset take a commission on sales?', 'a' => 'Only on the Free plan, which pays 15% on store sales. Paid Client Gallery plans, from $10 a month, pay no store commission. Card processing is charged separately.'),
-                array('q' => 'Can clients book sessions on Pixieset?', 'a' => 'Yes, through Studio Manager, which is priced separately. Clients see your availability, book their own session and pay in full or a retainer while booking.'),
-                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
-            ),
-        ),
-        // ShootProof: www.shootproof.com pages only (its help center blocks automated reads, so nothing here comes from it).
-        'shootproof' => array(
-            'name' => 'ShootProof', 'sells' => 'client galleries, prints, downloads and bookings', 'url' => 'https://www.shootproof.com', 'checked' => '2026-10-31', 'type' => 'photo',
-            'meta_title' => '{site} vs ShootProof for Photographers',
-            'meta_desc'  => 'ShootProof or {site}? Client galleries, prints, bookings, memberships and payouts compared for photographers, with ShootProof facts from its own pages.',
-            'fee_short' => 'Plans from $0 to $60/mo; no commission on sales',   // https://www.shootproof.com/plans/: "ShootProof will never take a commission."
-            'summary' => 'ShootProof is a studio tool for client photographers: galleries, a print and download store, booking, contracts and invoices in one account. It takes no commission on sales.',
-            // plan prices billed monthly ($8.33 / $16.67 / $26.67 / $50 a month billed yearly), "Free 14-day trial", "Commission-free sales" on every plan
-            'fee'       => array('value' => 'Free $0, Starter $9.99, Standard $19.99, Professional $31.99 and Premium $60 a month, less when billed yearly, with a 14-day free trial. No commission on sales on any plan. Card processing fees apply. Online booking is an add-on at $6.99 a month', 'source' => 'https://www.shootproof.com/plans/'),
-            // also https://www.shootproof.com/features/booking/ ("sign a contract and pay for their session (or a retainer) during the booking process"),
-            // https://www.shootproof.com/feature-index/ ("sell single images, individual albums, or full galleries"; "curated packages and product bundles")
-            'content'   => array('value' => 'Prints, lab products and photo and video downloads from your galleries, single images, albums or full galleries, packages, session bookings with a contract and payment, and invoices with installments and tips', 'source' => 'https://www.shootproof.com/features/online-photo-store/'),
-            'prints'    => array('value' => 'Yes. Orders go to a partner lab, or you print them yourself, or a mix of both, at prices and markups you set', 'source' => 'https://www.shootproof.com/feature-index/'),
-            'delivery'  => array('value' => 'Full-resolution photo and video galleries where clients proof and pick favourites, with you controlling free and paid downloads', 'source' => 'https://www.shootproof.com/online-photo-galleries/'),
-            'watermark' => array('value' => 'Watermarks added automatically as photos upload, with an AI-resistant option, on every plan', 'source' => 'https://www.shootproof.com/feature-index/'),   // AI-resistant: https://www.shootproof.com/features/; every plan: /plans/
-            'payout'    => array('value' => 'ShootProof Pay takes cards, Apple Pay and Google Pay with no separate processor and no monthly fee, and its users can get Instant Payouts to their bank', 'source' => 'https://www.shootproof.com/features/invoices-for-photographers/'),
-            'socials'   => array('value' => 'Clients can share your photos on Facebook, Twitter and more', 'source' => 'https://www.shootproof.com/feature-index/'),
-            'best_for'  => 'Session, wedding and event photographers who deliver client galleries and sell prints and downloads from them, with booking, contracts and invoices in the same tool.',
-            'strengths' => array(
-                'No commission on sales on any plan',   // /plans/
-                'Prints through partner labs, your own fulfilment or both, at the markup you set',   // /feature-index/, /features/online-photo-store/
-                'Booking, e-sign contracts, installment invoices and gallery delivery in one place on paid plans',   // /features/booking/, /features/contracts-for-photographers/, /plans/
-            ),
-            'us_text'   => 'You sell to fans as well as clients: memberships, single shots and sets, from one page your followers keep coming back to.',
-            'us_points' => array(
-                'You want memberships with tiers and free trials for your regulars',
-                'You want pay-per-view posts and paid messages for single shots',
-                'You want a whole shoot sold as one bundle that buyers download',
-                'You want one post sent to your page and all ten platforms you connect',
-            ),
-            'faq'       => array(
-                array('q' => 'Can I sell prints on {site}?', 'a' => 'No. Sales on {site} are digital: images, video, sessions and memberships. If prints are a big part of your income, ShootProof is the better fit for that part: orders go to a partner lab or you fulfil them yourself.'),
-                array('q' => 'Does ShootProof take a commission?', 'a' => 'No. ShootProof says it never takes a commission on sales, on any plan. You pay the plan price, from free to $60 a month, and card processing.'),
-                array('q' => 'Can clients book and pay for a session on ShootProof?', 'a' => 'Yes, with the booking add-on at $6.99 a month. Clients sign a contract and pay for the session or a retainer while booking.'),
-                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
-            ),
-        ),
-        // SmugMug: help center lives at smugmughelp.com (smugmug.com/help redirects there); every source is SmugMug's own.
-        'smugmug' => array(
-            'name' => 'SmugMug', 'sells' => 'portfolio sites, client galleries, prints and downloads', 'url' => 'https://www.smugmug.com', 'checked' => '2026-10-31', 'type' => 'photo',
-            'meta_title' => '{site} vs SmugMug for Photographers',
-            'meta_desc'  => 'SmugMug or {site}? Prints, downloads, galleries, memberships and payouts compared for photographers, with SmugMug facts from its own pages.',
-            'fee_short' => 'Plans from $20/mo (billed yearly); keeps 15% of your markup on sales',   // https://www.smugmug.com/plans + Get-paid-my-profits (below)
-            'summary' => 'SmugMug is a photo hosting and portfolio service with client galleries, unlimited storage and print and download sales on its Portfolio and Pro plans. Partner labs print and ship the orders.',
-            // plans and prices: https://www.smugmug.com/plans ("$20.00/MO ... $23.50/MO ... $37.00/MO", "billed annually", 14-day free trial);
-            // selling needs Portfolio or Pro and the 15% share: Get-paid-my-profits ("Your profit is calculated as 85% of the difference between the price you set and SmugMug's default print prices.")
-            'fee'       => array('value' => 'Direct $20, Portfolio $23.50 and Pro $37 a month, billed yearly, with a 14-day free trial. Selling needs Portfolio or Pro. SmugMug keeps 15% of your markup over its base price on each print and download sale, card fees included', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212462590868-Get-paid-my-profits'),
-            // also /articles/18212586509716-Sell-digital-downloads, /articles/18212357788820-Sell-print-or-digital-packages ("available for Pro accounts only")
-            'content'   => array('value' => 'Prints and keepsakes, digital downloads of photos and videos up to the original size, whole-gallery downloads, and print or download packages on Pro', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212586509716-Sell-digital-downloads'),
-            'prints'    => array('value' => 'Yes. Bay Photo, Loxley, Fujifilm or WHCC print and ship your orders, and SmugMug handles order fulfilment', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212621501588-Print-labs-available-with-SmugMug'),   // "Full-service customer order fulfillment.": smugmug.com/plans
-            'delivery'  => array('value' => 'Client galleries on every plan, set to public, unlisted or private, and locked with a password or to people you choose', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212691894420-Gallery-Page-and-Folder-privacy-settings'),
-            'watermark' => array('value' => 'Custom watermarks on Portfolio and Pro. They don\'t appear on prints ordered through SmugMug', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212632250644-Watermark-photos'),
-            'payout'    => array('value' => 'Paid automatically the next month once unpaid profit reaches $500, or on request from $5 ($10 outside the US). Bank deposit in the US, PayPal elsewhere, with SmugMug paying the transfer fees', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212462590868-Get-paid-my-profits'),
-            'socials'   => array('value' => 'You can publish your SmugMug photos to your social media channels and share buy links', 'source' => 'https://www.smugmughelp.com/hc/en-us/articles/18212716776340-Share-my-photos'),
-            'best_for'  => 'Photographers who sell prints and downloads from a portfolio site and want a lab to print and ship every order.',
-            'strengths' => array(
-                'Partner labs print and ship orders, so you never handle fulfilment',   // Print-labs article + smugmug.com/plans
-                'Galleries can be private, password-protected or limited to people you choose',   // Gallery privacy article
-                'Unlimited photo storage with delivery on every plan',   // smugmug.com/plans: "Unlimited storage—never delete another photo."
-            ),
-            'us_text'   => 'You sell digital work to fans: memberships, single shots and sets, plus booked sessions, from one page.',
-            'us_points' => array(
-                'You want memberships with tiers and free trials for your regulars',
-                'You want pay-per-view posts and paid messages for single shots',
-                'You want booked sessions with a price on the same page',
-                'You want one post sent to your page and all ten platforms you connect',
-            ),
-            'faq'       => array(
-                array('q' => 'Can I sell prints on {site}?', 'a' => 'No. Sales on {site} are digital: images, video, sessions and memberships. If prints are a big part of your income, SmugMug is the better fit for that part: partner labs print and ship each order for you.'),
-                array('q' => 'How much does SmugMug keep from a sale?', 'a' => 'SmugMug keeps 15% of your markup over its base price on each print and download sale, which covers card fees. Selling needs the Portfolio or Pro plan, from $23.50 a month billed yearly.'),
-                array('q' => 'When does SmugMug pay out?', 'a' => 'Automatically the following month once your unpaid profit reaches $500, or on request from $5 ($10 outside the US). US photographers are paid by bank deposit and others by PayPal.'),
-                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
-            ),
-        ),
-        'gumroad' => array(
-            'name' => 'Gumroad', 'sells' => 'digital downloads, memberships and calls', 'url' => 'https://gumroad.com', 'checked' => '2026-10-31', 'type' => 'photo',
-            'meta_title' => '{site} vs Gumroad for Photographers',
-            'meta_desc'  => 'Gumroad or {site} for selling your photos? Fees, memberships, set bundles, sessions and payouts compared for photographers, with sources.',
-            'fee_short' => '10% + $0.50 per direct sale, no monthly fee',   // https://gumroad.com/pricing: "10% + $0.50 Per transaction for all sales through your profile or direct links"
-            // 'Gumroad's marketplace lists stock photos, reference photos and LUTs': https://gumroad.com homepage categories, checked 2026-10-31
-            'summary' => 'Gumroad is a store for digital products with no monthly fee. Its marketplace lists categories such as stock photos, reference photos and LUTs, and creators also sell memberships, bundles and booked calls there.',
-            // also https://gumroad.com/pricing ("Gumroad doesn't charge you a monthly fee.") and the 5% + $0.50 tier in the same 66 article
-            'fee'       => array('value' => '10% + $0.50 per sale through your profile or your own links, plus card processing (2.9% + $0.30). Sales that come through its Discover marketplace cost a flat 30%, processing included. Direct sales drop to 5% + $0.50 after $20,000 of sales in a month. No monthly fee', 'source' => 'https://gumroad.com/help/article/66-gumroads-fees'),
-            // also https://gumroad.com/help/article/82-membership-products (tiers; free trial of a week or a month), /help/article/339-product-bundles,
-            // /help/article/133-pay-what-you-want-pricing, /help/article/70-can-i-sell-services (calls and commissions once the account is 30 days old)
-            'content'   => array('value' => 'Digital downloads, courses and e-books, memberships with tiers and an optional free trial, bundles, pay what you want, and booked calls or commissions once your account is 30 days old', 'source' => 'https://gumroad.com/help/article/149-adding-a-product'),
-            'delivery'  => array('value' => 'Buyers get an emailed receipt with a download link, and buyers with an account also find purchases in their Gumroad Library', 'source' => 'https://gumroad.com/help/article/282-how-do-purchases-work-for-my-customers'),   // library: /help/article/198-your-gumroad-library
-            'payout'    => array('value' => 'Bank deposit in most countries, PayPal where banks aren\'t available. A $100 minimum balance, paid daily, weekly, monthly or quarterly, with a 7-day hold on sales on most schedules. US creators can take instant payouts for a 3% fee', 'source' => 'https://gumroad.com/help/article/13-getting-paid'),
-            'best_for'  => 'Photographers who mainly sell digital downloads, such as photo packs, presets and LUTs, and want no monthly cost and a marketplace that can bring new buyers.',
-            'strengths' => array(
-                'No monthly fee, and Gumroad handles sales tax as merchant of record',   // https://gumroad.com/pricing: "We're a Merchant of Record ... Gumroad handles ALL your tax obligations."
-                'Its Discover marketplace recommends your products to new buyers, at a 30% fee',   // https://gumroad.com/help/article/79-gumroad-discover
-                'Automated email workflows to your customers and subscribers',   // https://gumroad.com/help/article/170-audience: workflows are "a series of automated emails"
-            ),
-            'us_text'   => 'You want fans to pay you on your own page, by the month or by the set, and your posts to reach every network you use.',
-            'us_points' => array(
-                'You want pay-per-view posts and paid messages beside your memberships and bundles',
-                'You want a watermark you switch on for each image',
-                'You want one post sent to your page and all ten platforms you connect',
-                'You want to cash out to your bank from {payout_min}',
-            ),
-            'faq'       => array(
-                array('q' => 'How much does Gumroad take on a sale?', 'a' => 'Gumroad charges 10% + $0.50 on sales through your own profile or links, plus card processing. Sales that come through its Discover marketplace cost a flat 30%, processing included. It has no monthly fee.'),
-                array('q' => 'Can I sell photo memberships on Gumroad?', 'a' => 'Yes. Gumroad memberships can have tiers and a free trial of a week or a month, and bill monthly, quarterly, every six months or yearly.'),   // /help/article/82-membership-products, /help/article/278-guide-to-memberships
-                array('q' => 'When does Gumroad pay out?', 'a' => 'Once your balance reaches $100, on a daily, weekly, monthly or quarterly schedule, with a 7-day hold on sales on most schedules. US creators can also take instant payouts for a 3% fee.'),
-                array('q' => 'What does {site} charge photographers?', 'a' => '{fee_sentence}'),
-            ),
-        ),
-    );
 
     public function __construct(){
         parent::__construct();
@@ -459,24 +106,22 @@ class PagesController extends Controller {
     }
 
     /** Said wherever plan prices or credit purchases are mentioned. */
-    /** The one description of the Free plan (2026-10-13): the pricing page says it in these words wherever Free is described, and so do the home FAQ and the fee sentence. */
-    const FREE_LINE = 'Free is the account everyone starts with: it costs nothing and needs no card. Fans follow, join and buy on it, and creators build their page and drafts on it. Publishing and selling start on Creator or Studio.';
-    const FINAL_NOTE = 'Plan charges and credit purchases are final and non-refundable.';
+    /** The one description of the Free plan (2026-10-13): the pricing page says it in these words wherever Free is described, and so does the home FAQ. */
+    const FREE_LINE = 'Free is the account everyone starts with: it costs nothing and needs no card. You can follow creators and build your page and drafts on it. Publishing, scheduling and the AI tools start on Creator or Studio.';
+    const FINAL_NOTE = 'Plan charges and AI credit purchases are final and non-refundable.';
 
     /** Old feature slugs => new ones (301). */
     const FEATURE_MOVED = array('character-generation' => 'ai-influencer');
 
-    /** Placeholders in the constants are filled from config here, so plans, fees and names never go stale in the text. */
+    /** Placeholders in the constants are filled from config here, so plans, limits and names never go stale in the text. */
     private static function fill_feature_text(array $pages): array {
         $domain_plan = ''; $inf = array(); $seats = array();
-        foreach (self::selling_tiers() as $t) {
+        foreach (self::paid_tiers() as $t) {
             if ($domain_plan === '' && !empty($t['features']['custom_domain'])) { $domain_plan = (string) $t['name']; }
             if ((int) ($t['limits']['seats'] ?? 1) > 1) { $seats[] = (string) $t['name']; }
             if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $inf[] = (int) $t['limits']['influencers'] . ' on ' . $t['name']; }
         }
         $vars = array(
-            '{fee_sentence}'     => self::fee_sentence(),
-            '{fee_short}'        => self::fee_short(),
             '{site}'             => Main::site_name(),
             '{host}'             => preg_replace('#^https?://(www\.)?#', '', SeoMeta::base()),
             '{networks}'         => SeoController::NETWORKS,
@@ -486,7 +131,6 @@ class PagesController extends Controller {
             '{final_note}'       => self::FINAL_NOTE,
             '{min_photos}'       => (string) (int) InfluencerConfig::get('training_min_photos', 10),   // the training set the influencer code actually accepts
             '{max_photos}'       => (string) (int) InfluencerConfig::get('training_max_photos', 50),
-            '{payout_min}'       => Price::PAYOUT_MIN_LABEL,
         );
         // the non-refundable line lives on /pricing, /terms and checkout only (Decision 2026-10-13), so nothing is appended here
         $map = array();
@@ -507,7 +151,7 @@ class PagesController extends Controller {
         $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld,
                 'hero_photo' => (string) ($look['photo'] ?? ''), 'hero_sizes' => ($look['variant'] ?? 'split') === 'split' ? '(max-width: 760px) 100vw, 52vw' : '100vw'),
             array('page' => $page, 'slug' => $slug, 'path' => $path, 'siblings' => $siblings, 'look' => $look,
-                  'cta_title' => $cta['title'] ?? 'Start selling from one page.', 'cta_text' => $cta['text'] ?? ''));
+                  'cta_title' => $cta['title'] ?? 'Start Creating With AI Today.', 'cta_text' => $cta['text'] ?? ''));
     }
 
     /** /for/<niche> (NichePages). There is no /for index: the pages are linked from the footer and the feature pages they name. */
@@ -524,7 +168,7 @@ class PagesController extends Controller {
         ), NichePages::LOOK[$slug] ?? array());
     }
 
-    /** /lora-character-training, /consistent-ai-model-face, /ai-ofm-tools. */
+    /** /lora-character-training, /consistent-ai-model-face. */
     public function rootFeatureAction(){
         $url = Main::get_url();
         $slug = (string) ($url[0] ?? '');
@@ -556,11 +200,10 @@ class PagesController extends Controller {
             return;
         }
         $faq = array(
-            array('q' => 'Do I need my own website?', 'a' => 'No. Your public page lives at our domain under your handle and includes your posts, tiers, services, events and links.'),
+            array('q' => 'Do I need my own website?', 'a' => 'No. Your link-in-bio page lives at our domain under your handle and holds your posts and links. On Studio you can point your own domain at it.'),
             array('q' => 'Can I keep posting to my social accounts?', 'a' => 'Yes. The studio publishes each post to your page and to any connected social accounts at the same time, and pulls their engagement back into analytics.'),
-            array('q' => 'Who owns my content?', 'a' => 'You do. Your posts, library files and messages download at any time from Settings, and your sales history exports as a CSV file from Analytics.'),   // was "and subscriber list ... audience list can be exported": there is no audience export (2026-10-26)
-            array('q' => 'How do I get paid?', 'a' => 'Payouts go straight to your bank account. Fans pay with a credit wallet for unlocks and by card for memberships.'),
-            array('q' => 'Is adult content allowed?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
+            array('q' => 'Who owns my content?', 'a' => 'You do. Your posts, library files, AI images and video and messages download at any time from Settings.'),   // there is no audience export (2026-10-26)
+            array('q' => 'What do the AI tools cost?', 'a' => 'Creator and Studio include AI credits every month. AI images, video and AI influencers spend those credits, and you can buy more credits at any time on either plan.'),
             self::FLAGGED_FAQ,
         );
         $jsonld = array(
@@ -568,7 +211,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
-        $this->page('features', array('hero_photo' => 'featport', 'hero_sizes' => '(max-width: 760px) 100vw, 58vw', 'path' => '/features', 'title' => 'Creator Platform Features: Memberships, PPV and AI Tools', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
+        $this->page('features', array('hero_photo' => 'featport', 'hero_sizes' => '(max-width: 760px) 100vw, 58vw', 'path' => '/features', 'title' => 'Features: AI Influencers, AI Content and Scheduling', 'description' => 'One AI content studio for creators and brands: AI influencers, AI images and video, scheduling and cross-posting, link in bio, inbox automation and analytics.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
     }
     /** One row per tier, in rank order, with the live Stripe monthly price when available. */
     /**
@@ -590,17 +233,17 @@ class PagesController extends Controller {
     }
 
     public function termsAction(){
-        $this->page('legal-terms', array('path' => '/terms', 'title' => 'Terms of Service', 'description' => 'The terms for using ' . Main::site_name() . ': accounts, purchases, memberships, credits, creator plans and content rules.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+        $this->page('legal-terms', array('path' => '/terms', 'title' => 'Terms of Service', 'description' => 'The terms for using ' . Main::site_name() . ': accounts, plans, AI credits and content rules.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function privacyAction(){
-        $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects from creators and fans, how it is used and shared, and the choices you have over your data.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+        $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects from creators and other users, how it is used and shared, and the choices you have over your data.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function aboutAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         $site = Main::site_name();
-        $desc = 'What ' . $site . ' is, who it is for, what creators sell from one page, how they get paid, and who writes and checks the articles.';   // 120-160 characters
+        $desc = 'What ' . $site . ' is, who it is for, what its AI content studio does for creators and brands, and who writes and checks the articles.';   // 120-160 characters
         $jsonld = array(
             array('@context' => 'https://schema.org', '@type' => 'AboutPage', 'name' => 'About ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/about', 'about' => SeoMeta::org_ref()),
             SeoMeta::org(),
@@ -608,7 +251,7 @@ class PagesController extends Controller {
         );
         $recent = array();
         try { $recent = (new SeoArticlesModel())->published(8, 0); } catch (\Throwable $e) { error_log('[seo] about recent articles: ' . $e->getMessage()); }   // the editorial section lists the latest pieces; the page never breaks on it
-        $this->page('about', array('hero_photo' => 'about', 'hero_sizes' => '100vw', 'path' => '/about', 'title' => 'About ' . $site . ': One Page to Sell and Get Paid', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true), array('recent' => $recent));
+        $this->page('about', array('hero_photo' => 'about', 'hero_sizes' => '100vw', 'path' => '/about', 'title' => 'About ' . $site . ': The AI Content Studio for Creators', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true), array('recent' => $recent));
     }
 
     /** /author/dr-glauber: the author page behind the byline (SeoMeta::AUTHOR_NAME, AUTHOR_BIO, AUTHOR_EXPERIENCE). Linked only from article bylines; not in the nav, the footer or the sitemap. */
@@ -632,7 +275,7 @@ class PagesController extends Controller {
     public function contactAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         $site = Main::site_name();
-        $desc = 'Contact ' . $site . ' support about billing, payouts, your account or a bug. Send a message or email ' . self::LEGAL_CONTACT . '.';
+        $desc = 'Contact ' . $site . ' support about billing, your account or a bug. Send a message or email ' . self::LEGAL_CONTACT . '.';
         $jsonld = array(
             array('@context' => 'https://schema.org', '@type' => 'ContactPage', 'name' => 'Contact ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/contact', 'about' => SeoMeta::org_ref()),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Contact', 'url' => '/contact'))),
@@ -646,18 +289,15 @@ class PagesController extends Controller {
         $ai_first = PlanTiers::lowest_including('influencers');
         $faq  = array(
             array('q' => 'Is there a free plan?', 'a' => 'Yes. ' . self::FREE_LINE),
-            array('q' => 'What is the platform take rate?', 'a' => self::fee_sentence()),
+            array('q' => 'What do I pay for?', 'a' => 'Two things only: your plan and any extra AI credits you choose to buy. ' . self::plan_price_sentence() . ' ' . self::addon_sentence()),
             array('q' => 'Can I buy AI credits on any plan?', 'a' => 'No. AI credits can be bought on Creator and Studio only, which include AI credits every month. Buy more at any time on either plan. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
-            array('q' => 'Are plans and credits refundable?', 'a' => 'No. Plan charges and credit purchases are final and non-refundable. You can cancel a plan at any time and keep it until the end of the paid period.'),
+            array('q' => 'Are plans and credits refundable?', 'a' => 'No. Plan charges and AI credit purchases are final and non-refundable. You can cancel a plan at any time and keep it until the end of the paid period.'),
             array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Moving between paid plans prorates. Moving to Free takes effect when your paid period ends. Anything over the new limits is kept and locked, never deleted.'),
         );
         foreach (PlanTiers::addons() as $ad) {
             $on = array(); foreach ((array) $ad['plans'] as $k) { $t = PlanTiers::get($k); if ($t) { $on[] = $t['name']; } }
             $faq[] = array('q' => 'Can I add more AI influencers?', 'a' => 'On ' . implode(' and ', $on) . ', yes: each extra AI influencer is $' . (int) $ad['price'] . ' a month, up to ' . (int) $ad['max'] . ' extra. Add or remove them from Billing.');
         }
-        $faq = array_merge($faq, array(
-            array('q' => 'Are there payment processing fees on top?', 'a' => 'Card processing fees apply to card payments as with any platform; they are separate from the take rate.'),
-        ));
         $jsonld = array(
             self::software_app('/pricing', Main::site_name() . ' plans', self::pricing_meta()),
             SeoMeta::faq($faq),
@@ -674,9 +314,9 @@ class PagesController extends Controller {
         return implode(', ', $bits) . ', all per month.';
     }
 
-    /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, Free's take rate and add-ons, from config. */
+    /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, what Free is and add-ons, from config. */
     public static function plan_cost_answer(): string {
-        return trim(self::plan_price_sentence() . ' ' . CreatorPromo::sentence() . ' ' . self::FREE_LINE . ' Free pays no platform fee because it sells nothing. The platform fee is ' . self::fee_short() . '; Studio also adds more AI influencers and team seats. ' . self::addon_sentence());   // the Founding Creator line drops out by itself after the deadline
+        return trim(self::plan_price_sentence() . ' ' . CreatorPromo::sentence() . ' ' . self::FREE_LINE . ' Studio adds more AI credits, more AI influencers, team seats and a custom domain. ' . self::addon_sentence());   // the Founding Creator line drops out by itself after the deadline
     }
 
     /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */
@@ -732,16 +372,16 @@ class PagesController extends Controller {
         }
         $last = array_pop($bits);
         $plans = $bits ? implode(', ', $bits) . ' and ' . $last : $last;
-        $selling = self::selling_tiers(); usort($selling, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
-        $first = $selling ? (string) $selling[0]['name'] : 'Creator';
+        $paid = self::paid_tiers(); usort($paid, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+        $first = $paid ? (string) $paid[0]['name'] : 'Creator';
         // 110-160 characters: the description the audit scores
-        return 'Plans: ' . $plans . ' a month. Free is the starting account; selling starts on ' . $first . '. Platform fee ' . self::fee_short() . '.';
+        return 'Plans: ' . $plans . ' a month. Free is the starting account; AI credits, AI influencers and scheduling start on ' . $first . '.';
     }
 
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
     /** One-line role per plan (home plan strip, pricing cards), by PlanTiers key. */
     // card label, then the clause after the plan name in the hero sentence. Free builds a page in the Studio but
-    // has no public page and cannot sell, so its line says build, not get.
+    // has no public page and no AI tools, so its line says build, not get.
     const PLAN_ROLES = array(
         'free'    => array('Build your page', 'lets you build your page'),
         'creator' => array('Get discovered',  'gets you discovered'),
@@ -752,332 +392,37 @@ class PagesController extends Controller {
         return (string) (self::PLAN_ROLES[$key][0] ?? '');
     }
 
-    /** Home and payouts FAQ: how data and money are handled, in plain words. One string so the page, its schema and /features/payouts agree. */
     /** The home page FAQ: one source for the visible section (home_body.php) and the FAQPage markup (login_form.php), so they cannot drift. Each answer stands alone and names the figures. */
     public static function home_faq(): array {
         return array(
-            array('q' => 'Who can see my content?', 'a' => 'You choose for each post: everyone, subscribers only, or pay-per-view at a price you set. Subscriber and paid posts show blurred to everyone else.'),
-            array('q' => 'How do fans pay?', 'a' => 'Fans pay for memberships by card, on the schedule you set. Pay-per-view posts, bundles, services and event tickets are paid from a credit wallet, at 10 credits to the dollar.'),
-            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee (' . self::fee_short() . '). You cash out to your bank on request, from a ' . Price::PAYOUT_MIN_LABEL . ' minimum, with no platform hold. Earnings from an event are released after the event has taken place.'),
-            array('q' => 'Can people follow me for free?', 'a' => 'Yes. Following is free, and you can also offer a free membership tier.'),
+            array('q' => 'What can I make with the AI tools?', 'a' => 'AI influencers that keep the same face from post to post, AI images and short AI videos, and captions written in your voice. Each generation spends AI credits from your plan.'),
+            array('q' => 'Where do my posts go?', 'a' => 'To your link-in-bio page and to every social account you connect: ' . SeoController::NETWORKS . '. Publish now or schedule a time, or let an automation post on a routine.'),
+            array('q' => 'What do AI credits cost?', 'a' => 'Creator and Studio include AI credits every month. If you run out, buy an AI credit pack at any time on either plan. Plans and AI credits are the only things you pay for.'),
+            array('q' => 'Can people follow me for free?', 'a' => 'Yes. Following a creator is free.'),
             array('q' => 'What do the plans cost?', 'a' => self::plan_cost_answer()),
-            array('q' => 'How is my data and money handled?', 'a' => self::DATA_MONEY_ANSWER),
+            array('q' => 'How is my data handled?', 'a' => self::DATA_MONEY_ANSWER),
             self::FLAGGED_FAQ,
             self::LEAVE_FAQ,
         );
     }
 
-    /** heycatch D1.4 (2026-10-26): the suspension and exit objection. Facts from the Terms (reports reviewed, removal or suspension)
-     *  and the Creator Terms 6.4 / 11.2 (earned balances paid out, holds for chargebacks, fraud checks and legal holds). */
-    const FLAGGED_FAQ = array('q' => 'What happens if my account is flagged?', 'a' => 'Reported posts and profiles are reviewed by a person. Content that breaks the rules can be removed, and an account that keeps breaking them can be suspended. If you think a decision is wrong, contact support and ask for a review. Your earned balance above the payout minimum is still paid to your bank, except amounts held for chargebacks, a fraud check or a legal hold.');
-    const LEAVE_FAQ   = array('q' => 'Can I take my content and earnings with me if I leave?', 'a' => 'Yes. Download Your Data in Settings gives you your posts, your library files, your messages and your credit history, and Analytics exports your sales history as a CSV file. When you close your account, your earned balance above the payout minimum is paid to your bank on the next payout.');
+    /** heycatch D1.4 (2026-10-26): the suspension and exit objection. Facts from the Terms (reports reviewed, removal or suspension, data download). */
+    const FLAGGED_FAQ = array('q' => 'What happens if my account is flagged?', 'a' => 'Reported posts and profiles are reviewed by a person. Content that breaks the rules can be removed, and an account that keeps breaking them can be suspended. If you think a decision is wrong, contact support and ask for a review.');
+    const LEAVE_FAQ   = array('q' => 'Can I take my content with me if I leave?', 'a' => 'Yes. Download Your Data in Settings gives you your posts, your library files, your AI images and video, your messages and your credit history.');
 
-    const DATA_MONEY_ANSWER = 'We store what the product needs. For creators that is your profile, content, prices, sales and the list of who follows, subscribes and buys. For fans it is an email address, purchases, memberships and messages. Creator data is never sold. Card numbers never reach our servers: cards and bank payouts are handled by a secure payment processor, and we keep only a reference to a saved card.';
+    const DATA_MONEY_ANSWER = 'We store what the product needs: your profile, your content and AI generations, your connected accounts, your messages and the list of who follows you. Your data is never sold. Card numbers never reach our servers: plan and AI credit payments are handled by a secure payment processor, and we keep only a reference to a saved card.';
 
 
-    /**
-     * "What you get on Creator Link Studio": the shared section on compare and alternatives pages. Every line is a fact
-     * already published elsewhere on the site, read from the same config: the feature pages (name + one-line description),
-     * the fee as /pricing states it, and the payout terms as /features/payouts states them. No prices and no earnings.
-     */
-    public static function what_you_get_section(): string {
-        $site = Main::site_name();
-        $items = array();
-        foreach (self::feature_pages() as $slug => $p) {
-            $name = (string) ($p['nav_title'] ?? ''); $desc = trim((string) ($p['description'] ?? ''));
-            if ($name === '' || $desc === '') { continue; }
-            // the name and its description read as one sentence to a crawler; past 25 words the description's own colon becomes a sentence break
-            if (str_word_count($name . ' ' . $desc) >= 25 && strpos($desc, ': ') !== false) { $desc = preg_replace_callback('/: (\p{Ll})/u', function ($m) { return '. ' . mb_strtoupper($m[1]); }, $desc, 1); }
-            $items[] = '<a href="/features/' . Sections::e($slug) . '">' . Sections::e(ucfirst($name)) . '</a>: ' . Sections::e(rtrim($desc, '.')) . '.';
-        }
-        $lead = 'The same page covers everything below, and all of it is included on the selling plans.';
-        $out = Sections::open('white', 'What you get on ' . $site, $lead);
-        $out .= Sections::checks($items, 2, true);
-        $out .= '<p class="sx-note">The platform fee is ' . Sections::e(self::fee_short()) . '. Free accounts pay no fee because they cannot sell. Card processing fees are separate, as on every platform. '
-            . 'Every sale lands in one balance, net of that fee. Payouts go to your bank on request, with no platform hold, once your balance reaches the minimum shown on the <a href="/features/payouts">payouts page</a>. Earnings from an event are released after the event has taken place.</p>';
-        return $out . Sections::close();
-    }
-
-    /**
-     * "How does a switch to Creator Link Studio work?": the six steps a creator takes, on compare, alternatives and
-     * best-of pages. $from is the platform the reader is leaving ('' on the best-of page); $tool is true when that
-     * platform is a generation tool (eromify), which has no fan page to keep live, so the "keep it live" step becomes
-     * "move your images". Every line is a product fact (plans, fee, payouts, networks) read from config.
-     */
-    public static function switch_section(string $from = '', bool $tool = false): string {
-        $site = Main::site_name();
-        $host = preg_replace('#^https?://(www\.)?#', '', SeoMeta::base());
-        $plans = array(); foreach (self::selling_tiers() as $t) { $plans[] = $t['name']; }
-        $plan_list = count($plans) > 1 ? implode(' or ', array(implode(', ', array_slice($plans, 0, -1)), end($plans))) : (string) reset($plans);
-        $keep = ($from !== '' && !$tool)
-            ? array('title' => '4. Keep ' . $from . ' live', 'text' => 'Put your new link in every bio and publish to both for a full billing cycle. Fans move at their own pace, and renewals on ' . $from . ' lapse on their own. Nothing has to be cancelled on day one.')
-            : (($from !== '') ? array('title' => '4. Move your images', 'text' => 'Download the images you made in ' . $from . ', upload them to your Library, and sell them as pay-per-view posts or membership content. New images are generated here from the same character.')
-                               : array('title' => '4. Keep your other pages live', 'text' => 'Put your new link in every bio and publish to both for a full billing cycle. Fans move at their own pace, and your other renewals lapse on their own. Nothing has to be cancelled on day one.'));
-        $lead = 'A switch takes an afternoon: create a free page, pick a selling plan, add your tiers, and keep ' . ($from !== '' && !$tool ? $from : 'your other pages') . ' live while fans move. The steps below are the same for every creator.';
-        $out = Sections::open('alt', 'How does a switch to ' . $site . ' work?', $lead);
-        $out .= Sections::cards(array(
-            array('title' => '1. Create your page', 'text' => 'Sign up for a Free account with no card and build your page: photo, bio and links. It goes live at ' . $host . '/@handle when you pick a plan.'),
-            array('title' => '2. Pick a selling plan', 'text' => 'Choose ' . $plan_list . ' in Billing when you are ready to sell. Both plans include memberships, pay-per-view, bundles, services and events. The platform fee is ' . self::fee_short() . '.'),
-            array('title' => '3. Set your tiers and first paid posts', 'text' => 'Upload media to your Library, create two membership tiers, and put your strongest pieces behind pay-per-view. Drafts save on Free, and selling starts the moment your plan is active.'),
-            $keep,
-            array('title' => '5. Publish from one studio', 'text' => 'Connect your social accounts and every post goes to your socials and your page at once, with the paid version behind the lock. ' . self::our_facts()['socials'] . '.'),
-            array('title' => '6. Cash out', 'text' => 'Every sale lands in one balance, net of your plan\'s platform fee. Payouts go to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold. Earnings from an event are released after the event has taken place.'),
-        ), 3);
-        return $out . Sections::close();
-    }
-
-    /**
-     * "What are the limits?": the plan limits, the add-on, adult content, custom domains, payouts and the refund rule,
-     * as sentences built from PlanTiers / Price / FINAL_NOTE, so the page says exactly what /pricing says.
-     */
-    public static function limits_section(): string {
-        $site = Main::site_name(); $tiers = self::selling_tiers();
-        usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
-        $items = array();
-        foreach (PlanTiers::ROWS as $row) {
-            if ($row['key'] === 'fee_percent') { continue; }
-            $bits = array(); foreach ($tiers as $t) { $bits[] = PlanTiers::fmt_tier_limit($t, $row['key']) . ' on ' . $t['name']; }
-            $items[] = $row['label'] . ': ' . implode(', ', $bits) . '.';
-        }
-        if (self::addon_sentence() !== '') { $items[] = 'Add-on. ' . self::addon_sentence(); }
-        $domain_plans = array(); foreach ($tiers as $t) { if (PlanTiers::has_feature($t, 'custom_domain')) { $domain_plans[] = $t['name']; } }
-        if ($domain_plans) { $items[] = 'Custom domains are included on ' . implode(' and ', $domain_plans) . '. On the other plans your page lives at your handle.'; }
-        $items[] = 'Going over a limit locks the extra items until you upgrade or remove some. Nothing is deleted.';
-        $items[] = 'Adult content is allowed behind an age check. Fans opt in and verify once, and creators verify before publishing adult media.';
-        $items[] = 'Payouts go to your bank on request with a ' . Price::PAYOUT_MIN_LABEL . ' minimum. Earnings from an event are released after the event has taken place.';
-        $items[] = 'Content sales are final.';
-        $out = Sections::open('white', 'What are the limits?', 'Limits are set by plan, and ' . $site . ' states them up front. Here is what changes between ' . implode(' and ', array_map(function ($t) { return $t['name']; }, $tiers)) . ', and the rules that apply to every plan.');
-        $out .= Sections::checks($items, 2);
-        return $out . Sections::close();
-    }
-
-    /** "Free lets you build your page. Creator gets you discovered. Studio gets you promoted." from PLAN_ROLES, for the plans on sale. */
-    public static function plan_roles_sentence(): string {
-        $bits = array();
-        foreach (self::pricing_rows() as $r) {
-            $clause = (string) (self::PLAN_ROLES[(string) $r['tier']['key']][1] ?? '');
-            if ($clause !== '') { $bits[] = $r['tier']['name'] . ' ' . $clause . '.'; }
-        }
-        return implode(' ', $bits);
-    }
-
-    /** The plans that sell: paid, not retired. Free is the fan account and has no fee because it sells nothing. */
-    public static function selling_tiers(): array {
+    /** The paid plans on sale: paid, not retired (pricing meta, feature-page placeholders, admin Free-builders). */
+    public static function paid_tiers(): array {
         $out = array();
         foreach (PlanTiers::all() as $t) { if ((int) ($t['price'] ?? 0) > 0 && empty($t['retired'])) { $out[] = $t; } }
         return $out;
     }
 
-    /**
-     * Worked fee example for a compare, alternatives or best-of page: what each option costs on a month of sales, platform
-     * fee plus any plan price, and what the creator keeps. Our rows come from PlanTiers (fee + plan price), the competitor
-     * rows from COMPETITORS[*]['fee_math'] (percent, monthly, source: a page on the competitor's own site). Card processing
-     * is separate everywhere and is said so. $slugs: the competitors to include ('' = none); $sales: monthly gross figures.
-     */
-    public static function fee_example_section(array $slugs, string $bg = 'white', array $sales = array(1000, 5000), string $title = '', string $voice = ''): string {
-        $site = Main::site_name(); $e = function ($s) { return Sections::e($s); };
-        $money = function ($n) { return '$' . number_format((float) $n, 0); };
-        $options = array();
-        foreach (self::selling_tiers() as $t) { $options[] = array('label' => $site . ' ' . $t['name'] . ' (' . (int) $t['limits']['fee_percent'] . '%)', 'percent' => (int) $t['limits']['fee_percent'], 'monthly' => 0, 'us' => true); }   // the platform percentage alone: plan prices are never added into a fee figure (Daniel 2026-10-12)
-        foreach ($slugs as $slug) { foreach ((array) (self::COMPETITORS[$slug]['fee_math'] ?? array()) as $o) { $options[] = $o; } }
-        if ($slugs !== array() && count($options) <= count(self::selling_tiers())) { return ''; }   // a competitor was asked for and nothing sourced exists for it (eromify sells nothing)
-        $head = array('Option');
-        foreach ($sales as $s) { $head[] = 'Fee on ' . $money($s) . ' of sales'; $head[] = 'You keep'; }
-        $rows = array(); $first_them = null;
-        foreach ($options as $o) {
-            $cells = array(($o['us'] ?? false) ? '<span class="bp-us">' . $e($o['label']) . '</span>' : $e($o['label']) . (!empty($o['source']) ? ' <a class="sx-src" href="' . $e($o['source']) . '" rel="noopener" target="_blank">source</a>' : ''));
-            foreach ($sales as $s) {
-                $fee = $s * ((float) $o['percent']) / 100;   // percentage of sales only; a monthly plan price (ours or theirs) is a separate line, never folded in
-                $cells[] = $e($money($fee)) . ' (' . rtrim(rtrim(number_format((float) $o['percent'], 2), '0'), '.') . '%).';
-                $cells[] = $e($money($s - $fee)) . '.';
-            }
-            if ($first_them === null && empty($o['us'])) { $first_them = $o; }
-            $rows[] = $cells;
-        }
-        $tiers = self::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
-        $low = reset($tiers); $high = end($tiers); $cross = '';
-        if ($low && $high && $low !== $high) {
-            $d = ((int) $low['limits']['fee_percent'] - (int) $high['limits']['fee_percent']) / 100;
-            if ($d > 0) { $cross = ''; }   // no break-even figure anywhere on the site (Daniel 2026-10-12): the table shows both plans, the reader runs the sum
-        }
-        $s0 = $sales[0]; $them_fee = $first_them ? $s0 * ((float) $first_them['percent']) / 100 : 0;
-        $us_fee = $low ? $s0 * ((int) $low['limits']['fee_percent']) / 100 : 0;
-        $lead = 'On ' . $money($s0) . ' of sales in a month, ' . ($first_them ? $first_them['label'] . ' keeps ' . $money($them_fee) . ' and ' : '') . $site . '\'s ' . $low['name'] . ' plan keeps ' . $money($us_fee) . '. The figures are the platform percentage only; monthly plan prices, ours and theirs, are separate and listed where each plan is sold. Card processing is charged separately on every option in the table.';
-        $vlead = $voice !== '' ? CompareProse::voice($voice, 'fee_lead') : '';
-        if ($vlead !== '') { $lead = strtr($vlead, array('{s0}' => $money($s0), '{them_fee}' => $money($them_fee), '{us_fee}' => $money($us_fee), '{c_name}' => (string) $low['name'], '{s_name}' => (string) $high['name'], '{them_pct}' => $first_them ? rtrim(rtrim(number_format((float) $first_them['percent'], 2), '0'), '.') . '%' : '')) . $cross; }
-        $out = Sections::open($bg, $title !== '' ? $title : 'What does the fee come to on example sales?', $lead);
-        $out .= Sections::table($head, $rows, -1);
-        $out .= Sections::fee_chart($options, $sales, 'What you keep after the platform fee');   // the same numbers as the table, as a bar chart with the figures in its caption (g_multimodal)
-        $vnote = $voice !== '' ? CompareProse::voice($voice, 'fee_note') : '';
-        $out .= '<p class="sx-note">' . ($vnote !== '' ? Sections::e($vnote) : 'Round numbers for the arithmetic, not earnings figures.' . ($first_them ? ' Competitor rates come from the linked page on each platform\'s own site.' : '') . ' Monthly plan prices are not in these figures.') . '</p>';
-        return $out . Sections::close();
-    }
-
-    /**
-     * "How do payouts compare?": our payout terms as facts from Price / the payouts page, beside the competitor's sourced payout
-     * row. $c is a COMPETITORS row ('' or no payout row = our side only, for the monetize guide).
-     */
-    public static function payouts_section(array $c = array(), string $bg = 'alt'): string {
-        $site = Main::site_name(); $e = function ($s) { return Sections::e($s); };
-        $ours = array(
-            'Every sale lands in one balance, net of your plan\'s platform fee (' . self::fee_short() . ').',
-            'Cash out on request, from a ' . Price::PAYOUT_MIN_LABEL . ' balance, to your bank. There is no platform hold on content, membership or service sales.',
-            'Earnings from an event are released after the event has taken place.',
-            'Fans pay memberships by card. Unlocks, bundles, services and tickets are paid from a credit wallet ($1 = ' . (int) Price::CREDITS_PER_DOLLAR . ' credits).',
-            'Content sales are final.',
-        );
-        $cards = array(array('title' => $site, 'text' => 'Payout terms as the payouts page states them.', 'points' => $ours, 'link' => array('How Payouts Work', '/features/payouts')));
-        $lead = 'Payouts on ' . $site . ' go to your bank on request from a ' . Price::PAYOUT_MIN_LABEL . ' balance, with no platform hold. Earnings from an event are released after the event has taken place.';
-        if (!empty($c['payout']['value'])) {
-            $them = array_values(array_filter(array_map('trim', preg_split('/(?<=[.!?])\s+/', rtrim((string) $c['payout']['value'], '.') . '.'))));
-            $cards[] = array('title' => $c['name'], 'text' => !empty($c['payout']['reported']) ? 'Payout terms for ' . $c['name'] . ', from third-party reporting because its site blocks automated access.' : 'Payout terms as ' . $c['name'] . ' publishes them.', 'points' => $them);
-            $lead .= ' ' . $c['name'] . ' pays out as its pages describe below. Both sides charge card processing separately.';
-        }
-        $out = Sections::open($bg, 'How do payouts compare?', $lead);
-        $out .= Sections::cards($cards, count($cards));
-        if (!empty($c['payout']['source'])) { $out .= '<p class="sx-note">' . $e($c['name']) . ' payout terms: <a class="sx-src" href="' . $e($c['payout']['source']) . '" rel="noopener" target="_blank">source</a>' . (!empty($c['payout']['reported']) ? ' (third-party reporting)' : '') . ', checked ' . $e(date('F j, Y', strtotime($c['checked']))) . '.</p>'; }
-        return $out . Sections::close();
-    }
-
-    /** "10% on Creator, 3% on Studio" — the fee per selling plan, from config, never a range that includes Free. */
-    public static function fee_short(): string {
-        $bits = array();
-        foreach (self::selling_tiers() as $t) { $bits[] = (int) $t['limits']['fee_percent'] . '% on ' . $t['name']; }
-        return implode(', ', $bits);
-    }
-
-    /**
-     * The plan card's fee comparison: "OnlyFans takes 20%. You pay less than a sixth of that." Both numbers come from
-     * config (COMPETITORS['onlyfans'] and the tier's fee_percent), so the wording follows the ratio: an exact 2x says
-     * "twice as much of the difference", a whole ratio "a fifth of that", anything between "less than a sixth of that".
-     * '' when there is nothing to compare (Free, or a fee at or above theirs).
-     */
-    public static function fee_vs_onlyfans(array $tier): string {
-        $c = self::COMPETITORS['onlyfans'] ?? array();
-        if (!preg_match('/(\d+(?:\.\d+)?)%/', (string) ($c['fee_short'] ?? ''), $m)) { return ''; }
-        $theirs = (float) $m[1];
-        $ours   = (float) ($tier['limits']['fee_percent'] ?? 0);
-        if ($ours <= 0 || $theirs <= $ours) { return ''; }
-        $ratio = $theirs / $ours;
-        $whole = abs($ratio - round($ratio)) < 0.001;
-        $n     = $whole ? (int) round($ratio) : (int) floor($ratio);
-        $parts = array(2 => 'half', 3 => 'a third', 4 => 'a quarter', 5 => 'a fifth', 6 => 'a sixth', 7 => 'a seventh', 8 => 'an eighth', 9 => 'a ninth', 10 => 'a tenth');
-        if ($whole && $n === 2)  { $tail = 'You keep twice as much of the difference.'; }
-        elseif ($n < 2)          { $tail = 'You pay less.'; }
-        else                     { $tail = 'You pay ' . ($whole ? '' : 'less than ') . ($parts[$n] ?? 'a ' . $n . 'th') . ' of that.'; }
-        return (string) ($c['name'] ?? 'OnlyFans') . ' takes ' . rtrim(rtrim(number_format($theirs, 2), '0'), '.') . '%. ' . $tail;
-    }
-
-    /** The quotable fee sentence (pricing FAQ, payouts page, llms.txt, the drafter's facts): numbers, plan prices, what Free is. */
-    public static function fee_sentence(): string {
-        $bits = array();
-        foreach (self::selling_tiers() as $t) { $bits[] = (int) $t['limits']['fee_percent'] . '% of each sale on the ' . $t['name'] . ' plan ($' . number_format((int) $t['price']) . '/month)'; }
-        $last = array_pop($bits);
-        $list = (count($bits) > 0) ? implode(', ', $bits) . ' and ' . $last : $last;
-        return Main::site_name() . '\'s platform fee is ' . $list . '. Free accounts cannot publish or sell, so they pay no platform fee. Card processing fees are separate.';
-    }
-
-    /**
-     * One quotable, brand-named sentence per question people ask AI assistants (fee, OnlyFans alternative,
-     * AI influencer, payouts, live video, link in bio). Shown on the page each belongs to and listed in
-     * llms.txt under Facts. Numbers come from config.
-     */
-    public static function quotable_facts(): array {
-        $site = Main::site_name();
-        $host = preg_replace('#^https?://(www\.)?#', '', SeoMeta::base());
-        $of = (string) (self::COMPETITORS['onlyfans']['fee_short'] ?? '');
-        $of_pct = preg_match('/\d+%/', $of, $m) ? $m[0] : '';
-        $inf = array();
-        foreach (self::selling_tiers() as $t) { if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $inf[] = (int) $t['limits']['influencers'] . ' on ' . $t['name']; } }
-        return array(
-            'fee'          => self::fee_sentence(),
-            'onlyfans'     => $site . ' is an OnlyFans alternative: one page for memberships, pay-per-view posts, bundles, services and live events. It adds a studio that publishes to ten platforms, AI influencers and an AI-assisted inbox. Its platform fee is ' . self::fee_short() . ($of_pct !== '' ? ', against the ' . $of_pct . ' OnlyFans keeps under its terms' : '') . '.',
-            'ai_influencer'=> 'On ' . $site . ' you can create an AI influencer from your photos or a description, generate photos and short videos of the same person, and sell them as pay-per-view posts, paid messages or membership content' . ($inf ? ' (AI influencers included: ' . implode(', ', $inf) . ')' : '') . '.',
-            'payouts'      => 'Every sale on ' . $site . ', from memberships and unlocks to bundles, services and events, lands in one balance net of your plan\'s platform fee, and you cash out to your bank whenever you want with no per-payout fee.',
-            'events'       => $site . ' sells tickets to live events and 1:1 sessions and hosts the call itself, in a built-in video room with a waiting room, chat, screen share and host controls, so fans join without Zoom or a separate link.',
-            'link_in_bio'  => $site . ' is a link-in-bio page that takes payments: your page at ' . $host . '/@handle holds tracked links plus memberships, pay-per-view posts, bundles, services and events, fans pay by card or credit wallet, and earnings pay out to your bank.',
-        );
-    }
-
-    public static function our_facts(): array {
-        return array(
-            'fee'       => self::fee_short() . ' (Free cannot sell)',
-            'payout'    => 'Direct to your bank account',
-            'content'   => 'Posts, pay-per-view, bundles, memberships with tiers, services, events, links',
-            'socials'   => 'Publishes to ten platforms from one studio',
-            'ai'        => 'AI captions, AI inbox replies, AI influencers',
-            'ownership' => 'Export your audience and media any time',
-        );
-    }
-
-    /**
-     * Our side of a photographer comparison (COMPETITORS type 'photo'): one cell per table row, each a shipped feature.
-     * Bundles, pay-per-view and the watermark toggle: NichePages 'photographers' (MediaService watermark per file, media_watermark API);
-     * fees from PlanTiers, credits and payout minimum from Price, the platform count from IntegrationPages::PAGES.
-     */
-    public static function photo_facts(): array {
-        $n = count(IntegrationPages::PAGES); $words = array(9 => 'nine', 10 => 'ten', 11 => 'eleven', 12 => 'twelve');
-        return array(
-            'fee'       => 'Platform fee of ' . self::fee_short() . ', with plan prices on the pricing page. Free accounts can browse and buy but can\'t publish or sell',
-            'content'   => 'Memberships with tiers and free trials, pay-per-view posts and paid messages, sets as downloadable bundles and booked sessions',
-            'prints'    => 'No. Sales are digital: images, video, sessions and memberships',
-            'delivery'  => 'A bought set sits in the buyer\'s purchases, ready to download. Pay-per-view images unlock on your page',
-            'watermark' => 'A watermark you switch on for each image in your library',
-            'payout'    => 'Fans pay with credits (' . Price::CREDITS_PER_DOLLAR . ' credits for every $1) or by card for memberships. You cash out to your bank on request from ' . Price::PAYOUT_MIN_LABEL,
-            'socials'   => 'One post goes to your page and all ' . ($words[$n] ?? (string) $n) . ' platforms you connect, now or on a schedule',
-        );
-    }
-
-    /** Competitor groups on the best-of page, in page order. */
-    const COMPETITOR_GROUPS = array(
-        'fan'        => array('Subscription platforms', 'Paid subscriptions, pay-per-view and messages inside the platform\'s own app.'),
-        'membership' => array('Memberships and tips', 'Recurring support tiers, tips and small shops for podcasters, writers and artists.'),
-        'bio'        => array('Link-in-Bio Storefronts', 'A page for your bio link that sells digital products, courses or bookings.'),
-    );
-
-    /** Best-of FAQ: every answer is built from the sourced competitor rows and our own plan facts. */
-    public static function best_faq(): array {
-        $c = self::COMPETITORS; $us = self::our_facts(); $site = Main::site_name();
-        return array(
-            array('q' => 'Which creator platform takes the lowest fee?', 'a' => 'It depends on what you sell. Ko-fi Free charges no service fee on one-time tips and 5% on memberships and shop sales. Stan Store charges no transaction fee but costs $29 or $99 a month. Subscription platforms like OnlyFans and Fansly keep about 20%. ' . $site . ' takes ' . $us['fee'] . '. Card processing fees apply on top almost everywhere.'),
-            array('q' => 'Which platforms publish to my social accounts?', 'a' => 'Linktree\'s Social Planner auto-posts to Instagram, TikTok, Facebook, LinkedIn, Pinterest and YouTube Shorts. ' . $site . ' publishes to ten platforms from one studio. Patreon, Ko-fi, Fansly, OnlyFans, Beacons and Stan Store do not publish automatic posting to your social accounts.'),
-            array('q' => 'Can I sell memberships and pay-per-view on the same platform?', 'a' => 'Subscription platforms such as OnlyFans and Fansly combine subscriptions with pay-per-view posts and messages. Patreon combines memberships with digital products. ' . $site . ' sells memberships, pay-per-view posts, bundles, services and events from one page.'),
-            array('q' => 'Can I export my audience if I leave?', 'a' => 'Patreon, Ko-fi, Linktree, Beacons and Stan Store all let you download your members, supporters or customers as a CSV. OnlyFans and Fansly do not publish an export. ' . $site . ': ' . $us['ownership'] . '.'),
-            array('q' => 'Can I use more than one platform?', 'a' => 'Yes. Many creators keep a subscription platform, a link-in-bio page and a membership platform at once. The simplest setup is one page that links or sells everything, with your socials pointing to it.'),
-        );
-    }
-
-    public function bestPlatformsAction(){
-        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
-        $path = '/best-creator-monetization-platforms'; $title = 'Best creator monetization platforms';
-        $desc = 'How the main creator platforms compare on fees, what you can sell, payouts, social publishing and ownership, with sources.';
-        $items = array(array('@type' => 'ListItem', 'position' => 1, 'name' => Main::site_name(), 'url' => SeoMeta::base() . '/features'));
-        $pos = 2; foreach (self::COMPETITORS as $slug => $c) { if (!isset(self::COMPETITOR_GROUPS[$c['type'] ?? ''])) { continue; } $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'name' => $c['name'], 'url' => SeoMeta::base() . '/compare/' . $slug); }
-        $jsonld = array(
-            array('@type' => 'ItemList', 'name' => $title, 'itemListElement' => $items),
-            SeoMeta::faq(self::best_faq()),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Best creator monetization platforms', 'url' => $path))),
-        );
-        $this->page('best-platforms', array('hero_photo' => 'alternatives', 'path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => self::best_faq()));
-    }
-
-    public function monetizeAction(){
-        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
-        $path = '/monetize-your-content'; $title = 'How to monetize your content';
-        $desc = 'Memberships, pay-per-view, bundles, services and events: the five ways creators get paid, and how to price each one.';
-        $faq = array(
-            array('q' => 'How many membership tiers should I have?', 'a' => 'Two to start: an easy entry tier and one higher tier. Add a third only when fans ask for something in between.'),
-            array('q' => 'Should members get pay-per-view posts free?', 'a' => 'No. Pay-per-view is for your strongest single pieces and is priced for everyone. Put your regular content on the tiers.'),
-            array('q' => 'How do I price a service?', 'a' => 'Your hourly worth times the real time it takes, plus a third for revisions and messages. Fixed price, fixed scope, a delivery window you can keep.'),
-            array('q' => 'Can I run all five on one page?', 'a' => 'Yes. On ' . Main::site_name() . ' memberships, pay-per-view, bundles, services and events all live on your public page and share one wallet for fans.'),
-            array('q' => 'When should I add a second membership tier?', 'a' => 'When fans ask for more than the entry tier gives them. Price the second tier at three to five times the first, and give it the posts that took the most effort.'),
-            array('q' => 'Should I charge for messages?', 'a' => 'Yes, for anything that takes real time. A paid message is a small service: a fixed price, one reply with the media attached, delivered within a day or two.'),
-        );
-        $jsonld = array(
-            SeoMeta::faq($faq),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Monetize your content', 'url' => $path))),
-        );
-        $this->page('monetize', array('hero_photo' => 'monetize', 'path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => $faq));
+    /** Old name of paid_tiers(), kept for callers outside the public site. */
+    public static function selling_tiers(): array {
+        return self::paid_tiers();
     }
 
     /**
@@ -1099,7 +444,7 @@ class PagesController extends Controller {
         $hero = StartPage::HERO;
         $meta = array(
             'title' => 'Make Your Own AI Influencer',
-            'description' => 'Design her face once. Make her photos and videos. Post her everywhere: ten platforms from one place.',
+            'description' => 'Design her face once. Make her photos and videos. Post her everywhere: nine platforms from one place.',
             'url' => SeoMeta::base() . '/start', 'type' => 'website', 'noindex' => true,
             'preload_image' => $hero['poster'],   // the video's poster is the first paint of the hero
             'image' => SeoMeta::base() . $hero['poster'],
@@ -1119,16 +464,16 @@ class PagesController extends Controller {
     /** The affiliate program (/affiliates): Affiliates::RATE_PERCENT of the plan payments of referred accounts. */
     public static function affiliates_meta(): array {
         return array('title' => 'Affiliate Program: Earn ' . Affiliates::RATE_PERCENT . '% of Plan Payments',
-            'description' => 'Refer creators to ' . Main::site_name() . ' and earn ' . Affiliates::RATE_PERCENT . '% of what they pay for their ' . self::selling_names() . ' plan, every month they stay on it. Payouts on request.');
+            'description' => 'Refer creators to ' . Main::site_name() . ' and earn ' . Affiliates::RATE_PERCENT . '% of what they pay for their ' . self::paid_names() . ' plan, every month they stay on it. Payouts on request.');
     }
 
-    /** "Creator or Studio": the selling plan names, from config. */
-    private static function selling_names(): string {
-        return implode(' or ', array_column(self::selling_tiers(), 'name'));
+    /** "Creator or Studio": the paid plan names, from config. */
+    private static function paid_names(): string {
+        return implode(' or ', array_column(self::paid_tiers(), 'name'));
     }
 
     public static function affiliates_faq(): array {
-        $r = Affiliates::RATE_PERCENT . '%'; $plans = self::selling_names();
+        $r = Affiliates::RATE_PERCENT . '%'; $plans = self::paid_names();
         return array(
             array('q' => 'What do affiliates earn?', 'a' => $r . ' of what each account you refer pays for its ' . $plans . ' plan, on every paid invoice for as long as the account stays on a paid plan and keeps paying. What you earn depends entirely on who signs up and what they pay.'),
             array('q' => 'Is there a commission on credits?', 'a' => 'No. Credit packs and AI credit purchases earn nothing. Commissions are paid on plan payments only.'),
@@ -1154,45 +499,21 @@ class PagesController extends Controller {
         $signed_in = (int) Session::get('user_id') > 0;
         $mine = $signed_in ? Affiliates::approved_for_user((int) Session::get('user_id')) : null;
         $this->page('affiliates', array('hero_photo' => 'affiliates', 'hero_sizes' => '100vw', 'path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
-            array('faq' => $faq, 'plans' => self::selling_names(),
+            array('faq' => $faq, 'plans' => self::paid_names(),
                   'apply_label' => $mine ? 'Open Your Dashboard' : 'Apply Now',
                   'apply_url' => $mine ? '/affiliates/dashboard' : ($signed_in ? '/affiliates/apply' : '/?auth=register&next=' . rawurlencode('/affiliates/apply'))));   // a full load, so ?next brings them back to the form
     }
 
-    /**
-     * One alternatives list page (AlternativesPages::PAGES) with placeholders filled from config: {site}, {fee_short},
-     * {payout_min}, {year}. Adds 'path', 'title' and 'us' (our own entry, always first in the list).
-     */
-    public static function alternatives_page(string $key): ?array {
-        if (!isset(AlternativesPages::PAGES[$key])) { return null; }
-        $site = Main::site_name();
-        $fill = array('{site}' => $site, '{fee_short}' => self::fee_short(), '{payout_min}' => Price::PAYOUT_MIN_LABEL, '{year}' => gmdate('Y'));
-        $p = json_decode(strtr(json_encode(AlternativesPages::PAGES[$key], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), array_map(function ($v) { return addcslashes($v, '"\\'); }, $fill)), true);
-        $p['path']  = '/' . $key . '-alternatives';
-        $p['title'] = isset($p['title']) ? strtr((string) $p['title'], array('{n}' => (string) (count((array) ($p['others'] ?? array())) + 1)))   // an own title: {n} = the platforms listed, ours included
-                                         : $p['name'] . ' Alternatives for Creators in ' . gmdate('Y');
-        $p['us'] = array(
-            'name' => $site, 'kind' => 'One page, every way to sell',
-            'text' => (string) ($p['us_text'] ?? 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. A studio publishes every post to ten platforms.'),
-            'points' => (array) ($p['us_points'] ?? array('Memberships, pay-per-view, bundles, services and events on one page', 'Publishes to ten platforms from one studio', 'Platform fee: ' . self::fee_short())),
-            'note' => '',
-            'best_for' => (string) ($p['us_best'] ?? 'creators who sell more than a subscription and want one page, one studio and one balance.'),
-        );
-        return $p;
-    }
-
     /** The /integrations index title and description (also listed in SeoController::public_pages). */
-    const INTEGRATIONS_TITLE = 'Integrations: Publish to 10 Platforms From One Editor';
-    const INTEGRATIONS_DESC  = 'Connect LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue, then publish or schedule each post to all of them at once.';
+    const INTEGRATIONS_TITLE = 'Integrations: Publish to 9 Platforms From One Editor';
+    const INTEGRATIONS_DESC  = 'Connect LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube and Pinterest, then publish or schedule each post to all of them at once.';
 
     /** One integration page's title and description. */
     public static function integration_meta(string $slug): array {
         $n = IntegrationPages::PAGES[$slug]['name'];
         return array(
             'title'       => $n . ' Integration: Publish and Schedule Posts',
-            'description' => $slug === 'fanvue'
-                ? 'Mirror each Creator Link Studio post to Fanvue in full: caption, media into your vault, audience, price and schedule.'
-                : 'Connect ' . $n . ' to Creator Link Studio and publish or schedule each new post there from the editor you already use for your page.',
+            'description' => 'Connect ' . $n . ' to Creator Link Studio and publish or schedule each new post there from the editor you already use for your page.',
         );
     }
 
@@ -1212,8 +533,8 @@ class PagesController extends Controller {
             return;
         }
         $faq = array(
-            array('q' => 'Which platforms does Creator Link Studio publish to?', 'a' => 'LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue.'),
-            array('q' => 'What gets posted to social networks?', 'a' => 'The public version of each post: the caption and a preview. Paid posts send a blurred preview, so what fans pay for stays on your page. Fanvue gets the full post.'),
+            array('q' => 'Which platforms does Creator Link Studio publish to?', 'a' => 'LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube and Pinterest.'),
+            array('q' => 'What gets posted to social networks?', 'a' => 'Each post goes out with its caption and media, sized for each platform. You choose which platforms get it, and the same post appears on your page.'),
             array('q' => 'Can I schedule posts to every platform?', 'a' => 'Yes. Publish now or pick a time, and every platform you tick goes out with your page post.'),
             array('q' => 'Where do I connect my accounts?', 'a' => 'In Settings, under Integrations. Each platform connects with its own sign-in, except Bluesky, which uses an app password.'),
         );
@@ -1245,108 +566,14 @@ class PagesController extends Controller {
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         $site = Main::site_name();
         $faq = array(
-            array('q' => 'What do I need to run an AI influencer?', 'a' => 'A consistent character, a way to make photos and video of them, captions, a publishing routine and somewhere fans can follow and pay. Most people stitch several tools together for this.'),
+            array('q' => 'What do I need to run an AI influencer?', 'a' => 'A consistent character, a way to make photos and video of them, captions, a publishing routine and a page where followers can find everything. Most people stitch several tools together for this.'),
             array('q' => 'Why does a consistent face matter?', 'a' => 'Followers notice when a character looks different from post to post. Character training on a set of reference photos keeps the same face across images and video.'),
             array('q' => 'Should AI influencer posts be labelled?', 'a' => 'Yes. Several platforms ask for AI content to be disclosed, and some have their own label for it. ' . $site . ' sets that label on TikTok and YouTube and adds a disclosure line to the caption elsewhere.'),
-            array('q' => 'Where does ' . $site . ' fit?', 'a' => 'It covers the character, images, video, voice, publishing to ten platforms and the page fans pay on, in one account. Picking it depends on whether you want those pieces in one place.'),
+            array('q' => 'Where does ' . $site . ' fit?', 'a' => 'It covers the character, images, video, voice, publishing to nine platforms and a link-in-bio page, in one account. Picking it depends on whether you want those pieces in one place.'),
         );
         $jsonld = array(SeoMeta::faq($faq), SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'AI influencer tools compared', 'url' => '/alternatives'))));
         $this->page('ai-alternatives', array('hero_photo' => 'aichar-a', 'hero_sizes' => '(max-width: 760px) 100vw, 52vw', 'path' => '/alternatives', 'title' => self::AI_ALT_TITLE, 'description' => self::AI_ALT_DESC, 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
             array('faq' => $faq));
-    }
-
-    public function alternativesAction(){
-        $url = Main::get_url();
-        if (count($url) > 1) { Errors::page_not_found(); return; }
-        $key = preg_replace('/-alternatives$/', '', (string) ($url[0] ?? ''));
-        $p = self::alternatives_page($key);
-        if ($p === null) { Errors::page_not_found(); return; }
-        $base = SeoMeta::base();
-        $items = array(array('@type' => 'ListItem', 'position' => 1, 'name' => Main::site_name(), 'url' => $base . '/features'));
-        $pos = 2;
-        foreach ($p['others'] as $o) {
-            $item = array('@type' => 'ListItem', 'position' => $pos++, 'name' => $o['name']);
-            if ($o['compare'] !== '') { $item['url'] = $base . '/compare/' . $o['compare']; }
-            $items[] = $item;
-        }
-        $jsonld = array(
-            array('@type' => 'ItemList', 'name' => $p['title'], 'itemListOrder' => 'https://schema.org/ItemListOrderAscending', 'numberOfItems' => count($items), 'itemListElement' => $items),
-            SeoMeta::faq($p['faq']),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $p['name'] . ' Alternatives', 'url' => $p['path']))),
-        );
-        $this->page('alternatives', array('hero_photo' => 'alternatives', 'hero_sizes' => '100vw', 'path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'website', 'jsonld' => $jsonld), array('p' => $p, 'faq' => $p['faq']));
-    }
-
-    /** "Fanvue runs subscriptions, tips and paid messages. Creator Link Studio runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared." */
-    public static function compare_description(array $c): string {
-        // Each page leads with its own competitor's fee, so no two descriptions share an ending (SEO audit 2026-10-12). 160 characters at most.
-        $site = Main::site_name(); $name = (string) $c['name'];
-        $sells = (string) ($c['sells'] ?? 'its own platform');
-        $fee = rtrim(trim((string) ($c['fee_short'] ?? '')), '.');
-        $tries = array(
-            $name . ' runs ' . $sells . ($fee !== '' ? ', fee: ' . $fee : '') . '. ' . $site . ' keeps ' . self::fee_short() . ' and adds pay-per-view, services and events. Sourced and dated.',
-            $name . ' runs ' . $sells . ($fee !== '' ? ', fee: ' . $fee : '') . '. ' . $site . ' keeps ' . self::fee_short() . '. Sourced and dated.',
-            $name . ' runs ' . $sells . '. ' . $site . ' keeps ' . self::fee_short() . ' and adds pay-per-view, services and events. Sourced and dated.',
-            $name . ' runs ' . $sells . '. ' . $site . ' keeps ' . self::fee_short() . '. Sourced and dated.',
-        );
-        foreach ($tries as $d) { if (mb_strlen($d) <= 160) { return $d; } }
-        return mb_substr(end($tries), 0, 160);
-    }
-
-    /**
-     * The fee bullet on a compare page, competitor-specific and honest: only when the competitor's own sourced rate
-     * (fee_math) is a percentage higher than our lowest selling-plan fee. A flat-price or lower-fee competitor gets no fee
-     * bullet, because the comparison would not favour us. '' = no bullet.
-     */
-    public static function fee_point(array $c): string {
-        $ours = null; foreach (self::selling_tiers() as $t) { $f = (int) $t['limits']['fee_percent']; if ($ours === null || $f > $ours) { $ours = $f; } }   // the higher of our fees (Creator)
-        $opts = (array) ($c['fee_math'] ?? array());
-        if (count($opts) !== 1) { return ''; }   // a platform with a 0% plan (Linktree Premium, Beacons Creator Plus) or no sales (Eromify): no single rate to compare
-        $theirs = ((float) ($opts[0]['monthly'] ?? 0) == 0 && (float) ($opts[0]['percent'] ?? 0) > 0) ? (float) $opts[0]['percent'] : null;
-        if ($ours === null || $theirs === null || $theirs <= $ours) { return ''; }
-        return 'You want ' . self::fee_short() . ' instead of the ' . rtrim(rtrim(number_format($theirs, 2), '0'), '.') . '% ' . $c['name'] . ' keeps' . (!empty($c['fee']['reported']) ? ' (as reported)' : '') . '.';
-    }
-
-    /** The competitor's researched questions plus one about using both, shared by the page and its FAQ markup. */
-    public static function compare_faq(array $c): array {
-        $faq = (array) ($c['faq'] ?? array());
-        $faq[] = array('q' => 'Can I use ' . Main::site_name() . ' and ' . $c['name'] . ' at the same time?',
-            'a' => (($c['type'] ?? '') === 'ai')   // a generation tool has no fan page to keep live or publish to
-                ? 'Yes. Keep generating in ' . $c['name'] . ' while you build your page here. Download your images, upload them to your Library, and publish or sell them from the Studio.'
-                : ((($c['type'] ?? '') === 'photo')   // a photography tool: we don't publish to it, so nothing about publishing to both
-                    ? 'Yes. Keep your ' . $c['name'] . ' account as it is and set up your page here alongside it. Put your page link in your bio so fans can find your sets, memberships and sessions.'
-                    : 'Yes. Keep your ' . $c['name'] . ' page live while you set up, and publish to both from the studio. Put your new page in every bio so fans can move at their own pace.'));
-        $slug = array_search($c, self::COMPETITORS, true);
-        if ($slug !== false && CompareProse::voice((string) $slug, 'both') !== '') { $faq[count($faq) - 1]['a'] = str_replace('{site}', Main::site_name(), CompareProse::voice((string) $slug, 'both')); }
-        return $faq;
-    }
-
-    /** {site} and {fee_short} in a competitor's own meta title or description. */
-    public static function fill_compare_meta(string $s): string {
-        return strtr($s, array('{site}' => Main::site_name(), '{fee_short}' => self::fee_short()));
-    }
-
-    public function compareAction(){
-        $url  = Main::get_url();
-        if (count($url) > 2) { Errors::page_not_found(); return; }
-        $raw  = (string) ($url[1] ?? '');
-        $slug = strtolower(preg_replace('/[^a-z0-9-]/i', '', $raw));
-        if ($slug === '' || $slug !== $raw || !isset(self::COMPETITORS[$slug])) { Errors::page_not_found(); return; }
-        $c = self::COMPETITORS[$slug];
-        if (($c['type'] ?? '') === 'photo') {   // the photographer pages carry {site}, {fee_sentence} and {payout_min}, filled from config here
-            $map = array_map(function ($v) { return addcslashes((string) $v, '"\\/'); }, array('{site}' => Main::site_name(), '{fee_sentence}' => self::fee_sentence(), '{payout_min}' => Price::PAYOUT_MIN_LABEL));
-            $c = json_decode(strtr(json_encode($c, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $map), true);
-        }
-        $path = '/compare/' . $slug; $title = Main::site_name() . ' vs ' . $c['name'];
-        $desc = (string) ($c['meta_desc'] ?? '') !== '' ? self::fill_compare_meta((string) $c['meta_desc']) : self::compare_description($c);   // leads with what each platform lets you sell and run, 110-160 chars for every competitor name
-        $faq = self::compare_faq($c);
-        $jsonld = array(
-            SeoMeta::faq($faq),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $c['name'], 'url' => $path))),
-        );
-        $meta_title = (string) ($c['meta_title'] ?? '') !== '' ? self::fill_compare_meta((string) $c['meta_title'])
-            : (mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared');
-        $this->page('compare', array('hero_photo' => 'compare', 'path' => $path, 'title' => $meta_title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
     }
 
     /**
@@ -1384,9 +611,9 @@ class PagesController extends Controller {
 
         $label = $cat === '' ? '' : $cats[$cat];
         $base  = '/creators' . ($cat !== '' ? '/' . $cat : '');
-        $title = $q_on ? 'Creators Matching "' . $q . '"' : ($cat === '' ? 'Creator Directory: Find Creators to Follow and Support' : $label . ' Creators to Follow and Support');
+        $title = $q_on ? 'Creators Matching "' . $q . '"' : ($cat === '' ? 'Creator Directory: Find Creators to Follow' : $label . ' Creators to Follow');
         $show_n = $listed >= self::DIRECTORY_COUNT_MIN;
-        $desc  = 'Browse ' . ($show_n ? $listed . ' ' : '') . ($cat === '' ? '' : strtolower($label) . ' ') . 'creators on ' . Main::site_name() . ' who chose to be listed: follow them, join a membership, unlock posts or book a service from their page.';
+        $desc  = 'Browse ' . ($show_n ? $listed . ' ' : '') . ($cat === '' ? '' : strtolower($label) . ' ') . 'creators on ' . Main::site_name() . ' who chose to be listed: follow them and see their latest posts and links on their page.';
         $link = function ($n) use ($base, $sort, $q, $q_on, $sorts) { return self::directory_url($base, $n, $sort === $sorts[0] ? '' : $sort, $q_on ? $q : ''); };
         $extra = array();
         if ($page > 1)      { $extra[] = '<link rel="prev" href="' . Sections::e(SeoMeta::base() . $link($page - 1)) . '">'; }

@@ -26,7 +26,7 @@ class ToolsController extends Controller {
             'description' => 'Enter your niche and get 30 to 40 post ideas built from real questions people ask online, plus the communities worth watching. Free, by email.',
             'lead'        => 'The Fan Question Finder is a free tool that reads the recent questions people ask in your niche\'s biggest online communities and emails you 30 to 40 post ideas, grouped by theme. Enter your niche to start.',
             'button'      => 'Find Questions',
-            'pages'       => array(array('/features/publishing', 'publishing to ten platforms'), array('/monetize-your-content', 'how to monetize your content')),   // the hub pages that link to this tool, and that it links back to
+            'pages'       => array(array('/features/publishing', 'publishing to nine platforms'), array('/features/automations', 'content automations')),   // the hub pages that link to this tool, and that it links back to
         ),
         'ai-influencer-persona' => array(
             'source'      => 'persona-tool',
@@ -48,7 +48,7 @@ class ToolsController extends Controller {
             'description' => 'Get 20 name ideas for an AI influencer from your niche and the vibe you want, each with a handle to check. Free, instant, no sign-up.',
             'lead'        => 'Pick a niche and a vibe and get 20 name ideas for your AI influencer, each with a matching handle. Shuffle for a new set as often as you like.',
             'pages'       => array(array('/features/ai-influencer', 'AI influencers')),
-            'related'     => array('instagram', 'tiktok', 'fanvue'),
+            'related'     => array('instagram', 'tiktok', 'youtube'),
         ),
         'ai-influencer-bio-generator' => array(
             'kind'        => 'local',
@@ -67,7 +67,7 @@ class ToolsController extends Controller {
             'h1'          => 'AI Disclosure Caption Checker',
             'description' => 'Paste a caption, pick a platform and check whether it discloses AI content clearly, with suggested wording. Free, instant, no sign-up.',
             'lead'        => 'Paste a caption and pick where it is going. The checker looks for a clear AI disclosure, checks where it sits, and suggests wording when it falls short.',
-            'pages'       => array(array('/features/publishing', 'publishing to ten platforms')),
+            'pages'       => array(array('/features/publishing', 'publishing to nine platforms')),
             'related'     => array('tiktok', 'youtube', 'instagram'),
         ),
     );
@@ -86,7 +86,7 @@ class ToolsController extends Controller {
             array('q' => 'Are these tools really free?', 'a' => 'Yes. Every tool on this page is free and needs no account and no card.'),
             array('q' => 'Which tools need my email?', 'a' => 'The Fan Question Finder and the AI Influencer Persona Generator email you their results. The name generator, the bio generator and the disclosure checker run in your browser and show their results on the page.'),
             array('q' => 'Is what I type sent anywhere?', 'a' => 'Not for the three browser tools: they run on the page, with no call to a server. The two email tools send your niche and answers to us so we can build the results and email them to you.'),
-            array('q' => 'What do I do with the results?', 'a' => 'Use them anywhere. When you want to turn a persona into a character with photos and video, publish the ideas or sell from a page, ' . Main::site_name() . ' does that on the ' . self::paid_plans() . ' plans.'),
+            array('q' => 'What do I do with the results?', 'a' => 'Use them anywhere. When you want to turn a persona into a character with photos and video, publish the ideas or post on a schedule, ' . Main::site_name() . ' does that on the ' . self::paid_plans() . ' plans.'),
         );
     }
 
@@ -125,7 +125,7 @@ class ToolsController extends Controller {
 
     /** The plans that include the AI tools, by name from config ("Creator and Studio"). */
     public static function paid_plans(): string {
-        $names = array_map(function ($t) { return $t['name']; }, PagesController::selling_tiers());
+        $names = array_map(function ($t) { return $t['name']; }, PagesController::paid_tiers());
         $last = array_pop($names);
         return count($names) > 0 ? implode(', ', $names) . ' and ' . $last : (string) $last;
     }
@@ -145,7 +145,7 @@ class ToolsController extends Controller {
                 array('q' => 'What are the bio limits on each platform?', 'a' => 'Instagram 150 characters, TikTok 80, X 160, Threads 150 and Bluesky 256. Each bio shows its count against that limit.'),
                 array('q' => 'Should an AI influencer bio say it is AI?', 'a' => 'Yes. Keep Say It Is AI ticked and each bio states it plainly, so followers know from the profile what they are following.'),
                 array('q' => 'Is anything I type sent to a server?', 'a' => 'No. The bios are written from templates in your browser.'),
-                array('q' => 'Where should my page link go?', 'a' => 'In the link field of each profile. On ' . $site . ' that link is your public page, where fans follow, subscribe and buy.'),
+                array('q' => 'Where should my page link go?', 'a' => 'In the link field of each profile. On ' . $site . ' that link is your public page, where people follow you and see your latest posts and links.'),
             );
         }
         if ($slug === 'ai-disclosure-caption-checker') {

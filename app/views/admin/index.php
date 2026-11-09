@@ -1,24 +1,20 @@
 <?php include __DIR__ . '/_shell.php'; ?>
 <?php
-/* /admin — Today: five KPI cards, Needs attention + Jobs side by side, one Activity table (signups, sales, payouts,
-   staff actions) with a type filter. Data: AdminController::indexAction. */
+/* /admin — Today: five KPI cards, Needs attention + Jobs side by side, one Activity table (signups, staff actions)
+   with a type filter. Data: AdminController::indexAction. */
 $s = $this->stats; $f = $this->fin;
 $daily = (array) $this->daily; $n60 = count($daily); $last30 = array_slice($daily, -30); $prev30 = array_slice($daily, 0, max(0, $n60 - 30));
 $col = function ($rows, $k) { return array_map(function ($r) use ($k) { return (float) $r[$k]; }, $rows); };
 $sum = function ($rows, $k) { $t = 0; foreach ($rows as $r) { $t += (float) $r[$k]; } return $t; };
 $today = gmdate('Y-m-d'); $yesterday = gmdate('Y-m-d', time() - 86400); $sign_today = 0; $sign_yday = 0;
 foreach ($last30 as $r) { if ($r['d'] === $today) { $sign_today = (int) $r['signups']; } if ($r['d'] === $yesterday) { $sign_yday = (int) $r['signups']; } }
-$month = !empty($this->series) ? $this->series[count($this->series) - 1] : array('revenue' => 0);
-$prev_m = count($this->series) > 1 ? $this->series[count($this->series) - 2] : array('revenue' => 0);
-// Owed to creators, day by day: today's figure walked back through each day's net creator movement.
-$owed = array(); $run = (int) $f['owed_creators']; $earned = $col($last30, 'earned');
-for ($i = count($earned) - 1; $i >= 0; $i--) { $owed[$i] = max(0, $run); $run -= $earned[$i]; }
-ksort($owed); $owed = array_values($owed);
+$month = !empty($this->series) ? $this->series[count($this->series) - 1] : array('revenue' => 0, 'ai' => 0);
+$prev_m = count($this->series) > 1 ? $this->series[count($this->series) - 2] : array('revenue' => 0, 'ai' => 0);
 $accounts = $col($last30, 'accounts');
 $attention = array(
     array('Moderation',   (int) ($nav['moderation'] ?? 0),   'to review',     '/admin/moderation?show=moderation'),
     array('Reports',      (int) ($nav['reports'] ?? 0),      'open',          '/admin/moderation?show=reports'),
-    array('Verification', (int) ($nav['verification'] ?? 0) + (int) ($nav['age'] ?? 0), 'waiting', '/admin/moderation?show=verification'),
+    array('Verification', (int) ($nav['verification'] ?? 0), 'waiting', '/admin/moderation?show=verification'),
     array('Messages',     (int) ($nav['messages'] ?? 0),     'unread replies to Creator Link Studio', '/admin/messages'),
     array('Support',      (int) ($nav['support'] ?? 0),      'waiting on us', '/admin/support'),
     array('Billing',      (int) ($nav['billing'] ?? 0),      'past due',      '/admin/moderation?show=billing'),
@@ -26,7 +22,7 @@ $attention = array(
     array('Affiliates',   (int) ($nav['affiliates'] ?? 0),   'to settle',     '/admin/affiliates'),
 );
 $attention = array_values(array_filter($attention, function ($a) { return $a[1] > 0; }));
-$types = array('all' => 'All', 'signup' => 'Signups', 'sale' => 'Sales', 'payout' => 'Payouts', 'staff' => 'Staff actions');
+$types = array('all' => 'All', 'signup' => 'Signups', 'staff' => 'Staff actions');
 $tn = array('all' => count((array) $this->activity)); foreach ((array) $this->activity as $ev) { $tn[$ev['type']] = ($tn[$ev['type']] ?? 0) + 1; }
 ?>
 <header class="adm-head">
@@ -50,7 +46,7 @@ $co_rows = (array) $this->checkout_problems; ?>
 <div class="adm-kpis adm-kpis--5">
     <?php echo adm_kpi('MRR', $usd($f['plan_mrr']), adm_delta($sum($last30, 'plans'), $sum($prev30, 'plans')), $col($last30, 'plans'), (int) $f['plan_count'] . ' paying plan' . ((int) $f['plan_count'] === 1 ? '' : 's')); ?>
     <?php echo adm_kpi('Revenue this month', $usd($month['revenue']), adm_delta($month['revenue'], $prev_m['revenue']), $col($last30, 'revenue'), 'vs last month'); ?>
-    <?php echo adm_kpi('Owed to creators', $usd($f['owed_creators']), adm_delta($owed[count($owed) - 1] ?? 0, $owed[0] ?? 0, true), $owed, 'vs 30d ago'); ?>
+    <?php echo adm_kpi('AI credits this month', $usd($month['ai']), adm_delta($month['ai'], $prev_m['ai']), $col($last30, 'ai'), 'vs last month'); ?>
     <?php echo adm_kpi('Signups today', number_format($sign_today), adm_delta($sign_today, $sign_yday), $col($last30, 'signups'), 'vs yesterday'); ?>
     <?php echo adm_kpi('Accounts', number_format((int) $s['users']), adm_delta($accounts[count($accounts) - 1] ?? 0, $accounts[0] ?? 0), $accounts, 'vs 30d ago'); ?>
 </div>
@@ -111,7 +107,7 @@ $co_rows = (array) $this->checkout_problems; ?>
         <tbody>
         <?php foreach ($this->activity as $ev): ?>
             <tr class="adm-t__link" data-type="<?php echo $e($ev['type']); ?>" data-href="<?php echo $e($ev['href']); ?>">
-                <td><?php echo adm_pill($ev['label'], $ev['type'] === 'sale' ? 'ok' : ($ev['type'] === 'payout' ? 'warn' : ($ev['type'] === 'signup' ? 'info' : 'gray'))); ?></td>
+                <td><?php echo adm_pill($ev['label'], $ev['type'] === 'signup' ? 'info' : 'gray'); ?></td>
                 <td class="adm-t__who"><?php echo adm_who($ev['who'], $ev['handle'], '/admin/user/' . (int) $ev['who_id'], $ev['avatar']); ?></td>
                 <td class="adm-t__trunc" title="<?php echo $e($ev['what']); ?>"><?php echo $e($ev['what']); ?></td>
                 <td class="adm-r adm-t__num" data-value="<?php echo $e(preg_replace('/[^0-9.\-]/', '', (string) $ev['amount'])); ?>"><?php echo $e($ev['amount']); ?></td>

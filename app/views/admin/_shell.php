@@ -11,7 +11,7 @@ $adm_sections = array(
     array('support', 'Support', '/admin/support', (int) ($nav['support'] ?? 0)),
     array('feedback', 'Feedback', '/admin/feedback', (int) ($nav['feedback'] ?? 0)),
     array('users', 'Users', '/admin/users', (int) ($nav['messages'] ?? 0)),
-    array('financials', 'Financials', '/admin/financials', 0), array('sales', 'Sales', '/admin/sales', 0),
+    array('financials', 'Financials', '/admin/financials', 0),
     array('billing', 'Billing', '/admin/billing', 0),
     array('growth', 'Growth', '/admin/growth', 0), array('analytics', 'Analytics', '/admin/analytics', 0), array('content', 'Content', '/admin/content', 0), array('system', 'System', '/admin/system', 0),
 );

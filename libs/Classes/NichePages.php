@@ -2,19 +2,18 @@
 /**
  * Niche landing pages under /for/<slug> (2026-10-24): one page per kind of creator, on the feature template
  * (app/views/pages/feature.php via PagesController::forNicheAction). Same shape as FeaturePages::PAGES plus
- * 'rows_title'; placeholders like {fee_sentence} are filled by PagesController::fill_feature_text. Every claim
- * traces to a shipped feature page (memberships, pay-per-view, services-and-events, link-in-bio, publishing,
- * dm-agent, analytics). Media is images and video only. Each page also works as an ad landing page.
+ * 'rows_title'; placeholders like {networks} are filled by PagesController::fill_feature_text. Every claim
+ * traces to a shipped feature page (link-in-bio, publishing, automations, dm-agent, analytics, ai-influencer). Media is images and video only. Each page also works as an ad landing page.
  * Adding a page here puts it on the site, in the sitemap, in llms.txt, in the footer and in the article linker.
  */
 class NichePages {
 
-    /** Hero photo (SitePhotos key), hero layout and the row visual, as FeaturePages::LOOK. The photos are shared with the matching feature page. */
+    /** Hero photo (SitePhotos key), hero layout and the row visual, as FeaturePages::LOOK. The photos are shared with other public pages. */
     const LOOK = array(
-        'fitness-coaches'  => array('photo' => 'memberships', 'variant' => 'split', 'visual' => 'ui:offers', 'row' => 0),
-        'musicians'        => array('photo' => 'monetize', 'variant' => 'full', 'visual' => 'ui:linkpage', 'row' => 3),
-        'coaches'          => array('photo' => 'services', 'variant' => 'split', 'visual' => 'ui:inbox', 'row' => 3),
-        'photographers'    => array('photo' => 'ppv', 'variant' => 'split', 'visual' => 'ui:targets', 'row' => 3),
+        'fitness-coaches'  => array('photo' => 'publishing', 'variant' => 'full', 'visual' => 'ui:targets', 'row' => 0),
+        'musicians'        => array('photo' => 'alternatives', 'variant' => 'full', 'visual' => 'ui:linkpage', 'row' => 3),
+        'coaches'          => array('photo' => 'dmagent', 'variant' => 'split', 'visual' => 'ui:inbox', 'row' => 2),
+        'photographers'    => array('photo' => 'featport', 'variant' => 'split', 'visual' => 'ui:targets', 'row' => 2),
         'travel-creators'  => array('photo' => 'linkinbio', 'variant' => 'split', 'visual' => 'ui:linkpage', 'row' => 0),
         'brands'           => array('photo' => 'automations', 'variant' => 'split', 'visual' => 'ui:targets', 'row' => 3),
     );
@@ -23,322 +22,280 @@ class NichePages {
 
         'fitness-coaches' => array(
             'nav_title'   => 'Fitness coaches',
-            'title'       => 'Platform for Fitness Coaches: Members, Programs, Calls',
-            'description' => 'Sell workout memberships, training programs and 1:1 coaching calls from one page, and post your training clips to every network at once.',
+            'title'       => 'Platform for Fitness Coaches: Clips, Scheduling, Inbox',
+            'description' => 'Post your training clips to every network at once, schedule a week of workouts in one sitting, answer client DMs with AI drafts and keep every link on one page.',
             'hero' => array(
-                'title' => 'Coach Online and Get Paid from One Page',
-                'lead'  => 'Fitness coaches on {site} sell monthly memberships for weekly workouts, training programs as one-price bundles and booked coaching calls, all from one page. Clients pay by card or with credits, and you cash out to your bank.',
+                'title' => 'Post Your Workouts Everywhere from One Studio',
+                'lead'  => 'Fitness coaches on {site} post training clips to {networks} from one editor, schedule a week of content in one sitting, let AI draft replies to client questions and keep their booking and program links on one page.',
             ),
-            'rows_title' => 'What can a fitness coach sell here?',
+            'rows_title' => 'What can a fitness coach do here?',
             'steps_title' => 'How do you start as a fitness coach?',
-            'related' => array('memberships', 'services-and-events', 'publishing'),
+            'related' => array('publishing', 'automations', 'dm-agent'),
             'rows' => array(
-                array(
-                    'title'  => 'Memberships for weekly workouts',
-                    'text'   => 'Put your weekly workouts behind a membership tier. Members see every subscriber post, and everyone else sees a blurred preview.',
-                    'points' => array(
-                        'Weekly, monthly or yearly billing per tier',
-                        'A free trial on any tier, so a new client can try a week',
-                        'Promo codes for a January push or a win-back',
-                    ),
-                    'link' => array('See how memberships work', '/features/memberships'),
-                ),
-                array(
-                    'title'  => 'Programs as one-price bundles',
-                    'text'   => 'Group the videos and photos of a full program into one bundle with one price. Buyers find it in their purchases and can download it.',
-                    'points' => array(
-                        'Sell the same program to members and non-members',
-                        'A single workout can carry its own pay-per-view price',
-                    ),
-                ),
-                array(
-                    'title'  => '1:1 calls and live classes',
-                    'text'   => 'List a coaching call as a service, or sell seats in a live group class. Both run in a built-in video room in the browser.',
-                    'points' => array(
-                        'Form checks and check-ins without a separate meeting app',
-                        'Class reminders go out by email before it starts',
-                    ),
-                    'link' => array('See services and events', '/features/services-and-events'),
-                ),
                 array(
                     'title'  => 'Training clips on every network',
                     'text'   => 'Post a clip once and send it to {networks}. Schedule a week of posts in one sitting.',
                     'points' => array(
-                        'Paid posts send a blurred preview, so the full workout stays on your page',
+                        'Captions written in your voice and trimmed for each network',
+                        'Instagram and Facebook Stories as well as feed posts',
                     ),
                     'link' => array('See publishing', '/features/publishing'),
                 ),
+                array(
+                    'title'  => 'A daily tip on autopilot',
+                    'text'   => 'Set an automation to post a new image or short clip with a caption on the days and at the time you pick.',
+                    'points' => array(
+                        'Runs in your own time zone',
+                        'Pause and restart it whenever your schedule changes',
+                    ),
+                    'link' => array('See automations', '/features/automations'),
+                ),
+                array(
+                    'title'  => 'Client questions answered in your voice',
+                    'text'   => 'Turn on AI replies and the inbox drafts answers to client questions. Approve each one, or let it send once you trust it.',
+                    'points' => array(
+                        'A welcome message for every new follower',
+                        'Followers in one audience list with tags and notes',
+                    ),
+                    'link' => array('See the DM agent', '/features/dm-agent'),
+                ),
+                array(
+                    'title'  => 'Every link on one page',
+                    'text'   => 'Your program, booking and gear links sit at the top of your page, and every click is counted.',
+                    'link'   => array('See the link page', '/features/link-in-bio'),
+                ),
             ),
             'steps' => array(
-                array('Create a Tier', 'Name it, set a price and a billing interval, and add a free trial if you want one.'),
-                array('Bundle a Program', 'Pick the program videos from your library, put them in one bundle and give it a price.'),
-                array('List a Coaching Call', 'Add a service with a price and the details a client sees after booking.'),
+                array('Connect Your Accounts', 'Connect the networks you post to. There is no limit on connected accounts.'),
+                array('Plan a Week of Workouts', 'Upload your clips, let AI draft the captions and schedule each post.'),
+                array('Turn On AI Replies', 'Set your voice and let the inbox draft answers to client questions.'),
             ),
-            'fan_side' => 'A client opens your page, joins a tier by card and starts watching the workouts straight away. A program bought as a bundle sits in their purchases, ready to download. A booked call opens in the browser at the time you set.',
-            'limits'   => array('fee_percent'),
+            'fan_side_title' => 'What do your clients see?',
+            'fan_side' => 'A client sees your workouts as normal posts on each network, at a steady rhythm. Your bio link opens your page with your program and booking links at the top, and a message to you gets a quick reply.',
+            'limits'   => array('automations', 'ai_credits', 'inbox_ai'),
             'faq' => array(
-                array('q' => 'Can I run live group classes?', 'a' => 'Yes. Create an event with a date and a seat count, free or paid, and run it in the built-in video room with chat and screen share.'),
-                array('q' => 'Can clients download a program?', 'a' => 'Yes. A program sold as a bundle lands in the buyer\'s purchases, where they can download it.'),
-                array('q' => 'Do I need a separate booking app?', 'a' => 'No. Coaching calls are sold as services on your page, and the call runs in the built-in video room.'),
-                array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
+                array('q' => 'Can I post the same clip to several networks?', 'a' => 'Yes. Write the post once, tick the networks and it goes out to each of them, now or at the time you schedule.'),
+                array('q' => 'Does the inbox send replies without me?', 'a' => 'Only if you turn that on. By default every reply waits for your approval.'),
+                array('q' => 'Can I keep my booking app?', 'a' => 'Yes. Put its link on your page and every click is counted in your dashboard.'),
             ),
-            'cta' => array('title' => 'Put your coaching on one page', 'text' => 'Memberships, programs and calls, paid out to your bank.'),
+            'cta' => array('title' => 'Put your coaching content on autopilot', 'text' => 'Clips on every network, replies in your voice, links on one page.'),
         ),
 
         'musicians' => array(
             'nav_title'   => 'Musicians',
-            'title'       => 'Platform for Musicians: Fan Clubs, Exclusives, Live Shows',
-            'description' => 'Run a paid fan club, sell exclusive videos and tickets to live online shows, and keep every streaming link on one page.',
+            'title'       => 'Platform for Musicians: Clips, Links, Scheduling',
+            'description' => 'Post performance clips to every network at once, keep every streaming and merch link on one page with click counts, and see which posts bring new listeners.',
             'hero' => array(
-                'title' => 'A Paid Fan Club with All Your Links',
-                'lead'  => 'Musicians on {site} run a paid fan club, sell exclusive videos one at a time and sell tickets to live online shows, from the same page that holds their streaming and merch links.',
+                'title' => 'Your Clips Everywhere, Your Links in One Place',
+                'lead'  => 'Musicians on {site} post performance clips and studio diaries to {networks} from one editor, keep their streaming, merch and tour links on one page, and see which posts and links bring new listeners.',
             ),
-            'rows_title' => 'What can a musician sell here?',
+            'rows_title' => 'What can a musician do here?',
             'steps_title' => 'How do you start as a musician?',
-            'related' => array('memberships', 'link-in-bio', 'services-and-events'),
+            'related' => array('link-in-bio', 'publishing', 'analytics'),
             'rows' => array(
                 array(
-                    'title'  => 'A fan club with tiers',
-                    'text'   => 'Studio diaries, rehearsal clips and early looks go to members. Set one tier for listeners and a higher one for your closest fans.',
+                    'title'  => 'Clips on every network',
+                    'text'   => 'Post an acoustic take, a live cut or a rehearsal reel once and send it to {networks}.',
                     'points' => array(
-                        'Weekly, monthly or yearly billing per tier',
-                        'Members hear about every new post automatically',
+                        'Schedule a release week of posts in one sitting',
+                        'Captions written in your voice and trimmed for each network',
                     ),
-                    'link' => array('See how memberships work', '/features/memberships'),
+                    'link' => array('See publishing', '/features/publishing'),
                 ),
                 array(
-                    'title'  => 'Exclusives with pay-per-view',
-                    'text'   => 'Put a price on a single video or photo set: an acoustic take, a live cut, a behind-the-scenes reel. Fans unlock it in one tap.',
-                    'points' => array(
-                        'Paid messages carry media and a price too',
-                    ),
-                    'link' => array('See pay-per-view', '/features/pay-per-view'),
+                    'title'  => 'Video from a single photo',
+                    'text'   => 'Turn a cover shot or a press photo into a short clip, and join clips and images into one video in the clip editor.',
                 ),
                 array(
-                    'title'  => 'Live online shows',
-                    'text'   => 'Sell tickets to a listening party or a live set, free or paid, with a seat count. The show runs in a built-in video room.',
-                    'points' => array(
-                        'The meeting link goes out by email only',
-                        'Reminder emails before the show starts',
-                    ),
-                    'link' => array('See services and events', '/features/services-and-events'),
+                    'title'  => 'Release-day posts on autopilot',
+                    'text'   => 'Set an automation to post on the days and at the time you pick, so your feeds keep moving while you are on the road.',
+                    'link'   => array('See automations', '/features/automations'),
                 ),
                 array(
                     'title'  => 'Every streaming link on one page',
-                    'text'   => 'Your page holds the links you used to keep on a link-in-bio page: streaming, merch, tour dates. Bring them over from Linktree in one step.',
+                    'text'   => 'Your page holds the links you used to keep on a link-in-bio page: streaming, merch, tour dates. Bring them over from your current link page in one step.',
                     'points' => array(
-                        'Tracking links show which link brings signups and sales',
+                        'Tracking links show which post brings new followers',
                     ),
                     'link' => array('See the link page', '/features/link-in-bio'),
                 ),
             ),
             'steps' => array(
-                array('Bring Your Links', 'Import your Linktree, Beacons or Stan page, or add your streaming and merch links by hand.'),
-                array('Open the Fan Club', 'Create a tier with a price and the perks members get.'),
-                array('Book a Show', 'Create an event with a date and a seat count and share the ticket page.'),
+                array('Bring Your Links', 'Import your current link page, or add your streaming and merch links by hand.'),
+                array('Connect Your Accounts', 'Connect the networks you post to, once.'),
+                array('Schedule a Release Week', 'Upload your clips, draft the captions and schedule each post.'),
             ),
-            'fan_side' => 'A fan lands on your page from your bio, finds your streaming links at the top and joins the fan club by card. Exclusives unlock with credits from their wallet, and a show ticket brings reminder emails with the link to the room.',
-            'limits'   => array('fee_percent'),
+            'fan_side_title' => 'What do your listeners see?',
+            'fan_side' => 'A listener sees your clips as normal posts on each network. Your bio link opens your page with your streaming links at the top, and following you there is free.',
+            'limits'   => array('automations', 'ai_credits', 'storage_gb'),
             'faq' => array(
-                array('q' => 'Can I sell audio files?', 'a' => 'Not as files. Pages carry images and video, so share a performance video or a lyric video, and keep streaming links for the audio.'),
-                array('q' => 'Can I move my Linktree links over?', 'a' => 'Yes. Paste your Linktree, Beacons or Stan address in Settings and pick the links, photo and bio to bring over.'),
-                array('q' => 'Do fans need an app for a live show?', 'a' => 'No. Shows run in the browser in a built-in video room with chat and a waiting room.'),
-                array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
+                array('q' => 'Can I post audio files?', 'a' => 'Not as files. Posts carry images and video, so share a performance video or a lyric video, and keep streaming links for the audio.'),
+                array('q' => 'Can I move my link page over?', 'a' => 'Yes. Paste the address of your current link page in Settings and pick the links, photo and bio to bring over.'),
+                array('q' => 'Can I see which links get clicked?', 'a' => 'Yes. Every link counts its clicks, and tracking links show the followers and signups each one brings.'),
             ),
-            'cta' => array('title' => 'Open your fan club', 'text' => 'Tiers, exclusives and shows, next to all your links.'),
+            'cta' => array('title' => 'Put your music in every feed', 'text' => 'Clips on every network, every link on one page.'),
         ),
 
         'coaches' => array(
             'nav_title'   => 'Coaches and teachers',
-            'title'       => 'Platform for Coaches and Teachers: Calls, Classes, Members',
-            'description' => 'Sell 1:1 sessions, live classes and a membership from one page. Calls run in a built-in video room, and AI drafts replies to your DMs.',
+            'title'       => 'Platform for Coaches and Teachers: Content, Inbox, Links',
+            'description' => 'Post lessons and tips to every network on a schedule, let AI draft replies to student questions in your voice, and keep your booking links on one page.',
             'hero' => array(
-                'title' => 'Sell Sessions and Classes from One Page',
-                'lead'  => 'Coaches and teachers on {site} sell 1:1 sessions, seats in live classes and a membership for ongoing lessons. Sessions run in a built-in video room, so clients join from the browser.',
+                'title' => 'Teach Everywhere, Answer Faster',
+                'lead'  => 'Coaches and teachers on {site} post lessons and tips to {networks} on a schedule, let AI draft replies to student questions in their voice, and keep booking and course links on one page.',
             ),
-            'rows_title' => 'What can a coach or teacher sell here?',
+            'rows_title' => 'What can a coach or teacher do here?',
             'steps_title' => 'How do you start as a coach or teacher?',
-            'related' => array('services-and-events', 'memberships', 'dm-agent'),
+            'related' => array('dm-agent', 'publishing', 'automations'),
             'rows' => array(
                 array(
-                    'title'  => '1:1 sessions as services',
-                    'text'   => 'List each session type with a price and a description. The access details you write are shown to the client only after they buy.',
-                    'points' => array(
-                        'Each service has its own page and a tab on your profile',
-                        'Every booking listed with the client and the date',
-                    ),
-                    'link' => array('See services and events', '/features/services-and-events'),
+                    'title'  => 'Lessons on every network',
+                    'text'   => 'Post a lesson clip or a worksheet image once and send it to {networks}. Schedule a week of posts in one sitting.',
+                    'link'   => array('See publishing', '/features/publishing'),
                 ),
                 array(
-                    'title'  => 'Live classes with seats',
-                    'text'   => 'Create a class with a date and a seat count, free or paid. Run it with a waiting room, chat, screen share and raised hands.',
-                    'points' => array(
-                        'An optional call password',
-                        'Message everyone who signed up from the event workspace',
-                    ),
-                ),
-                array(
-                    'title'  => 'A membership for ongoing lessons',
-                    'text'   => 'Post lessons and worksheets as images or video for members, and keep a free post or two open so new students can find you.',
-                    'link'   => array('See how memberships work', '/features/memberships'),
+                    'title'  => 'Post ideas from real questions',
+                    'text'   => 'Ideas gathers the questions people ask about your topic online and turns each one into a post idea, ready to open in the editor.',
                 ),
                 array(
                     'title'  => 'Replies drafted for you',
-                    'text'   => 'Turn on AI replies and the inbox drafts answers to student questions in your voice. Set a welcome message for every new member.',
+                    'text'   => 'Turn on AI replies and the inbox drafts answers to student questions in your voice. Set a welcome message for every new follower.',
                     'points' => array(
-                        'Followers, members and buyers in one audience list with tags and notes',
+                        'Followers in one audience list with tags and notes',
+                        'Scheduled broadcasts to a tagged group',
                     ),
                     'link' => array('See the DM agent', '/features/dm-agent'),
                 ),
+                array(
+                    'title'  => 'Booking and course links on one page',
+                    'text'   => 'Keep the links to your booking tool and your courses at the top of your page, and see which ones get clicked.',
+                    'link'   => array('See the link page', '/features/link-in-bio'),
+                ),
             ),
             'steps' => array(
-                array('List a Session', 'Add a service with a price and the access details a client sees after buying.'),
-                array('Schedule a Class', 'Create an event with a date and a seat count, free or paid.'),
-                array('Turn On AI Replies', 'Let the inbox draft answers to questions and greet new members.'),
+                array('Connect Your Accounts', 'Connect the networks you post to, once.'),
+                array('Plan Your Lessons', 'Turn questions into post ideas, draft the captions and schedule each post.'),
+                array('Turn On AI Replies', 'Let the inbox draft answers to questions and greet new followers.'),
             ),
-            'fan_side' => 'A client picks a session or a class seat on your page and pays with credits. Session details appear after purchase, class reminders arrive by email, and both open in the browser with no app to install.',
-            'limits'   => array('fee_percent'),
+            'fan_side_title' => 'What do your students see?',
+            'fan_side' => 'A student sees your lessons as normal posts on each network and gets a quick answer when they message you. Your bio link opens your page with your booking and course links at the top.',
+            'limits'   => array('inbox_ai', 'ai_credits', 'automations'),
             'faq' => array(
-                array('q' => 'Do clients need Zoom?', 'a' => 'No. Sessions and classes run in a built-in video room in the browser, with a waiting room, chat and screen share.'),
-                array('q' => 'When are class earnings paid?', 'a' => 'Ticket earnings are released to your balance after the event. From there you cash out to your bank on request.'),
-                array('q' => 'Can I share files with students?', 'a' => 'Images and video, as posts, paid messages or bundles that buyers can download.'),
-                array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
+                array('q' => 'Does the inbox send replies without me?', 'a' => 'Only if you turn that on. By default every reply waits for your approval.'),
+                array('q' => 'Can I message a group of students at once?', 'a' => 'Yes. Tag followers in your audience list and send a broadcast to the tag, now or on a schedule.'),
+                array('q' => 'Can I share files with students?', 'a' => 'Images and video, as posts or as messages with media from your library.'),
             ),
-            'cta' => array('title' => 'Sell your next session', 'text' => 'Sessions, classes and a membership on one page.'),
+            'cta' => array('title' => 'Teach on every network', 'text' => 'Lessons on schedule, replies in your voice, links on one page.'),
         ),
 
         'photographers' => array(
             'nav_title'   => 'Photographers',
-            'title'       => 'Platform for Photographers: Sell Photo Sets and Sessions',
-            'description' => 'Sell photo sets as downloadable bundles, single shots as pay-per-view and booked sessions, with watermarks on your images.',
+            'title'       => 'Platform for Photographers: Post, Schedule, Watermark',
+            'description' => 'Post your shoots to every network at once with watermarks on your images, schedule a week of posts, and keep your portfolio and booking links on one page.',
             'hero' => array(
-                'title' => 'Sell Your Photo Sets Directly to Fans',
-                'lead'  => 'Photographers on {site} sell full sets as downloadable bundles, single shots as pay-per-view, a membership for behind-the-scenes work and booked sessions, all from one page.',
+                'title' => 'Show Your Work on Every Network',
+                'lead'  => 'Photographers on {site} post their shoots to {networks} from one editor, put a watermark on any image, schedule a week of posts in one sitting and keep portfolio and booking links on one page.',
             ),
             'plan_note'  => true,   // the Free-plan limit under the hero buttons (Sections::plan_note)
-            'rows_title' => 'What can a photographer sell here?',
+            'rows_title' => 'What can a photographer do here?',
             'steps_title' => 'How do you start as a photographer?',
-            'related' => array('pay-per-view', 'memberships', 'publishing'),
+            'related' => array('publishing', 'link-in-bio', 'analytics'),
             'rows' => array(
                 array(
-                    'title'  => 'Sets as downloadable bundles',
-                    'text'   => 'Group a shoot into one bundle with one price. Buyers find it in their purchases and download the full set.',
-                    'points' => array(
-                        'Prices from ' . Price::MIN_CREDITS . ' to ' . Price::MAX_CREDITS . ' credits',
-                        'Fans buy credits by card, ' . Price::CREDITS_PER_DOLLAR . ' credits for every $1, and you cash out your earnings to your bank once they reach {payout_min}',
-                    ),
+                    'title'  => 'A watermark on any image',
+                    'text'   => 'Switch the watermark on per image in your library, so every copy that leaves your page carries your mark.',
                 ),
                 array(
-                    'title'  => 'Single shots with pay-per-view',
-                    'text'   => 'Price one image or a short set in a post or a message. It shows blurred until a fan unlocks it.',
+                    'title'  => 'One shoot, a week of posts',
+                    'text'   => 'Upload a shoot to your library and schedule the best frames across the week, each with a caption written in your voice.',
                     'points' => array(
-                        'A watermark on any image, switched on per file',
+                        'Square, portrait and landscape crops per network',
+                        'Instagram and Facebook Stories as well as feed posts',
                     ),
-                    'link' => array('See pay-per-view', '/features/pay-per-view'),
-                ),
-                array(
-                    'title'  => 'Behind the scenes for members',
-                    'text'   => 'Edits, outtakes and lighting setups go to members, so your regulars pay monthly instead of once.',
-                    'link'   => array('See how memberships work', '/features/memberships'),
                 ),
                 array(
                     'title'  => 'Previews on every network',
-                    'text'   => 'Post once and send it to all ten platforms you connect: X, Instagram, TikTok, Facebook, LinkedIn, Pinterest, YouTube, Threads, Bluesky and Fanvue. On the social networks, paid posts go out as a blurred preview, so the full image stays on your page. Fanvue gets the whole post with its price.',
+                    'text'   => 'Post once and send it to {networks}. Captions are trimmed to each network\'s limit.',
                     'link'   => array('See publishing', '/features/publishing'),
                 ),
                 array(
-                    'title'  => 'Booked sessions',
-                    'text'   => 'List a portrait session, a portfolio review or a lesson as a service with a price. Details are shared after booking.',
-                    'link'   => array('See services and events', '/features/services-and-events'),
-                ),
-            ),
-            // shown right after the rows (feature.php). Our features only: competitors are named as context, never described.
-            // each name links to its /compare page (PagesController::COMPETITORS, type 'photo')
-            'compare' => array(
-                'title'  => 'How {site} compares',
-                'lead'   => 'If you\'re comparing us to [Pixieset](/compare/pixieset), [ShootProof](/compare/shootproof), [SmugMug](/compare/smugmug) or [Gumroad](/compare/gumroad), this is what you get here.',
-                'points' => array(
-                    'Memberships with as many tiers as you want, each with its own price and an optional free trial',
-                    'Pay-per-view posts and paid messages that fans unlock with credits',
-                    'A whole shoot sold as one bundle that buyers download from their purchases',
-                    'Booked sessions, from portrait shoots to portfolio reviews, each with its own price',
-                    'A watermark you switch on for each image',
-                    'One post sent to your page and all ten platforms you connect',
+                    'title'  => 'Portfolio and booking links on one page',
+                    'text'   => 'Your portfolio, booking and print-shop links sit at the top of your page, and every click is counted.',
+                    'link'   => array('See the link page', '/features/link-in-bio'),
                 ),
             ),
             'steps' => array(
                 array('Upload a Shoot', 'Add the images to your library and switch on the watermark where you want it.'),
-                array('Bundle the Set', 'Put the shoot in one bundle with one price.'),
-                array('Post the Preview', 'Publish a pay-per-view post and send the blurred preview to your networks.'),
+                array('Schedule the Week', 'Pick the frames, draft the captions and schedule each post.'),
+                array('Add Your Links', 'Put your portfolio and booking links on your page.'),
             ),
-            'fan_side' => 'A fan sees a blurred preview with the price, unlocks it with credits and the full image appears. A bought set sits in their purchases, ready to download.',
-            'limits'   => array('fee_percent'),
+            'fan_side_title' => 'What do your clients see?',
+            'fan_side' => 'A client sees your work as normal posts on each network, with your watermark where you switched it on. Your bio link opens your page with your portfolio and booking links at the top.',
+            'limits'   => array('storage_gb', 'automations', 'ai_credits'),
             'faq' => array(
                 array('q' => 'Can I watermark my images?', 'a' => 'Yes. Switch the watermark on per image in your library. Videos carry a watermark overlay on the player.'),
-                array('q' => 'Do buyers get full-size files?', 'a' => 'A set sold as a bundle can be downloaded from the buyer\'s purchases.'),
-                array('q' => 'Can I sell prints?', 'a' => 'No. Sales are digital: images, video, sessions and memberships.'),
-                array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
+                array('q' => 'Can I schedule posts ahead?', 'a' => 'Yes. Schedule any post for a date and time in your own time zone, keep it as a draft, or publish it now.'),
+                array('q' => 'Can I see which posts do best?', 'a' => 'Yes. Views, likes, comments and shares come back from each network into your dashboard.'),
             ),
-            'cta' => array('title' => 'Sell your next set', 'text' => 'Bundles, pay-per-view and sessions from one page.'),
+            'cta' => array('title' => 'Post your next shoot everywhere', 'text' => 'Watermarks, scheduling and links from one studio.'),
         ),
 
         'travel-creators' => array(
             'nav_title'   => 'Travel creators',
-            'title'       => 'Platform for Travel Creators: Links, Guides, Trip Calls',
-            'description' => 'One page for your booking and affiliate links, paid travel guides in photos and video, trip-planning calls and a membership.',
+            'title'       => 'Platform for Travel Creators: Links, Scheduling, Analytics',
+            'description' => 'One page for your booking and affiliate links with click counts, posts scheduled ahead to every network, and analytics that show which posts work.',
             'hero' => array(
-                'title' => 'Your Links, Guides and Trip Calls on One Page',
-                'lead'  => 'Travel creators on {site} keep their booking and affiliate links on one page, sell guides as photo and video bundles, take trip-planning calls and run a membership for followers who travel with them.',
+                'title' => 'Your Links and Posts, Even on Travel Days',
+                'lead'  => 'Travel creators on {site} keep their booking and affiliate links on one page with click counts, schedule posts ahead to {networks}, and see which posts and links bring new followers.',
             ),
-            'rows_title' => 'What can a travel creator sell here?',
+            'rows_title' => 'What can a travel creator do here?',
             'steps_title' => 'How do you start as a travel creator?',
-            'related' => array('link-in-bio', 'analytics', 'services-and-events'),
+            'related' => array('link-in-bio', 'analytics', 'publishing'),
             'rows' => array(
                 array(
                     'title'  => 'A link page that counts clicks',
-                    'text'   => 'Your booking, gear and affiliate links sit at the top of your page. Bring them over from Linktree, Beacons or Stan in one step.',
+                    'text'   => 'Your booking, gear and affiliate links sit at the top of your page. Bring them over from your current link page in one step.',
                     'points' => array(
                         'Link clicks in your dashboard',
-                        'Tracking links show which post brings signups and sales',
+                        'Tracking links show which post brings new followers',
                     ),
                     'link' => array('See analytics', '/features/analytics'),
-                ),
-                array(
-                    'title'  => 'Guides as photo and video bundles',
-                    'text'   => 'Turn a city or a route into a bundle of photos and videos with one price. Buyers download it to their phone before they go.',
-                    'link'   => array('See pay-per-view and bundles', '/features/pay-per-view'),
-                ),
-                array(
-                    'title'  => 'Trip-planning calls',
-                    'text'   => 'Sell a planning session as a service. The call runs in a built-in video room in the browser.',
-                    'link'   => array('See services and events', '/features/services-and-events'),
                 ),
                 array(
                     'title'  => 'Post from the road',
                     'text'   => 'Schedule posts ahead and send them to {networks}, so your feeds keep moving on travel days.',
                     'link'   => array('See publishing', '/features/publishing'),
                 ),
+                array(
+                    'title'  => 'Video from a single photo',
+                    'text'   => 'Turn a still from the trip into a short clip, and join clips and images into one video in the clip editor.',
+                ),
+                array(
+                    'title'  => 'Questions answered while you travel',
+                    'text'   => 'Turn on AI replies and the inbox drafts answers to follower questions in your voice, waiting for your approval.',
+                    'link'   => array('See the DM agent', '/features/dm-agent'),
+                ),
             ),
             'steps' => array(
                 array('Bring Your Links', 'Import your current link page, or add your booking and affiliate links by hand.'),
-                array('Bundle a Guide', 'Put the photos and videos for one place into a bundle with a price.'),
-                array('List a Planning Call', 'Add a service with a price and the details a buyer sees after booking.'),
+                array('Schedule Ahead', 'Upload the trip, draft the captions and schedule a week of posts.'),
+                array('Check What Works', 'Open the dashboard and see which posts and links bring new followers.'),
             ),
-            'fan_side' => 'A follower taps your bio link, finds your booking links at the top of your page and buys a guide with credits. The guide sits in their purchases, ready to download before the trip.',
-            'limits'   => array('fee_percent'),
+            'fan_side_title' => 'What do your followers see?',
+            'fan_side' => 'A follower taps your bio link and finds your booking and affiliate links at the top of your page. Your posts keep arriving on each network at a steady rhythm, even on travel days.',
+            'limits'   => array('automations', 'ai_credits', 'custom_domain'),
             'faq' => array(
                 array('q' => 'Can I keep my affiliate links?', 'a' => 'Yes. Any link goes on your page, and link clicks show in your dashboard.'),
-                array('q' => 'Can I move my Linktree over?', 'a' => 'Yes. Paste your Linktree, Beacons or Stan address in Settings and pick the links, photo and bio to bring over.'),
-                array('q' => 'Can a guide be a PDF?', 'a' => 'No. Guides are bundles of images and video, which buyers can download.'),
-                array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
+                array('q' => 'Can I move my link page over?', 'a' => 'Yes. Paste the address of your current link page in Settings and pick the links, photo and bio to bring over.'),
+                array('q' => 'Can I schedule posts in another time zone?', 'a' => 'Posts are scheduled in the time zone set on your account, so change it when you travel or plan in your home time.'),
             ),
-            'cta' => array('title' => 'Put your travel links to work', 'text' => 'Links, guides and calls on one page.'),
+            'cta' => array('title' => 'Put your travel links to work', 'text' => 'Links, scheduling and analytics on one page.'),
         ),
 
-        // 2026-10-26: brands using the tools for content and social, not fan sales. Claims trace to ImageGenService (No Influencer
+        // 2026-10-26: brands using the tools for content and social. Claims trace to ImageGenService (No Influencer
         // mode), BrandService (brand kit from a website), PostForMeService/SocialShareService, cron/scheduler.php, IdeasController,
         // cron/social_metrics.php, TrackingLinks, Permissions::team_allows and McpController. Left out on purpose: the inbox AI
-        // (its prompt is written for fans), Fanvue and the adult character source.
+        // (its prompt is written for creators' followers).
         'brands' => array(
             'nav_title'   => 'Brands',
             'title'       => 'Platform for Brands: AI Content, Scheduling, Analytics',
@@ -405,7 +362,7 @@ class NichePages {
                 ),
                 array(
                     'title'  => 'See which posts work',
-                    'text'   => 'Views, likes, comments, shares, saves and reach come back from each network for every post. Tracking links show the clicks, signups and sales each campaign link brought in.',
+                    'text'   => 'Views, likes, comments, shares, saves and reach come back from each network for every post. Tracking links show the clicks and signups each campaign link brought in.',
                     'points' => array(
                         'Compare the last 7, 30 or 90 days with the period before',
                         'Export to CSV',
@@ -430,7 +387,6 @@ class NichePages {
                 array('q' => 'Can I use my own domain?', 'a' => 'Yes, on {domain_plan}. Your page then runs on your own address.'),
                 array('q' => 'Is AI content labelled?', 'a' => 'Yes. Media made with AI gets the AI label on TikTok and YouTube when it is posted.'),
                 array('q' => 'Can I run it from Claude?', 'a' => 'Yes. Add {site} to Claude as a connector and ask it to make images, write posts or schedule them. The connector is included on every plan.'),
-                array('q' => 'Can a brand sell from its page?', 'a' => 'Yes. You can sell services, event tickets and bundles of digital content. {fee_sentence}'),
             ),
             'cta' => array('title' => 'Put your brand\'s content on autopilot', 'text' => 'AI images and video, captions in your voice, posts on schedule.'),
         ),

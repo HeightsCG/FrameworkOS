@@ -13,8 +13,8 @@ $url = function ($s, $d) { return '/admin/analytics?show=' . rawurlencode($s) . 
 $titles = array('traffic' => 'Traffic', 'pages' => 'Pages', 'sources' => 'Sources', 'conversions' => 'Conversions', 'product' => 'Product', 'creators' => 'Creators');
 $subs = array('traffic' => 'Visitors, sessions and page views recorded by this site, by day, device, browser and country',
               'pages' => 'Every page by views, visitors and entrances', 'sources' => 'Where sessions start: UTM source and medium, referrers, campaigns, landing pages',
-              'conversions' => 'Sessions to signups to paid plans, by day and by source', 'product' => 'What accounts do: signups, sales, memberships, posts, AI generations, messages, cash-outs',
-              'creators' => 'Creator pages by traffic and what that traffic bought');
+              'conversions' => 'Sessions to signups to paid plans, by day and by source', 'product' => 'What accounts do: signups, plan payments, posts, AI generations, messages',
+              'creators' => 'Creator pages by traffic');
 $range = gmdate('M j', time() - ($days - 1) * 86400) . ' to ' . gmdate('M j, Y') . ' (UTC)';
 ?>
 <header class="adm-head">
@@ -35,16 +35,16 @@ $range = gmdate('M j', time() - ($days - 1) * 86400) . ' to ' . gmdate('M j, Y')
     <?php echo adm_kpi('Sessions', $n($now['sessions'] ?? 0), adm_delta((int) ($now['sessions'] ?? 0), (int) ($before['sessions'] ?? 0)), $col($daily, 'sessions'), $n($now['new_visitors'] ?? 0) . ' first visits'); ?>
     <?php echo adm_kpi('Page views', $n($now['pageviews'] ?? 0), adm_delta((int) ($now['pageviews'] ?? 0), (int) ($before['pageviews'] ?? 0)), $col($daily, 'pageviews'), ((int) ($now['sessions'] ?? 0) > 0 ? round((int) $now['pageviews'] / (int) $now['sessions'], 1) : '0') . ' per session'); ?>
     <?php echo adm_kpi('Signups', $n($now['signups'] ?? 0), adm_delta((int) ($now['signups'] ?? 0), (int) ($before['signups'] ?? 0)), $col($daily, 'signups'), $pct($now['signups'] ?? 0, $now['sessions'] ?? 0) . ' of sessions'); ?>
-    <?php echo adm_kpi('Paid plans', $n($now['plans_paid'] ?? 0), adm_delta((int) ($now['plans_paid'] ?? 0), (int) ($before['plans_paid'] ?? 0)), $col($daily, 'plans_paid'), $n($now['sales'] ?? 0) . ' sales · ' . $usd($now['value_cents'] ?? 0)); ?>
+    <?php echo adm_kpi('Paid plans', $n($now['plans_paid'] ?? 0), adm_delta((int) ($now['plans_paid'] ?? 0), (int) ($before['plans_paid'] ?? 0)), $col($daily, 'plans_paid'), $usd($now['value_cents'] ?? 0)); ?>
 </div>
 
 <?php if ($show === 'traffic'): ?>
 <section class="adm-box"><header class="adm-box__h"><h2 class="adm-box__t">By day</h2><span class="adm-box__note"><?php echo $e($range); ?></span></header>
     <table class="adm-t adm-t--num" data-sortable>
-        <thead><tr><th data-sort="text" data-sorted="desc">Day</th><th class="adm-r" data-sort="num">Visitors</th><th class="adm-r" data-sort="num">Sessions</th><th class="adm-r" data-sort="num">Page views</th><th class="adm-r" data-sort="num">Signups</th><th class="adm-r" data-sort="num">Trials</th><th class="adm-r" data-sort="num">Paid plans</th><th class="adm-r" data-sort="num">Sales</th></tr></thead>
+        <thead><tr><th data-sort="text" data-sorted="desc">Day</th><th class="adm-r" data-sort="num">Visitors</th><th class="adm-r" data-sort="num">Sessions</th><th class="adm-r" data-sort="num">Page views</th><th class="adm-r" data-sort="num">Signups</th><th class="adm-r" data-sort="num">Trials</th><th class="adm-r" data-sort="num">Paid plans</th></tr></thead>
         <tbody>
         <?php foreach (array_reverse($daily) as $r): ?>
-            <tr><td class="adm-t__nowrap"><?php echo $e(gmdate('D, M j', strtotime($r['day'] . ' 00:00:00 UTC'))); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo $n($r['visitors']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['sessions']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['pageviews']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['signups']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['trials'] ?? 0); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['plans_paid']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['sales']); ?></td></tr>
+            <tr><td class="adm-t__nowrap"><?php echo $e(gmdate('D, M j', strtotime($r['day'] . ' 00:00:00 UTC'))); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo $n($r['visitors']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['sessions']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['pageviews']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['signups']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['trials'] ?? 0); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['plans_paid']); ?></td></tr>
         <?php endforeach; ?>
         </tbody>
     </table>
@@ -114,10 +114,10 @@ $range = gmdate('M j', time() - ($days - 1) * 86400) . ' to ' . gmdate('M j, Y')
 </section>
 <section class="adm-box"><header class="adm-box__h"><h2 class="adm-box__t">By day</h2></header>
     <table class="adm-t adm-t--num" data-sortable>
-        <thead><tr><th data-sort="text" data-sorted="desc">Day</th><th class="adm-r" data-sort="num">Sessions</th><th class="adm-r" data-sort="num">Signups</th><th class="adm-r" data-sort="num">Signup rate</th><th class="adm-r" data-sort="num">Trials</th><th class="adm-r" data-sort="num">Paid plans</th><th class="adm-r" data-sort="num">Sales</th></tr></thead>
+        <thead><tr><th data-sort="text" data-sorted="desc">Day</th><th class="adm-r" data-sort="num">Sessions</th><th class="adm-r" data-sort="num">Signups</th><th class="adm-r" data-sort="num">Signup rate</th><th class="adm-r" data-sort="num">Trials</th><th class="adm-r" data-sort="num">Paid plans</th></tr></thead>
         <tbody>
         <?php foreach (array_reverse($daily) as $r): ?>
-            <tr><td class="adm-t__nowrap"><?php echo $e(gmdate('D, M j', strtotime($r['day'] . ' 00:00:00 UTC'))); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['sessions']); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo $n($r['signups']); ?></td><td class="adm-r adm-t__num adm-t__muted"><?php echo $pct($r['signups'], $r['sessions']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['trials'] ?? 0); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['plans_paid']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['sales']); ?></td></tr>
+            <tr><td class="adm-t__nowrap"><?php echo $e(gmdate('D, M j', strtotime($r['day'] . ' 00:00:00 UTC'))); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['sessions']); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo $n($r['signups']); ?></td><td class="adm-r adm-t__num adm-t__muted"><?php echo $pct($r['signups'], $r['sessions']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['trials'] ?? 0); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['plans_paid']); ?></td></tr>
         <?php endforeach; ?>
         </tbody>
     </table>
@@ -138,8 +138,7 @@ $range = gmdate('M j', time() - ($days - 1) * 86400) . ' to ' . gmdate('M j, Y')
 <?php endforeach; ?>
 
 <?php elseif ($show === 'product'): $ev = (array) ($an['events'] ?? array()); $evd = (array) ($an['events_daily'] ?? array()); ?>
-<?php $labels = array('signup' => 'Signups', 'email_verified' => 'Emails verified', 'plan_paid' => 'Plan payments', 'trial_started' => 'Free trials started', 'credits_bought' => 'Credit purchases', 'purchase' => 'Wallet sales (unlocks, bundles, messages, services, tickets)',
-    'membership_paid' => 'Paid memberships started', 'membership_free' => 'Free memberships joined', 'post_published' => 'Posts published', 'ai_generation' => 'AI generations', 'message_sent' => 'Messages sent', 'cashout' => 'Cash-outs requested', 'link_click' => 'Profile link clicks', 'tracking_click' => 'Tracking link clicks'); ?>
+<?php $labels = array('signup' => 'Signups', 'email_verified' => 'Emails verified', 'plan_paid' => 'Plan payments', 'trial_started' => 'Free trials started', 'post_published' => 'Posts published', 'ai_generation' => 'AI generations', 'message_sent' => 'Messages sent', 'link_click' => 'Profile link clicks', 'tracking_click' => 'Tracking link clicks'); ?>
 <section class="adm-box"><header class="adm-box__h"><h2 class="adm-box__t">Events</h2><span class="adm-box__note"><?php echo $e($range); ?>, vs the previous <?php echo (int) $days; ?> days</span></header>
     <?php if (empty($ev)): ?><?php echo adm_empty('No product events in this period', 'fa-bolt'); ?><?php else: ?>
     <table class="adm-t adm-t--num" data-sortable>
@@ -171,10 +170,10 @@ $range = gmdate('M j', time() - ($days - 1) * 86400) . ' to ' . gmdate('M j, Y')
     <form class="adm-search" role="search" onsubmit="return false"><input type="search" class="adm-search__in" placeholder="Filter by handle" data-search-for="admAnCreators"></form></header>
     <?php if (empty($rows)): ?><?php echo adm_empty('No creator page traffic in this period', 'fa-user'); ?><?php else: ?>
     <table class="adm-t adm-t--num" id="admAnCreators" data-sortable data-pager>
-        <thead><tr><th data-sort="text">Creator</th><th class="adm-r" data-sort="num" data-sorted="desc">Views</th><th class="adm-r" data-sort="num">Visitors</th><th class="adm-r" data-sort="num">Entrances</th><th class="adm-r" data-sort="num">Memberships</th><th class="adm-r" data-sort="num">Purchases</th><th class="adm-r" data-sort="num">Value</th></tr></thead>
+        <thead><tr><th data-sort="text">Creator</th><th class="adm-r" data-sort="num" data-sorted="desc">Views</th><th class="adm-r" data-sort="num">Visitors</th><th class="adm-r" data-sort="num">Entrances</th></tr></thead>
         <tbody>
         <?php foreach ($rows as $r): $name = trim((string) $r['first_name'] . ' ' . (string) $r['last_name']); ?>
-            <tr class="adm-t__link" data-href="/admin/user/<?php echo (int) $r['creator_id']; ?>" data-search="<?php echo $e(mb_strtolower($name . ' @' . $r['u_name'])); ?>"><td class="adm-t__main"><?php echo adm_who($name !== '' ? $name : '@' . $r['u_name'], (string) $r['u_name'], '/admin/user/' . (int) $r['creator_id']); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo $n($r['views']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['visitors']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['entrances']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['memberships']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['purchases']); ?></td><td class="adm-r adm-t__num<?php echo (int) $r['value_cents'] === 0 ? ' adm-t__muted' : ''; ?>"><?php echo (int) $r['value_cents'] === 0 ? '—' : $usd($r['value_cents']); ?></td></tr>
+            <tr class="adm-t__link" data-href="/admin/user/<?php echo (int) $r['creator_id']; ?>" data-search="<?php echo $e(mb_strtolower($name . ' @' . $r['u_name'])); ?>"><td class="adm-t__main"><?php echo adm_who($name !== '' ? $name : '@' . $r['u_name'], (string) $r['u_name'], '/admin/user/' . (int) $r['creator_id']); ?></td><td class="adm-r adm-t__num adm-t__strong"><?php echo $n($r['views']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['visitors']); ?></td><td class="adm-r adm-t__num"><?php echo $n($r['entrances']); ?></td></tr>
         <?php endforeach; ?>
         </tbody>
     </table>

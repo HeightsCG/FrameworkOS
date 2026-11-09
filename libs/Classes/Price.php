@@ -1,17 +1,14 @@
 <?php
 /**
- * Fan prices, one rule everywhere (PPV posts, paid messages, broadcasts, auto-messages, bundles, events, services,
- * and the same through MCP): the creator sets dollars, from $1 to $500, in 10-cent steps; it is stored as wallet
- * credits ($1 = 10 credits, so 1 credit = 10 cents and any whole credit count is a valid step). A price that
- * breaks the rule is rejected with a message, never quietly changed. Fans only ever see dollars (fmt).
+ * Credit amounts ($1 = 10 credits, CREDITS_PER_DOLLAR, the same rate as AI credits), the affiliate payout minimum, and
+ * the price validators still used by the post and message price fields until those are removed.
  */
 class Price {
 
     const CREDITS_PER_DOLLAR = 10;
     const MIN_CREDITS = 10;     // $1
     const MAX_CREDITS = 5000;   // $500
-    const PAYOUT_MIN_CENTS = 2500;   // smallest cash-out, $25
-    const PAYOUT_MIN_CREDITS = self::PAYOUT_MIN_CENTS / 100 * self::CREDITS_PER_DOLLAR;
+    const PAYOUT_MIN_CENTS = 2500;   // smallest affiliate payout, $25 (Affiliates; paid by staff)
     const PAYOUT_MIN_LABEL = '$' . (self::PAYOUT_MIN_CENTS / 100);
 
     /**
@@ -52,15 +49,10 @@ class Price {
         return array('ok' => true, 'credits' => $c, 'message' => '');
     }
 
-    /** "49 credits": how every amount inside the platform is shown (prices, balances, purchases, earnings, refunds). */
+    /** "49 credits": how a credit amount is shown inside the platform. */
     public static function credits($credits): string {
         $n = (int) $credits;
         return number_format($n) . (abs($n) === 1 ? ' credit' : ' credits');
-    }
-
-    /** "$4.90": dollars, only where real money moves (buying credits with a card, cashing out to a bank). */
-    public static function fmt($credits): string {
-        return self::fmt_cents((int) $credits * (100 / self::CREDITS_PER_DOLLAR));
     }
 
     /** Dollars for an edit field ("4.90"), so re-saving never changes the price. */

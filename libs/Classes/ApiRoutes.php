@@ -13,20 +13,17 @@ class ApiRoutes {
             'mfa_email_confirm', 'mfa_email_disable', 'mfa_regenerate_backup_codes', 'mfa_verify', 'mfa_send_login_code', 'google_disconnect',
         ],
         'ApiProfileController' => [
-            'update_profile', 'change_username', 'save_notification_prefs', 'save_adult_content_pref', 'age_verification_status', 'block_user', 'unblock_user',
+            'update_profile', 'change_username', 'save_notification_prefs', 'block_user', 'unblock_user',
             'become_creator', 'leave_creator', 'delete_my_account', 'data_export_request', 'data_export_status', 'data_export_download', 'follow_creator', 'unfollow_creator', 'upload_my_avatar', 'remove_my_avatar',
         ],
         'ApiBillingController' => [
             'billing_quote', 'billing_card_setup', 'billing_card_save', 'billing_card_failed', 'billing_change_plan', 'billing_cancel', 'billing_resume',
             'billing_set_slots', 'billing_set_pack', 'billing_confirm', 'billing_pending', 'buy_ai_credits', 'confirm_ai_credit_purchase',
-            'buy_credits', 'confirm_credit_purchase', 'save_autoreplenishment', 'start_payout_onboarding', 'payout_login_link', 'request_payout',
-            'disconnect_payout_account',
             'founding_testimonial_save',
         ],
         'ApiPostsController' => [
             'feed', 'feed_new', 'post_detail', 'post_like', 'post_comments', 'post_comment_add',
-            'post_comment_delete', 'post_view', 'ppv_unlock', 'bundle_unlock', 'join_free_plan', 'subscribe_plan',
-            'cancel_creator_subscription', 'reactivate_creator_subscription', 'profile_posts',
+            'post_comment_delete', 'post_view', 'profile_posts',
         ],
         'ApiMediaController' => [
             'media_upload', 'media_generate', 'media_generate_video', 'media_upload_init', 'media_upload_chunk', 'media_upload_status', 'media_upload_complete',
@@ -35,17 +32,16 @@ class ApiRoutes {
         ],
         'ApiCreatorStudioController' => [
             'heartbeat', 'set_timezone', 'save_creator_profile', 'save_directory_listing', 'generate_brand_identity', 'save_brand_identity', 'upload_creator_image',
-            'remove_creator_image', 'import_page_read', 'import_page_apply', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'tracking_link_save', 'tracking_link_delete', 'save_creator_plan',
-            'delete_creator_plan', 'toggle_creator_plan', 'reorder_creator_plans', 'save_promo_code', 'toggle_promo_code', 'delete_promo_code',
-            'promo_preview', 'save_bundle', 'toggle_bundle', 'delete_bundle', 'scheduler_list', 'scheduler_save',
+            'remove_creator_image', 'import_page_read', 'import_page_apply', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'tracking_link_save', 'tracking_link_delete',
+            'scheduler_list', 'scheduler_save',
             'scheduler_toggle', 'scheduler_delete', 'scheduler_run_now', 'scheduler_run_status', 'post_save', 'post_get', 'post_caption_auto',
             'post_open_draft', 'post_publish', 'post_schedule', 'post_save_draft', 'post_archive', 'post_duplicate',
             'post_delete', 'post_share', 'posts_list', 'posts_calendar', 'posts_bulk', 'post_media_check', 'media_variant_approve', 'media_variant_redo',
             'domain_add', 'domain_verify', 'domain_set_primary', 'domain_remove',
         ],
         'ApiSocialIntegrationsController' => [
-            'connect_account', 'disconnect_account', 'social_sync', 'social_disclosure_save', 'fanvue_connect',
-            'fanvue_disconnect', 'eromify_connect', 'eromify_disconnect', 'eromify_characters',
+            'connect_account', 'disconnect_account', 'social_sync', 'social_disclosure_save',
+            'eromify_connect', 'eromify_disconnect', 'eromify_characters',
         ],
         'ApiSupportController' => [
             'support_create', 'support_reply', 'support_close', 'support_assist', 'contact_send', 'feedback_send',
@@ -59,7 +55,7 @@ class ApiRoutes {
         ],
         'ApiMessagesController' => [
             'message_send', 'message_inbox', 'message_thread', 'message_people', 'message_open', 'message_unread_count', 'message_delete', 'conversation_delete',
-            'message_unlock', 'message_media_list', 'message_peer_info',
+            'message_media_list', 'message_peer_info',
         ],
         'ApiBroadcastController' => [
             'broadcast_info', 'broadcast_send',
@@ -76,9 +72,9 @@ class ApiRoutes {
         ],
         'ApiAdminController' => [
             'admin_leads_csv', 'admin_ads_csv',
-            'admin_impersonate', 'admin_set_user_status', 'admin_moderate', 'admin_refund', 'report_submit', 'report_resolve', 'verification_request',
-            'verification_resolve', 'admin_adjust_credits', 'admin_send_password_reset', 'admin_reset_mfa', 'admin_set_mfa_email', 'admin_reset_age_verification', 'admin_generation_check',
-            'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_billing_retry', 'admin_set_plan_cancel', 'admin_set_demo',
+            'admin_impersonate', 'admin_set_user_status', 'admin_delete_user', 'admin_update_user', 'admin_moderate', 'report_submit', 'report_resolve', 'verification_request',
+            'verification_resolve', 'admin_adjust_credits', 'admin_send_password_reset', 'admin_reset_mfa', 'admin_set_mfa_email', 'admin_generation_check',
+            'admin_verify_email', 'admin_resend_verification', 'admin_billing_retry', 'admin_set_plan_cancel', 'admin_set_demo',
             'admin_set_cross_promo_plans', 'admin_set_creator_promo', 'admin_niche_save', 'admin_niche_set_active', 'admin_niche_move',
             'admin_founding_testimonial', 'admin_founding_refuse', 'admin_testimonial_add', 'admin_testimonial_status', 'admin_testimonial_remove',
             'admin_feedback_status',
@@ -92,15 +88,6 @@ class ApiRoutes {
         'ApiSeoContentController' => [
             'seo_keyword_add', 'seo_keyword_update', 'seo_draft_now', 'seo_article_save', 'seo_article_publish',
             'seo_article_unpublish', 'seo_article_rewrite', 'seo_article_discard', 'seo_article_cover',
-        ],
-        'ApiEventsController' => [
-            'event_save', 'event_delete', 'event_register', 'event_cancel', 'event_attendees', 'event_attendees_csv', 'event_refund_attendee', 'event_remove_attendee', 'event_message_send', 'event_messages', 'event_cancel_all', 'event_set_live', 'event_recording', 'event_recording_delete', 'event_replay_set', 'event_replay_off', 'event_replay_buy', 'event_replay_watch',
-        ],
-        'ApiLiveController' => [
-            'live_join', 'live_remove', 'live_mute_all', 'live_status', 'live_settings', 'live_waiting', 'live_admit', 'live_deny', 'live_person', 'live_hand', 'live_offers', 'live_pin', 'live_tip', 'live_record_start', 'live_record_stop', 'live_end',
-        ],
-        'ApiServicesController' => [
-            'service_save', 'service_delete', 'service_purchase', 'service_buyers', 'service_buyers_csv', 'service_refund_buyer', 'service_set_live', 'service_mark_delivered',
         ],
         'ApiPromoteController' => [
             'promo_opt_in', 'promo_browse', 'promo_request', 'promo_respond', 'promo_end',

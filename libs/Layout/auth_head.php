@@ -26,7 +26,7 @@
     .cos-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     </style>
     <script>
-    /* Where to go after signing in: back to the page that sent them (?next=/@handle/events/12), same site only. */
+    /* Where to go after signing in: back to the page that sent them (?next=/@handle), same site only. */
     function cls_after_login() {
         var n = new URLSearchParams(location.search).get('next') || '';
         if (/[\u0000-\u0020\u007f\\]/.test(n)) { return '/'; }   // browsers drop tabs/newlines and read \ as /: "/\t/evil.com" would leave the site

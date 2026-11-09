@@ -160,10 +160,8 @@ class ApiSupportController extends BaseApiController {
         $am = new AdminModel(); $uid = (int) $t['user_id'];
         $u = $am->user_detail($uid);
         if (!$u) { $this->jsonError('Request not found'); }
-        $purchases = $am->purchases_for($uid, 50);
-        $memberships = array_values(array_filter((array) (new CreatorSubscriptionsModel())->get_for_subscriber($uid), function ($m) { return $m['status'] === 'active'; }));
         $fmt = function ($utc) { return (string) $utc === '' ? '' : gmdate('M j, Y', strtotime($utc . ' UTC')); };
-        $checks = SupportDiagnosis::checks((string) $t['category'], $u, $am, $purchases, $memberships, $fmt);
+        $checks = SupportDiagnosis::checks((string) $t['category'], $u, $am, $fmt);
         $ctx = SupportAssist::context($t, $model->messages((int) $t['id']), $u, $checks);
         $r = SupportAssist::run((string) ($this->post['mode'] ?? 'draft'), $ctx, $this->text('note', 500), $this->text('current', 5000));
         if (!$r['ok']) { $this->jsonError($r['error']); }

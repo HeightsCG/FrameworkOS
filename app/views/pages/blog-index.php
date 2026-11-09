@@ -3,19 +3,19 @@
 $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 $when = function ($utc) { return date('M j, Y', strtotime($utc . ' UTC')); };
 $iso = function ($utc) { return gmdate('Y-m-d', strtotime($utc . ' UTC')); };
-$starter = null; foreach ($guides as $g) { if ($g['path'] === '/monetize-your-content') { $starter = $g; } }
+$starter = null; foreach ($guides as $g) { if ($g['path'] === '/features') { $starter = $g; } }
 
 ?>
 <?php
-$topic_links = ''; /* topic chips open a search, which is noindex: nofollow keeps Google from crawling them (GSC "Excluded by noindex", 2026-10-15) */ foreach (array('Pricing', 'Memberships', 'Pay-per-view', 'Payouts', 'Bundles', 'Services', 'Events', 'Social') as $tp) { $topic_links .= '<a class="hx__chip" href="/blog?q=' . $e(rawurlencode(strtolower($tp))) . '" rel="nofollow">' . $e($tp) . '</a>'; }
+$topic_links = ''; /* topic chips open a search, which is noindex: nofollow keeps Google from crawling them (GSC "Excluded by noindex", 2026-10-15) */ foreach (array('AI', 'Social', 'Link in bio', 'Pricing') as $tp) { $topic_links .= '<a class="hx__chip" href="/blog?q=' . $e(rawurlencode(strtolower($tp))) . '" rel="nofollow">' . $e($tp) . '</a>'; }
 $search_form = '<form class="bl-search" action="/blog" method="get" role="search"><label class="bl-search__label" for="bl_q">Search posts</label>'
     . '<svg class="bl-search__ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'
-    . '<input class="bl-search__input" type="search" id="bl_q" name="q" value="' . $e($q) . '" placeholder="Pricing, payouts, pay-per-view" maxlength="80" autocomplete="off">'
+    . '<input class="bl-search__input" type="search" id="bl_q" name="q" value="' . $e($q) . '" placeholder="AI influencer, scheduling, captions" maxlength="80" autocomplete="off">'
     . '<button class="sx-btn sx-btn--primary bl-search__btn" type="submit">Search</button></form>';
 ?>
 <header class="ld-wrap sx__in bl-top">
-    <h1 class="bl-top__title">Creator Monetization Guides</h1><?php /* the page heading (Daniel 2026-10-12); the nav label stays BlogController::NAME */ ?>
-    <p class="bl-top__lead"><?php echo $e(Main::site_name()); ?>'s blog is a set of plain answers about pricing and selling memberships, pay-per-view posts, bundles, services and events.</p>
+    <h1 class="bl-top__title">AI Content and Social Publishing Guides</h1><?php /* the page heading (Daniel 2026-10-12); the nav label stays BlogController::NAME */ ?>
+    <p class="bl-top__lead"><?php echo $e(Main::site_name()); ?>'s blog is a set of plain answers about AI influencers, AI images and video, scheduling and cross-posting, inbox automation and link in bio.</p>
     <?php echo $search_form; ?>
     <div class="hx__chips hx__chips--links bl-top__topics"><?php echo $topic_links; ?></div>
 </header>
@@ -30,7 +30,7 @@ $search_form = '<form class="bl-search" action="/blog" method="get" role="search
     </div>
     <?php if ($total === 0): ?><p class="bl-empty">Try a shorter or different word, or browse <a href="/blog">all posts</a>.</p><?php endif; ?>
 <?php elseif (empty($articles) && $starter): ?>
-    <p class="bl-empty">New posts are on the way. Start with <a href="<?php echo $e($starter['path']); ?>">how creators get paid, and how to price each way</a>.</p>
+    <p class="bl-empty">New posts are on the way. Start with <a href="<?php echo $e($starter['path']); ?>">every feature, and what each one does</a>.</p>
 <?php endif; ?>
 
 

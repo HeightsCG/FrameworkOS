@@ -2,8 +2,7 @@
 /**
  * Universal search (PRD §28) for the top-chrome search box: finds creators (by handle
  * or name) and published content (by caption). Content results respect the same
- * moderation gate as the public profile — blocked/unscanned never surface, and adult
- * (flagged) content only surfaces for viewers who opted in.
+ * moderation gate as the public profile — blocked, flagged and unscanned never surface.
  */
 class SearchModel extends Model {
 
@@ -52,8 +51,8 @@ class SearchModel extends Model {
         return $out;
     }
 
-    /** Published posts matching caption, moderation-gated (adult only if $show_adult). */
-    public function posts($q, $show_adult = false, $limit = 6, $viewer_id = 0){
+    /** Published posts matching caption, moderation-gated (blocked, flagged and unscanned never surface). */
+    public function posts($q, $limit = 6, $viewer_id = 0){
         $limit = max(1, min(10, (int) $limit));
         $like  = $this->like($q);
         $viewer_id = (int) $viewer_id;
@@ -79,8 +78,7 @@ class SearchModel extends Model {
         $out = array();
         foreach ($rows as $r) {
             $status = $mod[(int) $r['id']] ?? '';
-            if ($status === 'blocked' || $status === 'pending') { continue; }   // never surface
-            if ($status === 'adult' && !$show_adult) { continue; }              // approved adult, viewer opted out
+            if ($status === 'blocked' || $status === 'flagged' || $status === 'pending') { continue; }   // never surface
             $handle = (string) $r['creator_handle'];
             $name   = trim((string) ($r['creator_name'] ?? ''));
             $out[] = array(
